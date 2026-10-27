@@ -270,6 +270,7 @@ export const getListing = createServerFn({ method: "POST" })
       held: false as const,
       onlyYou: !visible,
       ...card,
+      verification: str(row.host_identity) === "VERIFIED" && row.host_phone_verified_at ? "VERIFIED" : "UNVERIFIED",
       description: str(row.description),
       views: num(row.views) + 1,
       minStay: num(row.min_stay_months),

@@ -11,7 +11,7 @@ import { ADMIN_WIDGETS, defaultLayout } from "@/lib/roomsetu/constants";
 import { inr } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
-export const Route = createFileRoute("/admin")({
+export const Route = createFileRoute("/admin/")({
   head: () => pageHead("Operator desk", { noindex: true }),
   component: () => (
     <NeedAccount next="/admin">
