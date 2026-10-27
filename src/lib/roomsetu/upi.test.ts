@@ -12,6 +12,7 @@ test("upi link carries payee, amount, currency and ref", () => {
   assert.equal(q.get("cu"), "INR");
   assert.equal(q.get("tr"), "RMABCDEFGH");
   assert.ok(!link.includes("+"));
+  assert.ok(link.includes("pa=roomeo@okicici&"), link);
 });
 
 test("upi link rejects bad vpa or amount", () => {

@@ -44,6 +44,7 @@ export function buildUpiLink(p: { vpa: string; name: string; amountInr: number; 
     tn: `Roomeo ${p.ref}`,
     tr: p.ref,
   });
-  return `upi://pay?${q.toString().replace(/\+/g, "%20")}`;
+  // Keep "@" literal in the VPA: some UPI apps fail to parse pa=…%40….
+  return `upi://pay?${q.toString().replace(/\+/g, "%20").replace(/%40/g, "@")}`;
 }
 
