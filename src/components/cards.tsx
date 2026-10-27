@@ -6,7 +6,7 @@ import { genderLabel, inr, type ListingCard } from "@/lib/roomsetu/map";
 export function RoomCard({ room, score }: { room: ListingCard; score?: number }) {
   const [photoOk, setPhotoOk] = useState(true);
   return (
-    <Link to="/listing/$id" params={{ id: room.id }} className="group flex flex-col overflow-hidden rounded-3xl border border-line bg-card">
+    <Link to="/listing/$id" params={{ id: room.id }} className="group flex h-full flex-col overflow-hidden rounded-[14px] border border-line bg-card shadow-[6px_6px_0_#0d0d0d]">
       <div className="relative aspect-[4/3] bg-brand-soft">
         {room.photo && photoOk ? (
           <img
@@ -72,7 +72,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export const control =
-  "h-12 w-full rounded-xl border border-line bg-paper px-3 text-ink outline-none focus:border-brand";
+  "h-12 w-full rounded-lg border-2 border-ink bg-card px-3 text-ink outline-none focus:border-brand";
 
 export function Notice({ children }: { children: React.ReactNode }) {
   return <p className="rounded-2xl border border-line bg-card px-4 py-3 text-sm text-ink">{children}</p>;

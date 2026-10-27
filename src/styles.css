@@ -1,31 +1,31 @@
 @import "tailwindcss";
 
 @font-face {
-  font-family: "Figtree";
+  font-family: "DM Sans";
   font-style: normal;
   font-weight: 400 700;
   font-display: swap;
-  src: url("/fonts/figtree-latin.woff2") format("woff2");
+  src: url("/fonts/dm-sans-latin.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: "Fraunces";
+  font-family: "Syne";
   font-style: normal;
-  font-weight: 500 700;
+  font-weight: 700 800;
   font-display: swap;
-  src: url("/fonts/fraunces-latin.woff2") format("woff2");
+  src: url("/fonts/syne-latin.woff2") format("woff2");
 }
 
 @theme {
-  --font-sans: "Figtree", "Avenir Next", "Segoe UI", sans-serif;
-  --font-display: "Figtree", "Avenir Next", "Segoe UI", sans-serif;
-  --color-ink: #1a1240;
-  --color-paper: #f4f1fb;
+  --font-sans: "DM Sans", "Segoe UI", sans-serif;
+  --font-display: "Syne", "DM Sans", sans-serif;
+  --color-ink: #0d0d0d;
+  --color-paper: #faf9f7;
   --color-card: #ffffff;
-  --color-line: #e4dff2;
-  --color-muted: #5e5678;
+  --color-line: #e8e5e0;
+  --color-muted: #666666;
   --color-brand: #ff3d8a;
-  --color-brand-deep: #c2185b;
+  --color-brand-deep: #c01040;
   --color-brand-soft: #ffe4f1;
   --color-pop: #7c3aed;
   --color-pop-soft: #efe7ff;
@@ -40,6 +40,7 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
   }
   body {
     background: var(--color-paper);
@@ -49,6 +50,8 @@
   }
   h1, h2, h3 {
     font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.03em;
     text-wrap: balance;
   }
   p { text-wrap: pretty; }
