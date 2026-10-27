@@ -209,7 +209,7 @@ export const updateProfile = createServerFn({ method: "POST" })
 
 const CARD = `
   l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type, l.furnished,
-  l.gender_pref, l.available_from::text as available_from, l.verification_status, l.status, l.listing_tier,
+  l.gender_pref, l.available_from::text as available_from, case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status, l.status, l.listing_tier,
   l.is_demo, l.food_available, l.quality_score, l.views, p.property_type, pr.full_name as host_name,
   (select i.url from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
 `;
@@ -252,7 +252,7 @@ export const getDesk = createServerFn({ method: "GET" })
       await sql.query<Record<string, unknown>>(
         `select l.id, l.city_name, l.locality_name, l.monthly_rent, l.available_from::text as available_from,
               l.room_type, l.gender_pref, l.occupation_pref, l.smoking_allowed, l.pets_allowed, l.food_available,
-              l.title, l.deposit, l.furnished, l.verification_status, l.status, l.listing_tier, l.is_demo,
+              l.title, l.deposit, l.furnished, case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status, l.status, l.listing_tier, l.is_demo,
               l.quality_score, p.property_type, pr.full_name as host_name,
               (select i.url from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
        from listings l
@@ -946,7 +946,7 @@ export const getMatches = createServerFn({ method: "GET" })
     }
     const pool = await sql.query<Record<string, unknown>>(
       `select l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type, l.furnished,
-              l.gender_pref, l.available_from::text as available_from, l.verification_status, l.status, l.listing_tier,
+              l.gender_pref, l.available_from::text as available_from, case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status, l.status, l.listing_tier,
               l.is_demo, l.food_available, l.quality_score, l.occupation_pref, l.smoking_allowed, l.pets_allowed,
               p.property_type, pr.full_name as host_name,
               (select i.url from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
