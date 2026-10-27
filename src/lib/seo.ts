@@ -42,8 +42,8 @@ export function listingJsonLd(room: ListingSeo) {
   };
 }
 
-export function listingHead(room: ListingSeo | { held: true } | undefined) {
-  if (!room || "held" in room) return pageHead("Bed not public yet", { noindex: true });
+export function listingHead(room: (ListingSeo & { held?: false }) | { held: true } | undefined) {
+  if (!room || room.held === true) return pageHead("Bed not public yet", { noindex: true });
   const title = `${room.roomType} in ${room.locality} · ₹${room.rent.toLocaleString("en-IN")}/mo`;
   const description = `${room.title}. ${room.roomType} in ${room.locality}, ${room.city} for ₹${room.rent.toLocaleString("en-IN")} a month. ₹499 once, not a broker's month.`;
   const head = pageHead(title, { description, noindex: room.isDemo });

@@ -14,6 +14,7 @@ test("listing json-ld is a schema.org Offer in INR", () => {
 
 test("listing head has title, og image, canonical; demo and held are noindex", () => {
   const h = listingHead(room);
+  assert.ok(!listingHead({ ...room, held: false }).meta.some((m) => m.name === "robots"), "held:false is public");
   assert.ok(h.meta.some((m) => m.title?.includes("HSR Layout")));
   assert.ok(h.meta.some((m) => m.property === "og:image"));
   assert.ok(!h.meta.some((m) => m.name === "robots"));
