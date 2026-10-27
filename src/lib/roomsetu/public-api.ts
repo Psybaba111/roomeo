@@ -5,7 +5,8 @@ import { likeContains } from "@/lib/roomsetu/services";
 
 const CARD_SQL = `
   l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type,
-  l.furnished, l.gender_pref, l.available_from::text as available_from, l.verification_status,
+  l.furnished, l.gender_pref, l.available_from::text as available_from,
+  case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status,
   l.status, l.listing_tier, l.is_demo, l.food_available, l.quality_score,
   p.property_type,
   pr.full_name as host_name,
@@ -237,7 +238,7 @@ export const getListing = createServerFn({ method: "POST" })
       `select l.*, l.available_from::text as available_from,
               p.property_type, p.lat, p.lng, p.verification_status as property_verification,
               pr.full_name as host_name, pr.occupation as host_occupation, pr.about as host_about,
-              pr.verification_status as host_verification, pr.identity_status as host_identity, pr.identity_source as host_identity_source, pr.city as host_city,
+              pr.verification_status as host_verification, pr.identity_status as host_identity, pr.identity_source as host_identity_source, pr.phone_verified_at as host_phone_verified_at, pr.city as host_city,
               pr.show_occupation, pr.show_city, pr.is_demo as host_demo,
               to_char(pr.created_at at time zone 'UTC', 'YYYY-MM') as host_since,
               pr.last_seen::text as host_seen, pr.account_status
@@ -269,6 +270,7 @@ export const getListing = createServerFn({ method: "POST" })
       held: false as const,
       onlyYou: !visible,
       ...card,
+      verification: str(row.host_identity) === "VERIFIED" && row.host_phone_verified_at ? "VERIFIED" : "UNVERIFIED",
       description: str(row.description),
       views: num(row.views) + 1,
       minStay: num(row.min_stay_months),
@@ -299,7 +301,7 @@ export const getListing = createServerFn({ method: "POST" })
         occupation: bool(row.show_occupation) ? str(row.host_occupation) : "",
         city: bool(row.show_city) ? str(row.host_city) : "",
         about: str(row.host_about).slice(0, 320),
-        verified: str(row.host_identity) === "VERIFIED" && str(row.host_identity_source) === "DIGILOCKER",
+        verified: str(row.host_identity) === "VERIFIED" && Boolean(row.host_phone_verified_at),
         identitySource: str(row.host_identity_source),
         since: str(row.host_since),
         lastSeen: str(row.host_seen),

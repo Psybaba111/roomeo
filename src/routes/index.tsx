@@ -1,3 +1,4 @@
+import { pageHead } from "@/lib/seo";
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Shell } from "@/components/shell";
@@ -5,6 +6,7 @@ import { RoomCard, control } from "@/components/cards";
 import { getHome } from "@/lib/roomsetu/public-api";
 
 export const Route = createFileRoute("/")({
+  head: () => pageHead("Spare beds in Bengaluru, ₹499 once"),
   loader: () => getHome(),
   component: Home,
 });

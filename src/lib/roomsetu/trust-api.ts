@@ -4,6 +4,8 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { bool, num, str } from "@/lib/roomsetu/map";
 import { callbackUrlFrom, digilockerAuthorizeUrl, judgeDigilockerUser, nextIdentityAttempt } from "@/lib/roomsetu/identity";
 import { FEE_INR, rentQuote } from "@/lib/roomsetu/money";
+import { canPublish, generateOtp, hashOtp, normalizeIndianMobile, OTP_MAX_ATTEMPTS, OTP_TTL_MINUTES, otpMatches, otpProviderFromEnv } from "@/lib/roomsetu/otp";
+import { hitLimit } from "@/lib/roomsetu/rate-limit";
 
 function asRecord(input: unknown): Record<string, unknown> {
   return input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -21,6 +23,7 @@ function digilockerEnv() {
   return { ready: Boolean(clientId && clientSecret), clientId, clientSecret, base };
 }
 
+/** @deprecated Legacy rent checkout. Disabled unless RAZORPAY_* keys are set; plans use direct UPI (upi.ts). */
 function razorpayEnv() {
   const keyId = process.env.RAZORPAY_KEY_ID?.trim() ?? "";
   const secret = process.env.RAZORPAY_KEY_SECRET?.trim() ?? "";
@@ -39,20 +42,24 @@ export async function closeIdentityThreads(sql: Sql, userId: string) {
   }
 }
 
+/** One row per (user_id, kind), written in a single statement. A VERIFIED check is never downgraded here. */
+export async function upsertCheck(sql: Sql, userId: string, kind: string, status: "VERIFIED" | "REJECTED" | "PENDING", note: string) {
+  await sql`insert into trust_checks (id, user_id, kind, status, note) values (${crypto.randomUUID()}, ${userId}, ${kind}, ${status}, ${note})
+    on conflict (user_id, kind) do update set status = excluded.status, note = excluded.note, updated_at = now()
+    where trust_checks.status <> 'VERIFIED' or excluded.status = 'VERIFIED'`;
+}
+
 async function recordIdentity(sql: Sql, userId: string, passed: boolean, person?: { name: string; digilockerId: string; eaadhaar: boolean }) {
   const current = await sql<{ identity_attempts: number }>`select identity_attempts from profiles where user_id = ${userId}`;
   const decision = nextIdentityAttempt(num(current[0]?.identity_attempts), passed);
   if (passed && person) {
     await sql`update profiles set identity_status = 'VERIFIED', identity_source = 'DIGILOCKER', identity_attempts = ${decision.attempts}, digilocker_id = ${person.digilockerId}, updated_at = now() where user_id = ${userId}`;
     const note = person.eaadhaar ? "DigiLocker, with e-Aadhaar shared." : "DigiLocker account. e-Aadhaar was not shared.";
-    const existing = await sql`select id from trust_checks where user_id = ${userId} and kind = 'IDENTITY' and status = 'VERIFIED' limit 1`;
-    if (!existing.length) {
-      await sql`insert into trust_checks (id, user_id, kind, status, note) values (${crypto.randomUUID()}, ${userId}, 'IDENTITY', 'VERIFIED', ${note})`;
-    }
+    await upsertCheck(sql, userId, "IDENTITY", "VERIFIED", note);
     return decision;
   }
   await sql`update profiles set identity_status = ${decision.status}, identity_attempts = ${decision.attempts}, updated_at = now() where user_id = ${userId}`;
-  await sql`insert into trust_checks (id, user_id, kind, status, note) values (${crypto.randomUUID()}, ${userId}, 'IDENTITY', 'REJECTED', ${decision.closeThreads ? "DigiLocker failed a second time." : "DigiLocker failed. One retry remains."})`;
+  await upsertCheck(sql, userId, "IDENTITY", "REJECTED", decision.closeThreads ? "DigiLocker failed a second time." : "DigiLocker failed. One retry remains.");
   if (decision.closeThreads) await closeIdentityThreads(sql, userId);
   return decision;
 }
@@ -61,7 +68,7 @@ export const getVerification = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
-    const profile = await sql<Record<string, unknown>>`select account_status, verification_status, identity_status, identity_source, identity_attempts from profiles where user_id = ${context.userId}`;
+    const profile = await sql<Record<string, unknown>>`select account_status, verification_status, identity_status, identity_source, identity_attempts, phone_e164, phone_verified_at from profiles where user_id = ${context.userId}`;
     const row = profile[0];
     if (!row) throw new Error("Finish your profile to continue.");
     if (str(row.account_status) === "SUSPENDED") throw new Error("This account is suspended.");
@@ -75,6 +82,10 @@ export const getVerification = createServerFn({ method: "GET" })
       identitySource: str(row.identity_source),
       attempts: num(row.identity_attempts),
       digilockerReady: digilockerEnv().ready,
+      otpReady: otpProviderFromEnv() !== null,
+      phone: str(row.phone_e164),
+      phoneVerified: Boolean(row.phone_verified_at),
+      canPublish: canPublish({ identityStatus: str(row.identity_status), phoneVerified: Boolean(row.phone_verified_at) }),
       feeInr: FEE_INR,
       checks: checks.map((c) => ({ id: str(c.id), kind: str(c.kind), status: str(c.status), note: str(c.note) })),
     };
@@ -293,5 +304,56 @@ export const confirmRentPayment = createServerFn({ method: "POST" })
         await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${deal[0].host_id}, 'rent', 'Rent paid', 'Rent is in.', '/applications')`;
       }
     }
+    return { ok: true };
+  });
+
+export const startPhoneOtp = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => {
+    const phone = normalizeIndianMobile(str(asRecord(input).phone));
+    if (!phone) throw new Error("Enter a 10-digit Indian mobile number.");
+    return phone;
+  })
+  .handler(async ({ context, data }) => {
+    const provider = otpProviderFromEnv();
+    if (!provider) throw new Error("Phone verification is not set up on this deployment yet.");
+    const sql = await getSql();
+    const taken = await sql`select 1 from profiles where phone_e164 = ${data} and phone_verified_at is not null and user_id <> ${context.userId} limit 1`;
+    if (taken.length) throw new Error("That number is already verified on another account.");
+    await hitLimit(sql, context.userId, "otp_send");
+    const code = generateOtp();
+    await sql`insert into phone_otps (user_id, phone_e164, code_hash, attempts, expires_at)
+      values (${context.userId}, ${data}, ${hashOtp(context.userId, data, code)}, 0, now() + make_interval(mins => ${OTP_TTL_MINUTES}::int))
+      on conflict (user_id) do update set phone_e164 = excluded.phone_e164, code_hash = excluded.code_hash, attempts = 0, expires_at = excluded.expires_at, created_at = now()`;
+    await provider.send(data, `${code} is your roomeo code. It expires in ${OTP_TTL_MINUTES} minutes. Don't share it.`, code);
+    return { ok: true, phone: data };
+  });
+
+export const verifyPhoneOtp = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => {
+    const code = str(asRecord(input).code).replace(/\s/g, "");
+    if (!/^\d{6}$/.test(code)) throw new Error("Enter the 6-digit code.");
+    return code;
+  })
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await hitLimit(sql, context.userId, "otp_verify");
+    // Count the attempt first, atomically, so parallel guesses can't exceed the cap.
+    const rows = await sql<{ phone_e164: string; code_hash: string }>`
+      update phone_otps set attempts = attempts + 1
+      where user_id = ${context.userId} and expires_at > now() and attempts < ${OTP_MAX_ATTEMPTS}
+      returning phone_e164, code_hash`;
+    const otp = rows[0];
+    if (!otp) throw new Error("That code has expired. Send a new one.");
+    if (!otpMatches(otp.code_hash, context.userId, otp.phone_e164, data)) throw new Error("That code is not right.");
+    await sql.query(
+      `with done as (delete from phone_otps where user_id = $1 returning user_id),
+       prof as (update profiles set phone_e164 = $2, mobile = $2, phone_verified_at = now(), updated_at = now() where user_id = $1 and exists (select 1 from done) returning user_id)
+       insert into trust_checks (id, user_id, kind, status, note)
+       select $3, user_id, 'PHONE', 'VERIFIED', 'Phone confirmed by one-time code.' from prof
+       on conflict (user_id, kind) do update set status = 'VERIFIED', note = excluded.note, updated_at = now()`,
+      [context.userId, otp.phone_e164, crypto.randomUUID()],
+    );
     return { ok: true };
   });

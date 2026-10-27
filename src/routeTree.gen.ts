@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ApplicationsRouteImport } from './routes/applications'
 import { Route as CreateListingRouteImport } from './routes/create-listing'
 import { Route as CreateRoomWantedRouteImport } from './routes/create-room-wanted'
@@ -23,24 +22,23 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as RoomWantedRouteImport } from './routes/room-wanted'
 import { Route as SavedRouteImport } from './routes/saved'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VerificationRouteImport } from './routes/verification'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminListingsRouteImport } from './routes/admin.listings'
+import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminReportsRouteImport } from './routes/admin.reports'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminVerificationsRouteImport } from './routes/admin.verifications'
 import { Route as ListingIdRouteImport } from './routes/listing.$id'
 import { Route as VerifyDigilockerRouteImport } from './routes/verify.digilocker'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiWebhooksMappstoreRouteImport } from './routes/api/webhooks/mappstore'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApplicationsRoute = ApplicationsRouteImport.update({
@@ -103,35 +101,50 @@ const SearchRoute = SearchRouteImport.update({
   path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerificationRoute = VerificationRouteImport.update({
   id: '/verification',
   path: '/verification',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
-  getParentRoute: () => AdminRoute,
+  id: '/admin/analytics',
+  path: '/admin/analytics',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminListingsRoute = AdminListingsRouteImport.update({
-  id: '/listings',
-  path: '/listings',
-  getParentRoute: () => AdminRoute,
+  id: '/admin/listings',
+  path: '/admin/listings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/admin/payments',
+  path: '/admin/payments',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminReportsRoute = AdminReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => AdminRoute,
+  id: '/admin/reports',
+  path: '/admin/reports',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AdminRoute,
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminVerificationsRoute = AdminVerificationsRouteImport.update({
-  id: '/verifications',
-  path: '/verifications',
-  getParentRoute: () => AdminRoute,
+  id: '/admin/verifications',
+  path: '/admin/verifications',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ListingIdRoute = ListingIdRouteImport.update({
   id: '/listing/$id',
@@ -148,10 +161,14 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksMappstoreRoute = ApiWebhooksMappstoreRouteImport.update({
+  id: '/api/webhooks/mappstore',
+  path: '/api/webhooks/mappstore',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
   '/applications': typeof ApplicationsRoute
   '/create-listing': typeof CreateListingRoute
   '/create-room-wanted': typeof CreateRoomWantedRoute
@@ -164,19 +181,22 @@ export interface FileRoutesByFullPath {
   '/room-wanted': typeof RoomWantedRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/listings': typeof AdminListingsRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/listing/$id': typeof ListingIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
+  '/admin/': typeof AdminIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
   '/applications': typeof ApplicationsRoute
   '/create-listing': typeof CreateListingRoute
   '/create-room-wanted': typeof CreateRoomWantedRoute
@@ -189,20 +209,23 @@ export interface FileRoutesByTo {
   '/room-wanted': typeof RoomWantedRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/listings': typeof AdminListingsRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/listing/$id': typeof ListingIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
+  '/admin': typeof AdminIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
   '/applications': typeof ApplicationsRoute
   '/create-listing': typeof CreateListingRoute
   '/create-room-wanted': typeof CreateRoomWantedRoute
@@ -215,21 +238,24 @@ export interface FileRoutesById {
   '/room-wanted': typeof RoomWantedRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/listings': typeof AdminListingsRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/listing/$id': typeof ListingIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
+  '/admin/': typeof AdminIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin'
     | '/applications'
     | '/create-listing'
     | '/create-room-wanted'
@@ -242,19 +268,22 @@ export interface FileRouteTypes {
     | '/room-wanted'
     | '/saved'
     | '/search'
+    | '/sitemap.xml'
     | '/verification'
     | '/admin/analytics'
     | '/admin/listings'
+    | '/admin/payments'
     | '/admin/reports'
     | '/admin/users'
     | '/admin/verifications'
     | '/listing/$id'
     | '/verify/digilocker'
+    | '/admin/'
     | '/api/auth/$'
+    | '/api/webhooks/mappstore'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
     | '/applications'
     | '/create-listing'
     | '/create-room-wanted'
@@ -267,19 +296,22 @@ export interface FileRouteTypes {
     | '/room-wanted'
     | '/saved'
     | '/search'
+    | '/sitemap.xml'
     | '/verification'
     | '/admin/analytics'
     | '/admin/listings'
+    | '/admin/payments'
     | '/admin/reports'
     | '/admin/users'
     | '/admin/verifications'
     | '/listing/$id'
     | '/verify/digilocker'
+    | '/admin'
     | '/api/auth/$'
+    | '/api/webhooks/mappstore'
   id:
     | '__root__'
     | '/'
-    | '/admin'
     | '/applications'
     | '/create-listing'
     | '/create-room-wanted'
@@ -292,20 +324,23 @@ export interface FileRouteTypes {
     | '/room-wanted'
     | '/saved'
     | '/search'
+    | '/sitemap.xml'
     | '/verification'
     | '/admin/analytics'
     | '/admin/listings'
+    | '/admin/payments'
     | '/admin/reports'
     | '/admin/users'
     | '/admin/verifications'
     | '/listing/$id'
     | '/verify/digilocker'
+    | '/admin/'
     | '/api/auth/$'
+    | '/api/webhooks/mappstore'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRouteWithChildren
   ApplicationsRoute: typeof ApplicationsRoute
   CreateListingRoute: typeof CreateListingRoute
   CreateRoomWantedRoute: typeof CreateRoomWantedRoute
@@ -318,10 +353,19 @@ export interface RootRouteChildren {
   RoomWantedRoute: typeof RoomWantedRoute
   SavedRoute: typeof SavedRoute
   SearchRoute: typeof SearchRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerificationRoute: typeof VerificationRoute
+  AdminAnalyticsRoute: typeof AdminAnalyticsRoute
+  AdminListingsRoute: typeof AdminListingsRoute
+  AdminPaymentsRoute: typeof AdminPaymentsRoute
+  AdminReportsRoute: typeof AdminReportsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminVerificationsRoute: typeof AdminVerificationsRoute
   ListingIdRoute: typeof ListingIdRoute
   VerifyDigilockerRoute: typeof VerifyDigilockerRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiWebhooksMappstoreRoute: typeof ApiWebhooksMappstoreRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -331,13 +375,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/applications': {
@@ -424,6 +461,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verification': {
       id: '/verification'
       path: '/verification'
@@ -431,40 +475,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerificationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/analytics': {
       id: '/admin/analytics'
-      path: '/analytics'
+      path: '/admin/analytics'
       fullPath: '/admin/analytics'
       preLoaderRoute: typeof AdminAnalyticsRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof rootRouteImport
     }
     '/admin/listings': {
       id: '/admin/listings'
-      path: '/listings'
+      path: '/admin/listings'
       fullPath: '/admin/listings'
       preLoaderRoute: typeof AdminListingsRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/payments': {
+      id: '/admin/payments'
+      path: '/admin/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/reports': {
       id: '/admin/reports'
-      path: '/reports'
+      path: '/admin/reports'
       fullPath: '/admin/reports'
       preLoaderRoute: typeof AdminReportsRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof rootRouteImport
     }
     '/admin/users': {
       id: '/admin/users'
-      path: '/users'
+      path: '/admin/users'
       fullPath: '/admin/users'
       preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof rootRouteImport
     }
     '/admin/verifications': {
       id: '/admin/verifications'
-      path: '/verifications'
+      path: '/admin/verifications'
       fullPath: '/admin/verifications'
       preLoaderRoute: typeof AdminVerificationsRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof rootRouteImport
     }
     '/listing/$id': {
       id: '/listing/$id'
@@ -487,30 +545,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/webhooks/mappstore': {
+      id: '/api/webhooks/mappstore'
+      path: '/api/webhooks/mappstore'
+      fullPath: '/api/webhooks/mappstore'
+      preLoaderRoute: typeof ApiWebhooksMappstoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
-interface AdminRouteChildren {
-  AdminAnalyticsRoute: typeof AdminAnalyticsRoute
-  AdminListingsRoute: typeof AdminListingsRoute
-  AdminReportsRoute: typeof AdminReportsRoute
-  AdminUsersRoute: typeof AdminUsersRoute
-  AdminVerificationsRoute: typeof AdminVerificationsRoute
-}
-
-const AdminRouteChildren: AdminRouteChildren = {
-  AdminAnalyticsRoute: AdminAnalyticsRoute,
-  AdminListingsRoute: AdminListingsRoute,
-  AdminReportsRoute: AdminReportsRoute,
-  AdminUsersRoute: AdminUsersRoute,
-  AdminVerificationsRoute: AdminVerificationsRoute,
-}
-
-const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRouteWithChildren,
   ApplicationsRoute: ApplicationsRoute,
   CreateListingRoute: CreateListingRoute,
   CreateRoomWantedRoute: CreateRoomWantedRoute,
@@ -523,10 +569,19 @@ const rootRouteChildren: RootRouteChildren = {
   RoomWantedRoute: RoomWantedRoute,
   SavedRoute: SavedRoute,
   SearchRoute: SearchRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerificationRoute: VerificationRoute,
+  AdminAnalyticsRoute: AdminAnalyticsRoute,
+  AdminListingsRoute: AdminListingsRoute,
+  AdminPaymentsRoute: AdminPaymentsRoute,
+  AdminReportsRoute: AdminReportsRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  AdminVerificationsRoute: AdminVerificationsRoute,
   ListingIdRoute: ListingIdRoute,
   VerifyDigilockerRoute: VerifyDigilockerRoute,
+  AdminIndexRoute: AdminIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiWebhooksMappstoreRoute: ApiWebhooksMappstoreRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

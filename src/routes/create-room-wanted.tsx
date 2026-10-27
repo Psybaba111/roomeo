@@ -1,13 +1,16 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
-import { Shell, errText } from "@/components/shell";
+import { Shell } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { control } from "@/components/cards";
 import { FURNISHED, GENDER_PREFS, ROOM_TYPES } from "@/lib/roomsetu/constants";
 import { listCities } from "@/lib/roomsetu/public-api";
 import { createRoomWanted } from "@/lib/roomsetu/account-api";
 
 export const Route = createFileRoute("/create-room-wanted")({
+  head: () => pageHead("Post a room wanted"),
   component: () => (
     <NeedAccount next="/create-room-wanted">
       <Form />

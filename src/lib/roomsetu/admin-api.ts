@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { bool, num, str } from "@/lib/roomsetu/map";
+import { notifyWhatsApp } from "@/lib/roomsetu/mappstore";
 
 function asRecord(input: unknown): Record<string, unknown> {
   return input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -440,4 +441,63 @@ export const adminConversations = createServerFn({ method: "GET" })
       messages: num(r.messages),
       updated: str(r.updated),
     }));
+  });
+
+export const adminPayments = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    const rows = await sql.query<Record<string, unknown>>(
+      `select p.id, p.ref, p.utr, p.amount_inr, p.status, p.purpose, p.submitted_at, coalesce(pr.full_name, p.user_id) as name
+       from payments p left join profiles pr on pr.user_id = p.user_id
+       where p.provider = 'UPI' and p.status in ('SUBMITTED','PAID','REJECTED')
+       order by (p.status = 'SUBMITTED') desc, p.submitted_at desc nulls last limit 200`,
+    );
+    return rows.map((r) => ({ id: str(r.id), ref: str(r.ref), utr: str(r.utr), amount: num(r.amount_inr), status: str(r.status), purpose: str(r.purpose), name: str(r.name), submittedAt: str(r.submitted_at) }));
+  });
+
+export const adminReviewPayment = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => {
+    const r = asRecord(input);
+    const id = str(r.id);
+    if (!/^[0-9a-f-]{8,80}$/i.test(id)) throw new Error("Unknown payment.");
+    if (r.decision !== "APPROVE" && r.decision !== "REJECT") throw new Error("Pick approve or reject.");
+    return { id, decision: r.decision as "APPROVE" | "REJECT" };
+  })
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    if (data.decision === "REJECT") {
+      // Rejected rows keep their UTR so it can't be reused; the user starts a fresh checkout.
+      const rows = await sql`update payments set status = 'REJECTED', reviewed_by = ${context.userId}, reviewed_at = now()
+        where id = ${data.id} and provider = 'UPI' and status = 'SUBMITTED' returning id`;
+      if (!rows.length) throw new Error("Already reviewed.");
+      await audit(sql, context.userId, "payment.reject", "payment", data.id, "");
+      return { ok: true };
+    }
+    // Single statement = single transaction: mark PAID and activate the subscription atomically.
+    const rows = await sql.query<{ id: string }>(
+      `with paid as (
+         update payments set status = 'PAID', reviewed_by = $2, reviewed_at = now()
+         where id = $1 and provider = 'UPI' and status = 'SUBMITTED'
+         returning id, user_id, plan_id
+       ), sub as (
+         insert into subscriptions (id, user_id, plan_id, status, payment_id, activated_at)
+         select $3, user_id, plan_id, 'ACTIVE', id, now() from paid
+         returning id
+       ), logged as (
+         insert into audit_log (id, actor_id, action, target_type, target_id, detail)
+         select $4, $2, 'payment.approve', 'payment', id, 'subscription ' || $3 from paid
+       )
+       select id from paid`,
+      [data.id, context.userId, crypto.randomUUID(), crypto.randomUUID()],
+    );
+    if (!rows.length) throw new Error("Already reviewed.");
+    const who = await sql<{ phone_e164: string | null; purpose: string; amount_inr: number; ref: string }>`
+      select pr.phone_e164, p.purpose, p.amount_inr, p.ref from payments p join profiles pr on pr.user_id = p.user_id
+      where p.id = ${data.id} and pr.phone_verified_at is not null`;
+    if (who[0]) await notifyWhatsApp("paymentApproved", who[0].phone_e164, [who[0].purpose, `₹${num(who[0].amount_inr)}`, who[0].ref]);
+    return { ok: true };
   });

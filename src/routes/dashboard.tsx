@@ -1,14 +1,18 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
-import { Shell, errText } from "@/components/shell";
+import { Shell } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { RoomCard } from "@/components/cards";
+import { UpiCheckout, type UpiCheckoutData } from "@/components/upi-checkout";
 import { ensureProfile, getDesk, listApplications, listPlans, openConversation, setApplication, setListingStatus, startCheckout, updateProfile } from "@/lib/roomsetu/account-api";
 import { COMING_SOON, HOST_WIDGETS, defaultLayout } from "@/lib/roomsetu/constants";
 import { inr } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/dashboard")({
+  head: () => pageHead("Your desk", { noindex: true }),
   component: () => (
     <NeedAccount next="/dashboard">
       <Desk />
@@ -26,6 +30,7 @@ function Desk() {
   const [plans, setPlans] = useState<Awaited<ReturnType<typeof listPlans>>>([]);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
+  const [checkout, setCheckout] = useState<UpiCheckoutData | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -258,16 +263,18 @@ function Desk() {
                 type="button"
                 className="mt-3 h-10 rounded-full border border-line px-3 text-sm"
                 onClick={() => {
+                  setNote("");
                   void startCheckout({ data: { code: plan.code } })
-                    .then((res) => setNote(res.message))
+                    .then((res) => (res.ok ? setCheckout(res) : setNote(res.message)))
                     .catch((e) => setNote(errText(e)));
                 }}
               >
-                Coming soon
+                Pay by UPI
               </button>
             </div>
           ))}
         </div>
+        {checkout ? <UpiCheckout data={checkout} onClose={() => setCheckout(null)} /> : null}
         {note ? <p className="mt-3 text-sm">{note}</p> : null}
       </section>
 

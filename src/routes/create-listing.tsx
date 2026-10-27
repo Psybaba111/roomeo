@@ -1,7 +1,9 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
-import { Shell, errText } from "@/components/shell";
+import { Shell } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { control } from "@/components/cards";
 import { CATALOG_PHOTOS, FURNISHED, GENDER_PREFS, OCCUPATION_PREFS, PHOTO_CATEGORIES, PROPERTY_TYPES, ROOM_TYPES } from "@/lib/roomsetu/constants";
 import { listCities } from "@/lib/roomsetu/public-api";
@@ -9,6 +11,7 @@ import { fileUploadError, photoUrlError } from "@/lib/roomsetu/services";
 import { createListing } from "@/lib/roomsetu/account-api";
 
 export const Route = createFileRoute("/create-listing")({
+  head: () => pageHead("List a spare bed"),
   component: () => (
     <NeedAccount next="/create-listing">
       <CreateListing />

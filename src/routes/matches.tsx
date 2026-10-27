@@ -1,12 +1,15 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
-import { Shell, errText } from "@/components/shell";
+import { Shell } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { RoomCard } from "@/components/cards";
 import { getMatches } from "@/lib/roomsetu/account-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/matches")({
+  head: () => pageHead("Your matches", { noindex: true }),
   component: () => (
     <NeedAccount next="/matches">
       <Matches />

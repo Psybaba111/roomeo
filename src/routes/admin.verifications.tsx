@@ -1,12 +1,14 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { AdminFrame } from "@/components/admin-frame";
-import { errText } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { adminSetCheck, adminVerifications } from "@/lib/roomsetu/admin-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/admin/verifications")({
+  head: () => pageHead("Checks · Operator", { noindex: true }),
   component: () => (
     <NeedAccount next="/admin/verifications">
       <Checks />

@@ -1,11 +1,14 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
-import { Shell, errText } from "@/components/shell";
+import { Shell } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { completeDigilocker } from "@/lib/roomsetu/trust-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/verify/digilocker")({
+  head: () => pageHead("DigiLocker", { noindex: true }),
   validateSearch: (search: Record<string, unknown>) => ({
     code: typeof search.code === "string" ? search.code : "",
     state: typeof search.state === "string" ? search.state : "",
@@ -23,9 +26,10 @@ function Finish() {
   const { user } = useCurrentUserState();
   const [message, setMessage] = useState("Checking DigiLocker…");
   const [bad, setBad] = useState(false);
+  const { code, state, error } = search;
   useEffect(() => {
     if (!user) return;
-    void completeDigilocker({ data: search })
+    void completeDigilocker({ data: { code, state, error } })
       .then((res) => {
         if (res.ok) setMessage("DigiLocker passed. Rent can be collected once the other side has passed too.");
         else if (res.retry) {
@@ -40,7 +44,7 @@ function Finish() {
         setBad(true);
         setMessage(errText(e));
       });
-  }, [user, search.code, search.state, search.error]);
+  }, [user, code, state, error]);
   return (
     <Shell>
       <h1 className="font-display text-4xl">DigiLocker</h1>

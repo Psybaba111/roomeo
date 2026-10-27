@@ -1,10 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
+import QRCode from "qrcode";
+import { hitLimit } from "@/lib/roomsetu/rate-limit";
+import { notifyWhatsApp } from "@/lib/roomsetu/mappstore";
+import { canPublish } from "@/lib/roomsetu/otp";
+import { buildUpiLink, makeRef, planCodeSchema, submitUtrInput, upiPayee } from "@/lib/roomsetu/upi";
 import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { listingCard, bool, num, str } from "@/lib/roomsetu/map";
 import { scoreMatch, type SeekerFacts } from "@/lib/roomsetu/match";
 import { rentQuote } from "@/lib/roomsetu/money";
-import { payments, photoUrlError, logEvent } from "@/lib/roomsetu/services";
+import { photoUrlError, logEvent } from "@/lib/roomsetu/services";
 import {
   FURNISHED,
   GENDER_PREFS,
@@ -14,29 +19,18 @@ import {
   ROOM_TYPES,
 } from "@/lib/roomsetu/constants";
 
-const hits = new Map<string, number[]>();
+async function verifiedPhone(sql: Sql, userId: string): Promise<string | null> {
+  const rows = await sql<{ phone_e164: string | null }>`select phone_e164 from profiles where user_id = ${userId} and phone_verified_at is not null`;
+  return rows[0]?.phone_e164 ?? null;
+}
 
-function rate(userId: string, bucket: string, limit: number) {
-  if (hits.size > 4000) {
-    const nowSweep = Date.now();
-    for (const [key, stamps] of hits) {
-      if (stamps.every((t) => nowSweep - t >= 60_000)) hits.delete(key);
-    }
-    if (hits.size > 4000) {
-      let drop = hits.size - 3000;
-      for (const key of hits.keys()) {
-        hits.delete(key);
-        drop -= 1;
-        if (drop <= 0) break;
-      }
-    }
+async function requirePublishable(sql: Sql, userId: string) {
+  const rows = await sql<{ identity_status: string; phone_verified_at: string | null }>`
+    select identity_status, phone_verified_at from profiles where user_id = ${userId}`;
+  const row = rows[0];
+  if (!row || !canPublish({ identityStatus: str(row.identity_status), phoneVerified: Boolean(row.phone_verified_at) })) {
+    throw new Error("Verify your phone and ID on the Verification page before publishing a bed.");
   }
-  const key = `${bucket}:${userId}`;
-  const now = Date.now();
-  const prev = (hits.get(key) ?? []).filter((t) => now - t < 60_000);
-  if (prev.length >= limit) throw new Error("Too many requests. Wait a minute and try again.");
-  prev.push(now);
-  hits.set(key, prev);
 }
 
 function asRecord(input: unknown): Record<string, unknown> {
@@ -221,7 +215,7 @@ export const updateProfile = createServerFn({ method: "POST" })
 
 const CARD = `
   l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type, l.furnished,
-  l.gender_pref, l.available_from::text as available_from, l.verification_status, l.status, l.listing_tier,
+  l.gender_pref, l.available_from::text as available_from, case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status, l.status, l.listing_tier,
   l.is_demo, l.food_available, l.quality_score, l.views, p.property_type, pr.full_name as host_name,
   (select i.url from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
 `;
@@ -264,7 +258,7 @@ export const getDesk = createServerFn({ method: "GET" })
       await sql.query<Record<string, unknown>>(
         `select l.id, l.city_name, l.locality_name, l.monthly_rent, l.available_from::text as available_from,
               l.room_type, l.gender_pref, l.occupation_pref, l.smoking_allowed, l.pets_allowed, l.food_available,
-              l.title, l.deposit, l.furnished, l.verification_status, l.status, l.listing_tier, l.is_demo,
+              l.title, l.deposit, l.furnished, case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status, l.status, l.listing_tier, l.is_demo,
               l.quality_score, p.property_type, pr.full_name as host_name,
               (select i.url from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
        from listings l
@@ -466,8 +460,9 @@ export const createListing = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const userId = context.userId;
-    rate(userId, "listing", 8);
     await requireProfile(sql, userId);
+    await requirePublishable(sql, userId);
+    await hitLimit(sql, userId, "listing");
     const city = await sql<{ id: string; lat: number; lng: number }>`select id, lat, lng from cities where lower(name) = lower(${data.city})`;
     if (!city[0]) throw new Error("That city is not open yet. An operator can add it.");
     const loc = await sql<{ id: string; lat: number; lng: number }>`
@@ -525,6 +520,7 @@ export const setListingStatus = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await requireProfile(sql, context.userId);
+    if (data.status === "ACTIVE") await requirePublishable(sql, context.userId);
     const updated = await sql`update listings set status = ${data.status}, updated_at = now() where id = ${data.id} and owner_id = ${context.userId} returning id`;
     if (!updated.length) throw new Error("You can only change your own listing.");
     return { ok: true };
@@ -677,6 +673,7 @@ export const openConversation = createServerFn({ method: "POST" })
     }
     if (other === context.userId) throw new Error("You cannot message yourself.");
     if (await blocked(sql, context.userId, other)) throw new Error("Messaging is blocked.");
+    await hitLimit(sql, context.userId, "conversation");
     const otherProfile = await sql<{ allow_messages: string; account_status: string }>`select allow_messages, account_status from profiles where user_id = ${other}`;
     if (!otherProfile[0] || otherProfile[0].account_status === "SUSPENDED") throw new Error("This person is not taking messages.");
     if (otherProfile[0].allow_messages === "NONE") throw new Error("This person is not taking messages.");
@@ -766,7 +763,7 @@ export const sendMessage = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await requireProfile(sql, context.userId);
-    rate(context.userId, "msg", 30);
+    await hitLimit(sql, context.userId, "message");
     const members = await sql<{ user_id: string }>`select user_id from conversation_members where conversation_id = ${data.id}`;
     if (!members.some((m) => m.user_id === context.userId)) throw new Error("That conversation is not yours.");
     const closed = await sql<{ closed_at: string | null }>`select closed_at from conversations where id = ${data.id}`;
@@ -829,7 +826,7 @@ export const fileReport = createServerFn({ method: "POST" })
   })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
-    rate(context.userId, "report", 10);
+    await hitLimit(sql, context.userId, "report");
     await requireProfile(sql, context.userId);
     const fraud = data.category === "Scam" || data.category === "Fake listing";
     await sql.query(
@@ -853,6 +850,8 @@ export const applyToListing = createServerFn({ method: "POST" })
     if (listing[0].owner_id === context.userId) throw new Error("This is your own room.");
     const host = await sql<{ is_demo: boolean; account_status: string }>`select is_demo, account_status from profiles where user_id = ${listing[0].owner_id}`;
     if (!host[0] || host[0].account_status === "SUSPENDED") throw new Error("That room is not taking requests.");
+    if (await blocked(sql, context.userId, listing[0].owner_id)) throw new Error("That room is not taking requests.");
+    await hitLimit(sql, context.userId, "apply");
     const existing = await sql`select id from applications where listing_id = ${data.id} and seeker_id = ${context.userId} and status in ('PENDING','ACCEPTED')`;
     if (existing.length) throw new Error("You already have a request on this room.");
     const note = data.note || `${str(profile.full_name)} would like to visit.`;
@@ -862,6 +861,10 @@ export const applyToListing = createServerFn({ method: "POST" })
     );
     if (!host[0].is_demo) {
       await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${listing[0].owner_id}, 'application', 'New room request', ${note.slice(0, 140)}, '/applications')`;
+    }
+    if (!host[0].is_demo) {
+      const ownerPhone = await verifiedPhone(sql, listing[0].owner_id);
+      await notifyWhatsApp("applicationReceived", ownerPhone, [str(profile.full_name), listing[0].title]);
     }
     logEvent("application.created", { demoHost: Boolean(host[0].is_demo) });
     return { ok: true };
@@ -936,6 +939,10 @@ export const setApplication = createServerFn({ method: "POST" })
       const title = data.status === "ACCEPTED" ? "Visit accepted" : "Request declined";
       const body = data.status === "ACCEPTED" ? "The host accepted your visit. You can keep talking in messages." : "The host declined this visit request.";
       await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${row.seeker_id}, 'application', ${title}, ${body}, '/applications')`;
+      if (data.status === "ACCEPTED") {
+        const info = await sql<{ title: string }>`select l.title from applications a join listings l on l.id = a.listing_id where a.id = ${data.id}`;
+        await notifyWhatsApp("applicationAccepted", await verifiedPhone(sql, row.seeker_id), [str(info[0]?.title)]);
+      }
     }
     logEvent("application.updated", { status: data.status });
     return { ok: true };
@@ -953,7 +960,7 @@ export const getMatches = createServerFn({ method: "GET" })
     }
     const pool = await sql.query<Record<string, unknown>>(
       `select l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type, l.furnished,
-              l.gender_pref, l.available_from::text as available_from, l.verification_status, l.status, l.listing_tier,
+              l.gender_pref, l.available_from::text as available_from, case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status, l.status, l.listing_tier,
               l.is_demo, l.food_available, l.quality_score, l.occupation_pref, l.smoking_allowed, l.pets_allowed,
               p.property_type, pr.full_name as host_name,
               (select i.url from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
@@ -1040,66 +1047,68 @@ export const getListingAddress = createServerFn({ method: "POST" })
     return { address: row.address, pincode: row.pincode };
   });
 
-export const getVerification = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
-  .handler(async ({ context }) => {
-    const sql = await getSql();
-    const profile = await requireProfile(sql, context.userId);
-    const checks = await sql.query<Record<string, unknown>>(
-      `select id, kind, status, note from trust_checks where user_id = $1 order by created_at`,
-      [context.userId],
-    );
-    return {
-      status: str(profile.verification_status),
-      checks: checks.map((c) => ({ id: str(c.id), kind: str(c.kind), status: str(c.status), note: str(c.note) })),
-    };
-  });
-
-export const submitVerification = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
-  .handler(async ({ context }) => {
-    const sql = await getSql();
-    const profile = await requireProfile(sql, context.userId);
-    if (str(profile.verification_status) === "VERIFIED") return { ok: true };
-    const kinds = ["IDENTITY", "ADDRESS", "PHOTOS", "OWNERSHIP", "PHONE", "EMAIL"];
-    for (const kind of kinds) {
-      const existing = await sql`select id from trust_checks where user_id = ${context.userId} and kind = ${kind} and status in ('PENDING','VERIFIED')`;
-      if (!existing.length) {
-        await sql`insert into trust_checks (id, user_id, kind, status, note) values (${crypto.randomUUID()}, ${context.userId}, ${kind}, 'PENDING', 'Submitted in the app. Document and OTP providers are not connected, so an operator reviews this.')`;
-      }
-    }
-    await sql`update profiles set verification_status = 'PENDING', updated_at = now() where user_id = ${context.userId} and verification_status <> 'VERIFIED'`;
-    logEvent("verification.submitted", {});
-    return { ok: true };
-  });
-
 export const rememberSearch = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: unknown) => text(input, 120, "Search"))
   .handler(async ({ context, data }) => {
     if (!data) return { ok: true };
     const sql = await getSql();
+    await hitLimit(sql, context.userId, "search");
     await sql`insert into search_history (id, user_id, query) values (${crypto.randomUUID()}, ${context.userId}, ${data})`;
     return { ok: true };
   });
 
 export const startCheckout = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: unknown) => text(asRecord(input).code, 40, "Plan", true))
+  .validator((input: unknown) => planCodeSchema.parse(asRecord(input).code))
   .handler(async ({ context, data }) => {
+    const payee = upiPayee();
+    if (!payee.ready) return { ok: false as const, message: "UPI payments are not set up yet." };
     const sql = await getSql();
     await requireProfile(sql, context.userId);
     const plan = await sql<{ id: string; price_inr: number; name: string }>`select id, price_inr, name from subscription_plans where code = ${data} and active = true`;
-    if (!plan[0]) throw new Error("That plan is not available.");
-    await sql.query(
-      `insert into payments (id, user_id, purpose, amount_inr, status, provider) values ($1,$2,$3,$4,'NOT_CONFIGURED','RAZORPAY')`,
-      [crypto.randomUUID(), context.userId, plan[0].name, num(plan[0].price_inr)],
-    );
-    await sql.query(
-      `insert into subscriptions (id, user_id, plan_id, status) values ($1,$2,$3,'NONE')`,
-      [crypto.randomUUID(), context.userId, plan[0].id],
-    );
-    return { ok: false, message: payments.reason };
+    if (!plan[0] || num(plan[0].price_inr) <= 0) throw new Error("That plan is not available.");
+    const amount = num(plan[0].price_inr);
+    // Idempotent: reuse the open checkout for this user + plan (unique partial index backs this up).
+    let row = (await sql<{ ref: string; status: string; amount_inr: number }>`
+      select ref, status, amount_inr from payments
+      where user_id = ${context.userId} and plan_id = ${plan[0].id} and provider = 'UPI' and status in ('PENDING','SUBMITTED')
+      limit 1`)[0];
+    if (!row) {
+      const ref = makeRef();
+      const inserted = await sql<{ ref: string; status: string; amount_inr: number }>`
+        insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, plan_id)
+        values (${crypto.randomUUID()}, ${context.userId}, ${plan[0].name}, ${amount}, 'PENDING', 'UPI', ${ref}, ${plan[0].id})
+        on conflict do nothing
+        returning ref, status, amount_inr`;
+      row = inserted[0] ?? (await sql<{ ref: string; status: string; amount_inr: number }>`
+        select ref, status, amount_inr from payments
+        where user_id = ${context.userId} and plan_id = ${plan[0].id} and provider = 'UPI' and status in ('PENDING','SUBMITTED')
+        limit 1`)[0];
+    }
+    const link = buildUpiLink({ vpa: payee.vpa, name: payee.name, amountInr: num(row.amount_inr), ref: str(row.ref) });
+    const qr = await QRCode.toDataURL(link, { margin: 1, width: 320, errorCorrectionLevel: "M" });
+    return { ok: true as const, ref: str(row.ref), status: str(row.status), amount: num(row.amount_inr), plan: plan[0].name, payee: payee.name, vpa: payee.vpa, link, qr };
+  });
+
+export const submitUtr = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => submitUtrInput.parse(input))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await hitLimit(sql, context.userId, "utr");
+    const taken = await sql`select id from payments where utr = ${data.utr} limit 1`;
+    if (taken.length) throw new Error("That UTR has already been submitted.");
+    const updated = await sql<{ id: string }>`
+      update payments set utr = ${data.utr}, status = 'SUBMITTED', submitted_at = now()
+      where ref = ${data.ref} and user_id = ${context.userId} and provider = 'UPI' and status = 'PENDING'
+      returning id`.catch((e: unknown) => {
+      if (String(e).includes("payments_utr_key")) throw new Error("That UTR has already been submitted.");
+      throw e;
+    });
+    if (!updated.length) throw new Error("This payment is not waiting for a UTR.");
+    logEvent("payment.utr_submitted", {});
+    return { ok: true, message: "Thanks. We'll confirm once the ₹ lands in our account, usually within a few hours." };
   });
 
 export const listPlans = createServerFn({ method: "GET" }).handler(async () => {
