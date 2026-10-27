@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /messages
+Disallow: /applications
+Disallow: /profile
+Disallow: /verification
