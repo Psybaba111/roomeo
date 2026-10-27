@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import QRCode from "qrcode";
-import { buildUpiLink, makeRef, planCodeSchema, rateLimited, submitUtrInput, upiPayee, UTR_LIMIT } from "@/lib/roomsetu/upi";
+import { hitLimit } from "@/lib/roomsetu/rate-limit";
+import { canPublish } from "@/lib/roomsetu/otp";
+import { buildUpiLink, makeRef, planCodeSchema, submitUtrInput, upiPayee } from "@/lib/roomsetu/upi";
 import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { listingCard, bool, num, str } from "@/lib/roomsetu/map";
@@ -16,29 +18,13 @@ import {
   ROOM_TYPES,
 } from "@/lib/roomsetu/constants";
 
-const hits = new Map<string, number[]>();
-
-function rate(userId: string, bucket: string, limit: number) {
-  if (hits.size > 4000) {
-    const nowSweep = Date.now();
-    for (const [key, stamps] of hits) {
-      if (stamps.every((t) => nowSweep - t >= 60_000)) hits.delete(key);
-    }
-    if (hits.size > 4000) {
-      let drop = hits.size - 3000;
-      for (const key of hits.keys()) {
-        hits.delete(key);
-        drop -= 1;
-        if (drop <= 0) break;
-      }
-    }
+async function requirePublishable(sql: Sql, userId: string) {
+  const rows = await sql<{ identity_status: string; phone_verified_at: string | null }>`
+    select identity_status, phone_verified_at from profiles where user_id = ${userId}`;
+  const row = rows[0];
+  if (!row || !canPublish({ identityStatus: str(row.identity_status), phoneVerified: Boolean(row.phone_verified_at) })) {
+    throw new Error("Verify your phone and ID on the Verification page before publishing a bed.");
   }
-  const key = `${bucket}:${userId}`;
-  const now = Date.now();
-  const prev = (hits.get(key) ?? []).filter((t) => now - t < 60_000);
-  if (prev.length >= limit) throw new Error("Too many requests. Wait a minute and try again.");
-  prev.push(now);
-  hits.set(key, prev);
 }
 
 function asRecord(input: unknown): Record<string, unknown> {
@@ -468,8 +454,9 @@ export const createListing = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const userId = context.userId;
-    rate(userId, "listing", 8);
     await requireProfile(sql, userId);
+    await requirePublishable(sql, userId);
+    await hitLimit(sql, userId, "listing");
     const city = await sql<{ id: string; lat: number; lng: number }>`select id, lat, lng from cities where lower(name) = lower(${data.city})`;
     if (!city[0]) throw new Error("That city is not open yet. An operator can add it.");
     const loc = await sql<{ id: string; lat: number; lng: number }>`
@@ -527,6 +514,7 @@ export const setListingStatus = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await requireProfile(sql, context.userId);
+    if (data.status === "ACTIVE") await requirePublishable(sql, context.userId);
     const updated = await sql`update listings set status = ${data.status}, updated_at = now() where id = ${data.id} and owner_id = ${context.userId} returning id`;
     if (!updated.length) throw new Error("You can only change your own listing.");
     return { ok: true };
@@ -679,6 +667,7 @@ export const openConversation = createServerFn({ method: "POST" })
     }
     if (other === context.userId) throw new Error("You cannot message yourself.");
     if (await blocked(sql, context.userId, other)) throw new Error("Messaging is blocked.");
+    await hitLimit(sql, context.userId, "conversation");
     const otherProfile = await sql<{ allow_messages: string; account_status: string }>`select allow_messages, account_status from profiles where user_id = ${other}`;
     if (!otherProfile[0] || otherProfile[0].account_status === "SUSPENDED") throw new Error("This person is not taking messages.");
     if (otherProfile[0].allow_messages === "NONE") throw new Error("This person is not taking messages.");
@@ -768,7 +757,7 @@ export const sendMessage = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await requireProfile(sql, context.userId);
-    rate(context.userId, "msg", 30);
+    await hitLimit(sql, context.userId, "message");
     const members = await sql<{ user_id: string }>`select user_id from conversation_members where conversation_id = ${data.id}`;
     if (!members.some((m) => m.user_id === context.userId)) throw new Error("That conversation is not yours.");
     const closed = await sql<{ closed_at: string | null }>`select closed_at from conversations where id = ${data.id}`;
@@ -831,7 +820,7 @@ export const fileReport = createServerFn({ method: "POST" })
   })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
-    rate(context.userId, "report", 10);
+    await hitLimit(sql, context.userId, "report");
     await requireProfile(sql, context.userId);
     const fraud = data.category === "Scam" || data.category === "Fake listing";
     await sql.query(
@@ -855,6 +844,8 @@ export const applyToListing = createServerFn({ method: "POST" })
     if (listing[0].owner_id === context.userId) throw new Error("This is your own room.");
     const host = await sql<{ is_demo: boolean; account_status: string }>`select is_demo, account_status from profiles where user_id = ${listing[0].owner_id}`;
     if (!host[0] || host[0].account_status === "SUSPENDED") throw new Error("That room is not taking requests.");
+    if (await blocked(sql, context.userId, listing[0].owner_id)) throw new Error("That room is not taking requests.");
+    await hitLimit(sql, context.userId, "apply");
     const existing = await sql`select id from applications where listing_id = ${data.id} and seeker_id = ${context.userId} and status in ('PENDING','ACCEPTED')`;
     if (existing.length) throw new Error("You already have a request on this room.");
     const note = data.note || `${str(profile.full_name)} would like to visit.`;
@@ -1042,45 +1033,13 @@ export const getListingAddress = createServerFn({ method: "POST" })
     return { address: row.address, pincode: row.pincode };
   });
 
-export const getVerification = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
-  .handler(async ({ context }) => {
-    const sql = await getSql();
-    const profile = await requireProfile(sql, context.userId);
-    const checks = await sql.query<Record<string, unknown>>(
-      `select id, kind, status, note from trust_checks where user_id = $1 order by created_at`,
-      [context.userId],
-    );
-    return {
-      status: str(profile.verification_status),
-      checks: checks.map((c) => ({ id: str(c.id), kind: str(c.kind), status: str(c.status), note: str(c.note) })),
-    };
-  });
-
-export const submitVerification = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
-  .handler(async ({ context }) => {
-    const sql = await getSql();
-    const profile = await requireProfile(sql, context.userId);
-    if (str(profile.verification_status) === "VERIFIED") return { ok: true };
-    const kinds = ["IDENTITY", "ADDRESS", "PHOTOS", "OWNERSHIP", "PHONE", "EMAIL"];
-    for (const kind of kinds) {
-      const existing = await sql`select id from trust_checks where user_id = ${context.userId} and kind = ${kind} and status in ('PENDING','VERIFIED')`;
-      if (!existing.length) {
-        await sql`insert into trust_checks (id, user_id, kind, status, note) values (${crypto.randomUUID()}, ${context.userId}, ${kind}, 'PENDING', 'Submitted in the app. Document and OTP providers are not connected, so an operator reviews this.')`;
-      }
-    }
-    await sql`update profiles set verification_status = 'PENDING', updated_at = now() where user_id = ${context.userId} and verification_status <> 'VERIFIED'`;
-    logEvent("verification.submitted", {});
-    return { ok: true };
-  });
-
 export const rememberSearch = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: unknown) => text(input, 120, "Search"))
   .handler(async ({ context, data }) => {
     if (!data) return { ok: true };
     const sql = await getSql();
+    await hitLimit(sql, context.userId, "search");
     await sql`insert into search_history (id, user_id, query) values (${crypto.randomUUID()}, ${context.userId}, ${data})`;
     return { ok: true };
   });
@@ -1123,10 +1082,7 @@ export const submitUtr = createServerFn({ method: "POST" })
   .validator((input: unknown) => submitUtrInput.parse(input))
   .handler(async ({ context, data }) => {
     const sql = await getSql();
-    const recent = await sql<{ n: number }>`select count(*)::int as n from payment_utr_attempts
-      where user_id = ${context.userId} and created_at > now() - make_interval(mins => ${UTR_LIMIT.windowMinutes}::int)`;
-    if (rateLimited(num(recent[0]?.n))) throw new Error("Too many attempts. Try again in an hour.");
-    await sql`insert into payment_utr_attempts (id, user_id) values (${crypto.randomUUID()}, ${context.userId})`;
+    await hitLimit(sql, context.userId, "utr");
     const taken = await sql`select id from payments where utr = ${data.utr} limit 1`;
     if (taken.length) throw new Error("That UTR has already been submitted.");
     const updated = await sql<{ id: string }>`

@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { authClient, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
 import { listCities } from "@/lib/roomsetu/public-api";
 import { control } from "@/components/cards";
-import { errText, safeNext } from "@/components/shell";
+import { errText, safeNext } from "@/lib/ui-text";
 
 const BEARER_KEY = "grok-auth.bearer-token";
 

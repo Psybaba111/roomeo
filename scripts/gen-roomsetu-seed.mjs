@@ -129,7 +129,6 @@ const baseRent = {
 };
 const propTypes = ["Apartment", "Independent house", "PG", "Co-living", "Builder floor"];
 const furnishedOpts = ["Furnished", "Semi-furnished", "Unfurnished"];
-const genders = ["ANY", "WOMEN", "MEN"];
 const occPrefs = ["ANY", "Working professional", "Student"];
 const lines = [];
 const push = (s) => lines.push(s);

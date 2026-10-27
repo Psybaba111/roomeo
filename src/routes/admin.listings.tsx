@@ -1,13 +1,15 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { AdminFrame } from "@/components/admin-frame";
-import { errText } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { adminListings, adminSetListing } from "@/lib/roomsetu/admin-api";
 import { inr } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/admin/listings")({
+  head: () => pageHead("Rooms · Operator", { noindex: true }),
   component: () => (
     <NeedAccount next="/admin/listings">
       <Rooms />

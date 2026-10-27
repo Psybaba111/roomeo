@@ -23,6 +23,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as RoomWantedRouteImport } from './routes/room-wanted'
 import { Route as SavedRouteImport } from './routes/saved'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminListingsRouteImport } from './routes/admin.listings'
@@ -104,6 +105,11 @@ const SearchRoute = SearchRouteImport.update({
   path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerificationRoute = VerificationRouteImport.update({
   id: '/verification',
   path: '/verification',
@@ -170,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/room-wanted': typeof RoomWantedRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/listings': typeof AdminListingsRoute
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/room-wanted': typeof RoomWantedRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/listings': typeof AdminListingsRoute
@@ -223,6 +231,7 @@ export interface FileRoutesById {
   '/room-wanted': typeof RoomWantedRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/listings': typeof AdminListingsRoute
@@ -251,6 +260,7 @@ export interface FileRouteTypes {
     | '/room-wanted'
     | '/saved'
     | '/search'
+    | '/sitemap.xml'
     | '/verification'
     | '/admin/analytics'
     | '/admin/listings'
@@ -277,6 +287,7 @@ export interface FileRouteTypes {
     | '/room-wanted'
     | '/saved'
     | '/search'
+    | '/sitemap.xml'
     | '/verification'
     | '/admin/analytics'
     | '/admin/listings'
@@ -303,6 +314,7 @@ export interface FileRouteTypes {
     | '/room-wanted'
     | '/saved'
     | '/search'
+    | '/sitemap.xml'
     | '/verification'
     | '/admin/analytics'
     | '/admin/listings'
@@ -330,6 +342,7 @@ export interface RootRouteChildren {
   RoomWantedRoute: typeof RoomWantedRoute
   SavedRoute: typeof SavedRoute
   SearchRoute: typeof SearchRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerificationRoute: typeof VerificationRoute
   ListingIdRoute: typeof ListingIdRoute
   VerifyDigilockerRoute: typeof VerifyDigilockerRoute
@@ -434,6 +447,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/verification': {
@@ -544,6 +564,7 @@ const rootRouteChildren: RootRouteChildren = {
   RoomWantedRoute: RoomWantedRoute,
   SavedRoute: SavedRoute,
   SearchRoute: SearchRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerificationRoute: VerificationRoute,
   ListingIdRoute: ListingIdRoute,
   VerifyDigilockerRoute: VerifyDigilockerRoute,

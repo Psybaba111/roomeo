@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /messages
+Disallow: /applications
+Disallow: /profile
+Disallow: /verification
+Disallow: /admin/
+
+Sitemap: https://roomeo.com/sitemap.xml

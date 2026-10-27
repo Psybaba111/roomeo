@@ -47,8 +47,3 @@ export function buildUpiLink(p: { vpa: string; name: string; amountInr: number; 
   return `upi://pay?${q.toString().replace(/\+/g, "%20")}`;
 }
 
-export const UTR_LIMIT = { max: 5, windowMinutes: 60 };
-
-export function rateLimited(recentAttempts: number, limit = UTR_LIMIT.max): boolean {
-  return recentAttempts >= limit;
-}

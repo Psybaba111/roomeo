@@ -1,6 +1,8 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Shell, errText } from "@/components/shell";
+import { Shell } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { RoomCard, control } from "@/components/cards";
 import { FURNISHED, GENDER_PREFS, ROOM_TYPES, SORTS } from "@/lib/roomsetu/constants";
 import { listCities, searchListings } from "@/lib/roomsetu/public-api";
@@ -13,6 +15,7 @@ function textParam(value: unknown): string {
 }
 
 export const Route = createFileRoute("/search")({
+  head: () => pageHead("Search spare beds in Bengaluru"),
   validateSearch: (search: Record<string, unknown>) => ({
     city: textParam(search.city),
     locality: textParam(search.locality),

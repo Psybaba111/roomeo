@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildUpiLink, makeRef, rateLimited, submitUtrInput, upiPayee, utrSchema } from "./upi.ts";
+import { buildUpiLink, makeRef, submitUtrInput, upiPayee, utrSchema } from "./upi.ts";
 
 test("upi link carries payee, amount, currency and ref", () => {
   const link = buildUpiLink({ vpa: "roomeo@okicici", name: "Roomeo Spaces", amountInr: 499, ref: "RMABCDEFGH" });
@@ -42,7 +42,3 @@ test("payee needs a valid vpa from env", () => {
   assert.equal(upiPayee({ ROOMEO_UPI_VPA: "roomeo@okhdfcbank" }).name, "Roomeo");
 });
 
-test("rate limit trips at the cap", () => {
-  assert.equal(rateLimited(4), false);
-  assert.equal(rateLimited(5), true);
-});

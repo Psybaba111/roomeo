@@ -1,12 +1,15 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
-import { Shell, errText } from "@/components/shell";
+import { Shell } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { RoomCard } from "@/components/cards";
 import { listSaved } from "@/lib/roomsetu/account-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/saved")({
+  head: () => pageHead("Saved beds", { noindex: true }),
   component: () => (
     <NeedAccount next="/saved">
       <Saved />

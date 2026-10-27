@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { errText } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { submitUtr } from "@/lib/roomsetu/account-api";
 
 export type UpiCheckoutData = {

@@ -1,6 +1,8 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Shell, errText } from "@/components/shell";
+import { Shell } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { control } from "@/components/cards";
 import { listCities, listRoomWanted } from "@/lib/roomsetu/public-api";
 import { openConversation } from "@/lib/roomsetu/account-api";
@@ -8,6 +10,7 @@ import { inr, whenLabel } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/room-wanted")({
+  head: () => pageHead("People looking for a room"),
   component: WantedPage,
 });
 

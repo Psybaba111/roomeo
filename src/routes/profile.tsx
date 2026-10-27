@@ -1,7 +1,9 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
-import { Shell, errText } from "@/components/shell";
+import { Shell } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { control } from "@/components/cards";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { signOut } from "@/lib/auth/client";
@@ -10,6 +12,7 @@ import { FURNISHED, ROOM_TYPES } from "@/lib/roomsetu/constants";
 import { listCities } from "@/lib/roomsetu/public-api";
 
 export const Route = createFileRoute("/profile")({
+  head: () => pageHead("Your profile", { noindex: true }),
   component: () => (
     <NeedAccount next="/profile">
       <ProfilePage />

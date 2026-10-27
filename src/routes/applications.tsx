@@ -1,13 +1,16 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
-import { Shell, errText } from "@/components/shell";
+import { Shell } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { listApplications, openConversation, setApplication } from "@/lib/roomsetu/account-api";
 import { agreeRent, confirmRentPayment, startRentPayment } from "@/lib/roomsetu/trust-api";
 import { inr } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/applications")({
+  head: () => pageHead("Room requests", { noindex: true }),
   component: () => (
     <NeedAccount next="/applications">
       <Apps />

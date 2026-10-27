@@ -1,9 +1,10 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { AdminFrame } from "@/components/admin-frame";
 import { GrowthChart } from "@/components/growth-chart";
-import { errText } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { adminAddCity, adminOverview } from "@/lib/roomsetu/admin-api";
 import { readLayout, saveLayout } from "@/lib/roomsetu/account-api";
 import { ADMIN_WIDGETS, defaultLayout } from "@/lib/roomsetu/constants";
@@ -11,6 +12,7 @@ import { inr } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/admin")({
+  head: () => pageHead("Operator desk", { noindex: true }),
   component: () => (
     <NeedAccount next="/admin">
       <Pulse />

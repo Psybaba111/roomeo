@@ -1,7 +1,9 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
-import { Shell, errText } from "@/components/shell";
+import { Shell } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { RoomCard } from "@/components/cards";
 import { UpiCheckout, type UpiCheckoutData } from "@/components/upi-checkout";
 import { ensureProfile, getDesk, listApplications, listPlans, openConversation, setApplication, setListingStatus, startCheckout, updateProfile } from "@/lib/roomsetu/account-api";
@@ -10,6 +12,7 @@ import { inr } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/dashboard")({
+  head: () => pageHead("Your desk", { noindex: true }),
   component: () => (
     <NeedAccount next="/dashboard">
       <Desk />

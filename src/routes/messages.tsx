@@ -1,12 +1,15 @@
+import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
-import { Shell, errText } from "@/components/shell";
+import { Shell } from "@/components/shell";
+import { errText } from "@/lib/ui-text";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { blockUser, fileReport, listConversations, listMessages, sendMessage } from "@/lib/roomsetu/account-api";
 import { REPORT_CATEGORIES } from "@/lib/roomsetu/constants";
 
 export const Route = createFileRoute("/messages")({
+  head: () => pageHead("Messages", { noindex: true }),
   validateSearch: (search: Record<string, unknown>) => ({
     thread: typeof search.thread === "string" ? search.thread : "",
   }),

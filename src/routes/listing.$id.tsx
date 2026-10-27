@@ -1,7 +1,9 @@
+import { listingHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { BadgeCheck } from "lucide-react";
-import { Shell, errText, safeNext } from "@/components/shell";
+import { Shell } from "@/components/shell";
+import { errText, safeNext } from "@/lib/ui-text";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getListing } from "@/lib/roomsetu/public-api";
 import {
@@ -19,6 +21,7 @@ import { rentQuote } from "@/lib/roomsetu/money";
 
 export const Route = createFileRoute("/listing/$id")({
   loader: ({ params }) => getListing({ data: params.id }),
+  head: ({ loaderData }) => listingHead(loaderData),
   component: ListingPage,
   errorComponent: ({ error }) => (
     <Shell>
@@ -47,6 +50,12 @@ function ListingPage() {
       </Shell>
     );
   }
+  return <ListingBody room={room} />;
+}
+
+type LoadedRoom = Extract<Awaited<ReturnType<typeof getListing>>, { held: false }>;
+
+function ListingBody({ room }: { room: LoadedRoom }) {
   const { user, isPending } = useCurrentUserState();
   const navigate = useNavigate();
   const [photo, setPhoto] = useState(0);
