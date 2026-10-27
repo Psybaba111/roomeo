@@ -47,6 +47,12 @@ function ListingPage() {
       </Shell>
     );
   }
+  return <ListingBody room={room} />;
+}
+
+type LoadedRoom = Extract<Awaited<ReturnType<typeof getListing>>, { held: false }>;
+
+function ListingBody({ room }: { room: LoadedRoom }) {
   const { user, isPending } = useCurrentUserState();
   const navigate = useNavigate();
   const [photo, setPhoto] = useState(0);
