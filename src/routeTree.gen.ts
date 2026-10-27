@@ -34,6 +34,7 @@ import { Route as AdminVerificationsRouteImport } from './routes/admin.verificat
 import { Route as ListingIdRouteImport } from './routes/listing.$id'
 import { Route as VerifyDigilockerRouteImport } from './routes/verify.digilocker'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiWebhooksMappstoreRouteImport } from './routes/api/webhooks/mappstore'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -160,6 +161,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksMappstoreRoute = ApiWebhooksMappstoreRouteImport.update({
+  id: '/api/webhooks/mappstore',
+  path: '/api/webhooks/mappstore',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -187,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/verify/digilocker': typeof VerifyDigilockerRoute
   '/admin/': typeof AdminIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -214,6 +221,7 @@ export interface FileRoutesByTo {
   '/verify/digilocker': typeof VerifyDigilockerRoute
   '/admin': typeof AdminIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -242,6 +250,7 @@ export interface FileRoutesById {
   '/verify/digilocker': typeof VerifyDigilockerRoute
   '/admin/': typeof AdminIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -271,6 +280,7 @@ export interface FileRouteTypes {
     | '/verify/digilocker'
     | '/admin/'
     | '/api/auth/$'
+    | '/api/webhooks/mappstore'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/verify/digilocker'
     | '/admin'
     | '/api/auth/$'
+    | '/api/webhooks/mappstore'
   id:
     | '__root__'
     | '/'
@@ -325,6 +336,7 @@ export interface FileRouteTypes {
     | '/verify/digilocker'
     | '/admin/'
     | '/api/auth/$'
+    | '/api/webhooks/mappstore'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -353,6 +365,7 @@ export interface RootRouteChildren {
   VerifyDigilockerRoute: typeof VerifyDigilockerRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiWebhooksMappstoreRoute: typeof ApiWebhooksMappstoreRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -532,6 +545,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/webhooks/mappstore': {
+      id: '/api/webhooks/mappstore'
+      path: '/api/webhooks/mappstore'
+      fullPath: '/api/webhooks/mappstore'
+      preLoaderRoute: typeof ApiWebhooksMappstoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -561,6 +581,7 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyDigilockerRoute: VerifyDigilockerRoute,
   AdminIndexRoute: AdminIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiWebhooksMappstoreRoute: ApiWebhooksMappstoreRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

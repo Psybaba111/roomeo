@@ -325,7 +325,7 @@ export const startPhoneOtp = createServerFn({ method: "POST" })
     await sql`insert into phone_otps (user_id, phone_e164, code_hash, attempts, expires_at)
       values (${context.userId}, ${data}, ${hashOtp(context.userId, data, code)}, 0, now() + make_interval(mins => ${OTP_TTL_MINUTES}::int))
       on conflict (user_id) do update set phone_e164 = excluded.phone_e164, code_hash = excluded.code_hash, attempts = 0, expires_at = excluded.expires_at, created_at = now()`;
-    await provider.send(data, `${code} is your roomeo code. It expires in ${OTP_TTL_MINUTES} minutes. Don't share it.`);
+    await provider.send(data, `${code} is your roomeo code. It expires in ${OTP_TTL_MINUTES} minutes. Don't share it.`, code);
     return { ok: true, phone: data };
   });
 

@@ -1,9 +1,32 @@
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
+import { mappstoreConfig, mappstoreSend, templatePayload, type MappstoreConfig } from "./mappstore.ts";
 
 /** Pluggable SMS sender for phone OTP. No vendor lock-in; no Firebase. */
 export interface OtpProvider {
   readonly name: string;
-  send(phoneE164: string, message: string): Promise<void>;
+  /** `code` is passed separately for template-based channels (WhatsApp authentication templates). */
+  send(phoneE164: string, message: string, code?: string): Promise<void>;
+}
+
+/** WhatsApp OTP through MappStore using a Meta-approved AUTHENTICATION template (copy-code button). */
+export class MappstoreWhatsappOtpProvider implements OtpProvider {
+  readonly name = "mappstore-whatsapp";
+  private readonly cfg: MappstoreConfig;
+  private readonly template: string;
+  private readonly fetcher: typeof fetch;
+  constructor(cfg: MappstoreConfig, template: string, fetcher: typeof fetch = fetch) {
+    this.cfg = cfg;
+    this.template = template;
+    this.fetcher = fetcher;
+  }
+  async send(phoneE164: string, _message: string, code?: string) {
+    if (!code) throw new Error("WhatsApp OTP needs the code.");
+    try {
+      await mappstoreSend(this.cfg, templatePayload(this.cfg, phoneE164, this.template, { otpCode: code }), this.fetcher);
+    } catch {
+      throw new Error("Could not send the code on WhatsApp. Try again shortly.");
+    }
+  }
 }
 
 /** Dev only: prints the code to the server log. Refused in production unless OTP_ALLOW_CONSOLE=true. */
@@ -46,6 +69,11 @@ export class SmsGatewayOtpProvider implements OtpProvider {
 
 export function otpProviderFromEnv(env: Record<string, string | undefined> = process.env): OtpProvider | null {
   const kind = (env.OTP_PROVIDER ?? "").trim().toLowerCase();
+  if (kind === "mappstore-whatsapp") {
+    const cfg = mappstoreConfig(env);
+    const template = env.MAPPSTORE_TPL_OTP?.trim();
+    return cfg && template ? new MappstoreWhatsappOtpProvider(cfg, template) : null;
+  }
   if (kind === "sms-gateway") {
     const url = env.SMS_GATEWAY_URL?.trim();
     const user = env.SMS_GATEWAY_USER?.trim();

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { bool, num, str } from "@/lib/roomsetu/map";
+import { notifyWhatsApp } from "@/lib/roomsetu/mappstore";
 
 function asRecord(input: unknown): Record<string, unknown> {
   return input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -494,5 +495,9 @@ export const adminReviewPayment = createServerFn({ method: "POST" })
       [data.id, context.userId, crypto.randomUUID(), crypto.randomUUID()],
     );
     if (!rows.length) throw new Error("Already reviewed.");
+    const who = await sql<{ phone_e164: string | null; purpose: string; amount_inr: number; ref: string }>`
+      select pr.phone_e164, p.purpose, p.amount_inr, p.ref from payments p join profiles pr on pr.user_id = p.user_id
+      where p.id = ${data.id} and pr.phone_verified_at is not null`;
+    if (who[0]) await notifyWhatsApp("paymentApproved", who[0].phone_e164, [who[0].purpose, `₹${num(who[0].amount_inr)}`, who[0].ref]);
     return { ok: true };
   });

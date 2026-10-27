@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import QRCode from "qrcode";
 import { hitLimit } from "@/lib/roomsetu/rate-limit";
+import { notifyWhatsApp } from "@/lib/roomsetu/mappstore";
 import { canPublish } from "@/lib/roomsetu/otp";
 import { buildUpiLink, makeRef, planCodeSchema, submitUtrInput, upiPayee } from "@/lib/roomsetu/upi";
 import { getSql, type Sql } from "@/lib/db";
@@ -17,6 +18,11 @@ import {
   REPORT_CATEGORIES,
   ROOM_TYPES,
 } from "@/lib/roomsetu/constants";
+
+async function verifiedPhone(sql: Sql, userId: string): Promise<string | null> {
+  const rows = await sql<{ phone_e164: string | null }>`select phone_e164 from profiles where user_id = ${userId} and phone_verified_at is not null`;
+  return rows[0]?.phone_e164 ?? null;
+}
 
 async function requirePublishable(sql: Sql, userId: string) {
   const rows = await sql<{ identity_status: string; phone_verified_at: string | null }>`
@@ -856,6 +862,10 @@ export const applyToListing = createServerFn({ method: "POST" })
     if (!host[0].is_demo) {
       await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${listing[0].owner_id}, 'application', 'New room request', ${note.slice(0, 140)}, '/applications')`;
     }
+    if (!host[0].is_demo) {
+      const ownerPhone = await verifiedPhone(sql, listing[0].owner_id);
+      await notifyWhatsApp("applicationReceived", ownerPhone, [str(profile.full_name), listing[0].title]);
+    }
     logEvent("application.created", { demoHost: Boolean(host[0].is_demo) });
     return { ok: true };
   });
@@ -929,6 +939,10 @@ export const setApplication = createServerFn({ method: "POST" })
       const title = data.status === "ACCEPTED" ? "Visit accepted" : "Request declined";
       const body = data.status === "ACCEPTED" ? "The host accepted your visit. You can keep talking in messages." : "The host declined this visit request.";
       await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${row.seeker_id}, 'application', ${title}, ${body}, '/applications')`;
+      if (data.status === "ACCEPTED") {
+        const info = await sql<{ title: string }>`select l.title from applications a join listings l on l.id = a.listing_id where a.id = ${data.id}`;
+        await notifyWhatsApp("applicationAccepted", await verifiedPhone(sql, row.seeker_id), [str(info[0]?.title)]);
+      }
     }
     logEvent("application.updated", { status: data.status });
     return { ok: true };
