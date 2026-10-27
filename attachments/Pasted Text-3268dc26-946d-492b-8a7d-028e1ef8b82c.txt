@@ -1,0 +1,144 @@
+host should be able to:
+
+Register
+Create property
+Upload photographs
+Create room listing
+Receive enquiry
+Message seeker
+Submit verification
+View dashboard
+
+Admin should be able to:
+
+See users
+See listings
+Approve verification
+Moderate reports
+See marketplace KPIs
+
+==================================================
+36. CODE QUALITY
+==================================================
+
+Use:
+
+TypeScript
+Reusable React components
+Reusable backend services
+Environment variables
+Database migrations
+API validation
+Error handling
+Logging
+Unit-testable services
+
+Separate:
+
+Controllers
+Services
+Repositories/data access
+Models
+Routes
+Middleware
+Validation
+Utilities
+
+Do not put business logic directly into React components.
+
+==================================================
+37. DELIVERABLE
+==================================================
+
+Deliver a functioning full-stack prototype.
+
+Include:
+
+React frontend
+Node.js backend
+PostgreSQL database
+Prisma schema
+Database migrations
+Seed data
+REST APIs
+WebSocket messaging
+Authentication
+RBAC
+Admin dashboard
+Host dashboard
+Room seeker dashboard
+Responsive UI
+Search
+Filtering
+Room Available
+Room Wanted
+Messaging
+Matching
+Verification
+Reports
+Analytics
+
+Also provide:
+
+README.md
+.env.example
+Database setup instructions
+API documentation
+Architecture diagram
+Database ER diagram
+Seed instructions
+Deployment instructions
+
+==================================================
+38. DEVELOPMENT RULE
+==================================================
+
+Do not merely create static screens.
+
+Every important button should perform a real action against the backend.
+
+Do not use fake frontend-only state for core marketplace operations.
+
+Use realistic seed data so the dashboard looks operational.
+
+If an external API is unavailable, create a clean service abstraction/mock adapter that can later be replaced without changing the frontend architecture.
+
+The final result should be a credible working prototype that can be demonstrated to investors, developers, potential landlords and early users.
+
+==================================================
+SUCCESS CRITERIA
+==================================================
+
+The prototype succeeds if someone can understand the business within 30 seconds and complete this journey:
+
+"I have a spare room"
+→ Register
+→ Create listing
+→ Verify myself/property
+→ Receive enquiries
+→ Message potential tenant
+→ Accept applicant
+
+AND:
+
+"I need a room"
+→ Register
+→ Search city
+→ Filter rooms
+→ View listing
+→ Save listing
+→ Message host
+→ Apply
+→ Track application
+
+AND:
+
+"RoomSetu Admin"
+→ Login
+→ See marketplace activity
+→ Verify hosts
+→ Moderate listings
+→ Manage users
+→ Understand supply, demand, trust and revenue from one dashboard.
+
+Build this as a scalable MVP, not a throwaway demo.

@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/figtree-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url("/fonts/fraunces-latin.woff2") format("woff2");
+}
+
+@theme {
+  --font-sans: "Figtree", "Avenir Next", "Segoe UI", sans-serif;
+  --font-display: "Figtree", "Avenir Next", "Segoe UI", sans-serif;
+  --color-ink: #1a1240;
+  --color-paper: #f4f1fb;
+  --color-card: #ffffff;
+  --color-line: #e4dff2;
+  --color-muted: #5e5678;
+  --color-brand: #ff3d8a;
+  --color-brand-deep: #c2185b;
+  --color-brand-soft: #ffe4f1;
+  --color-pop: #7c3aed;
+  --color-pop-soft: #efe7ff;
+  --color-trust: #2f4bff;
+  --color-marigold: #7c3aed;
+  --color-marigold-soft: #efe7ff;
+  --color-danger: #c4234a;
+  --color-danger-soft: #ffe4ec;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+  p { text-wrap: pretty; }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+}
