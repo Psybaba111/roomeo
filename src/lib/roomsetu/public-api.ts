@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/react-start";
+import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { listingCard, num, str, bool, type ListingCard } from "@/lib/roomsetu/map";
 import { likeContains } from "@/lib/roomsetu/services";
@@ -217,8 +217,21 @@ function listingId(input: unknown): string {
 }
 
 export const getListing = createServerFn({ method: "POST" })
+  .middleware([
+    createMiddleware({ type: "function" })
+      .client(async ({ next }) => {
+        const { getBearerToken } = await import("@/lib/auth/client");
+        return next({ sendContext: { bearerToken: getBearerToken() ?? undefined } });
+      })
+      .server(async ({ next, context }) => {
+        const { getSessionUser } = await import("@/lib/auth/verify.server");
+        const token = typeof context.bearerToken === "string" ? context.bearerToken : undefined;
+        const user = await getSessionUser(token).catch(() => null);
+        return next({ context: { userId: user?.id ?? null } });
+      }),
+  ])
   .validator(listingId)
-  .handler(async ({ data: id }) => {
+  .handler(async ({ data: id, context }) => {
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `select l.*, l.available_from::text as available_from,
@@ -236,8 +249,10 @@ export const getListing = createServerFn({ method: "POST" })
     if (!row || str(row.account_status) === "SUSPENDED") {
       throw new Error("That room is no longer listed.");
     }
-    if (!bool(row.is_demo) && str(row.host_identity) !== "VERIFIED") {
-      throw new Error("That room stays hidden until the host's identity check passes.");
+    const visible = bool(row.is_demo) || bool(row.host_demo) || str(row.host_identity) === "VERIFIED";
+    const isOwner = Boolean(context.userId && context.userId === str(row.owner_id));
+    if (!visible && !isOwner) {
+      return { held: true as const };
     }
     await sql.query("update listings set views = views + 1 where id = $1", [id]);
     const images = await sql.query<Record<string, unknown>>(
@@ -251,6 +266,8 @@ export const getListing = createServerFn({ method: "POST" })
     );
     const card = listingCard({ ...row, photo: images[0] ? str(images[0].url) : null });
     return {
+      held: false as const,
+      onlyYou: !visible,
       ...card,
       description: str(row.description),
       views: num(row.views) + 1,
