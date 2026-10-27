@@ -19,21 +19,22 @@
 @theme {
   --font-sans: "DM Sans", "Segoe UI", sans-serif;
   --font-display: "Syne", "DM Sans", sans-serif;
-  --color-ink: #0d0d0d;
-  --color-paper: #faf9f7;
+  --color-ink: #14111f;
+  --color-paper: #f7f5ff;
   --color-card: #ffffff;
-  --color-line: #e8e5e0;
-  --color-muted: #666666;
-  --color-brand: #ff3d8a;
-  --color-brand-deep: #c01040;
-  --color-brand-soft: #ffe4f1;
-  --color-pop: #7c3aed;
-  --color-pop-soft: #efe7ff;
-  --color-trust: #2f4bff;
-  --color-marigold: #7c3aed;
-  --color-marigold-soft: #efe7ff;
-  --color-danger: #c4234a;
+  --color-line: #e4e0f2;
+  --color-muted: #5b5670;
+  --color-brand: #d1006b;
+  --color-brand-deep: #9e0052;
+  --color-brand-soft: #ffe3f1;
+  --color-pop: #5b21b6;
+  --color-pop-soft: #ede6ff;
+  --color-trust: #2f3ccf;
+  --color-marigold: #5b21b6;
+  --color-marigold-soft: #ede6ff;
+  --color-danger: #b4183f;
   --color-danger-soft: #ffe4ec;
+  --color-lime: #c6f432;
 }
 
 @layer base {
@@ -64,3 +65,46 @@
 @utility no-scrollbar {
   scrollbar-width: none;
 }
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+.dark {
+  --color-ink: #f4f1ff;
+  --color-paper: #0f0c1a;
+  --color-card: #1b1729;
+  --color-line: #2e2942;
+  --color-muted: #b3adc9;
+  --color-brand: #ff6aa9;
+  --color-brand-deep: #ff9cc6;
+  --color-brand-soft: #3a1730;
+  --color-pop: #c4b0ff;
+  --color-pop-soft: #2a2047;
+  --color-trust: #9fb0ff;
+  --color-marigold: #c4b0ff;
+  --color-marigold-soft: #2a2047;
+  --color-danger: #ff7b98;
+  --color-danger-soft: #3a1420;
+  --color-lime: #c6f432;
+  color-scheme: dark;
+}
+
+@utility skeleton {
+  background: linear-gradient(90deg, var(--color-line) 25%, var(--color-paper) 50%, var(--color-line) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  html { scroll-behavior: auto; }
+}
+
+:focus-visible { outline: 3px solid var(--color-brand); outline-offset: 2px; }
+
+.leaflet-container { font-family: var(--font-sans); border-radius: 1.5rem; }
+.dark .leaflet-tile-pane { filter: brightness(0.7) contrast(1.1) saturate(0.8); }

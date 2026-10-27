@@ -6,8 +6,8 @@ import { genderLabel, inr, type ListingCard } from "@/lib/roomsetu/map";
 export function RoomCard({ room, score }: { room: ListingCard; score?: number }) {
   const [photoOk, setPhotoOk] = useState(true);
   return (
-    <Link to="/listing/$id" params={{ id: room.id }} className="group flex h-full flex-col overflow-hidden rounded-[14px] border border-line bg-card shadow-[6px_6px_0_#0d0d0d]">
-      <div className="relative aspect-[4/3] bg-brand-soft">
+    <Link to="/listing/$id" params={{ id: room.id }} className="group flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:-translate-y-0.5">
+      <div className="relative aspect-[4/3] overflow-hidden bg-brand-soft">
         {room.photo && photoOk ? (
           <img
             src={room.photo}
@@ -16,7 +16,7 @@ export function RoomCard({ room, score }: { room: ListingCard; score?: number })
             height={540}
             loading="lazy"
             decoding="async"
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
             onError={() => setPhotoOk(false)}
           />
         ) : (
@@ -29,7 +29,7 @@ export function RoomCard({ room, score }: { room: ListingCard; score?: number })
             </span>
           ) : null}
           {room.isDemo ? (
-            <span className="rounded-full bg-marigold-soft px-2 py-1 text-xs font-semibold text-ink">Sample</span>
+            <span className="rounded-full bg-lime px-2 py-1 text-xs font-semibold text-[#14111f]">Demo</span>
           ) : null}
         </div>
         {typeof score === "number" ? (
@@ -40,7 +40,7 @@ export function RoomCard({ room, score }: { room: ListingCard; score?: number })
       </div>
       <div className="flex flex-1 flex-col gap-2 p-4">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="font-display text-xl leading-tight">{room.title}</h3>
+          <h3 className="font-display text-lg leading-tight">{room.title}</h3>
           <p className="shrink-0 text-right">
             <span className="block font-display text-xl tabular-nums">{inr(room.rent)}</span>
             <span className="text-xs text-muted">/ month</span>
@@ -49,6 +49,15 @@ export function RoomCard({ room, score }: { room: ListingCard; score?: number })
         <p className="text-sm text-muted">
           {room.locality}, {room.city}
         </p>
+        {room.vibes?.length ? (
+          <ul className="flex flex-wrap gap-1.5" aria-label="Vibe">
+            {room.vibes.map((v) => (
+              <li key={v} className="rounded-full bg-pop-soft px-2.5 py-1 text-xs font-semibold text-pop">
+                {v}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <div className="mt-auto flex flex-wrap gap-2 pt-2 text-xs font-medium text-ink">
           <span className="rounded-full bg-paper px-2 py-1">{room.roomType}</span>
           <span className="rounded-full bg-paper px-2 py-1">{room.furnished}</span>
@@ -72,7 +81,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export const control =
-  "h-12 w-full rounded-lg border-2 border-ink bg-card px-3 text-ink outline-none focus:border-brand";
+  "h-12 w-full rounded-2xl border-2 border-line bg-card px-4 text-ink outline-none transition focus:border-brand";
 
 export function Notice({ children }: { children: React.ReactNode }) {
   return <p className="rounded-2xl border border-line bg-card px-4 py-3 text-sm text-ink">{children}</p>;

@@ -8,6 +8,7 @@ const CARD_SQL = `
   l.furnished, l.gender_pref, l.available_from::text as available_from,
   case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status,
   l.status, l.listing_tier, l.is_demo, l.food_available, l.quality_score,
+  l.wifi, l.ac, l.pets_allowed, l.smoking_allowed, l.kitchen, l.guest_policy, l.occupation_pref,
   p.property_type,
   pr.full_name as host_name,
   (select i.url from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
@@ -364,3 +365,27 @@ export const listRoomWanted = createServerFn({ method: "POST" })
   });
 
 export type { ListingCard };
+
+/** Locality centroids for the area-level map. Never property coordinates. */
+export const listAreaCentroids = createServerFn({ method: "GET" }).handler(async () => {
+  const sql = await getSql();
+  const rows = await sql.query<Record<string, unknown>>(
+    `select l.name, l.lat, l.lng from localities l join cities c on c.id = l.city_id where c.name = 'Bengaluru'`,
+  );
+  // Seeded coordinates are placeholders; prefer real public area centroids where we know them.
+  const KNOWN: Record<string, [number, number]> = {
+    Koramangala: [12.935, 77.624],
+    Indiranagar: [12.971, 77.641],
+    Whitefield: [12.97, 77.75],
+    Jayanagar: [12.925, 77.583],
+    "HSR Layout": [12.912, 77.645],
+    "BTM Layout": [12.917, 77.61],
+    Marathahalli: [12.956, 77.701],
+    "Electronic City": [12.845, 77.66],
+  };
+  return rows.map((r) => {
+    const name = str(r.name);
+    const k = KNOWN[name];
+    return { name, lat: k ? k[0] : num(r.lat), lng: k ? k[1] : num(r.lng) };
+  });
+});

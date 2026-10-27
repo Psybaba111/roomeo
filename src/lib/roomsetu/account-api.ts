@@ -216,7 +216,7 @@ export const updateProfile = createServerFn({ method: "POST" })
 const CARD = `
   l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type, l.furnished,
   l.gender_pref, l.available_from::text as available_from, case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status, l.status, l.listing_tier,
-  l.is_demo, l.food_available, l.quality_score, l.views, p.property_type, pr.full_name as host_name,
+  l.is_demo, l.food_available, l.quality_score, l.views, l.wifi, l.ac, l.pets_allowed, l.smoking_allowed, l.kitchen, l.guest_policy, l.occupation_pref, p.property_type, pr.full_name as host_name,
   (select i.url from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
 `;
 

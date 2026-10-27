@@ -18,6 +18,8 @@ import {
 import { REPORT_CATEGORIES } from "@/lib/roomsetu/constants";
 import { genderLabel, inr, cardPhoto, whenLabel } from "@/lib/roomsetu/map";
 import { rentQuote } from "@/lib/roomsetu/money";
+import { ShareButtons } from "@/components/share-buttons";
+import { SITE_URL } from "@/lib/seo";
 
 export const Route = createFileRoute("/listing/$id")({
   loader: ({ params }) => getListing({ data: params.id }),
@@ -27,7 +29,7 @@ export const Route = createFileRoute("/listing/$id")({
     <Shell>
       <h1 className="font-display text-4xl">Room unavailable</h1>
       <p className="mt-3 max-w-md text-muted">{errText(error)}</p>
-      <Link to="/" className="mt-6 inline-flex h-12 items-center rounded-lg bg-ink px-5 font-semibold text-card shadow-[0_4px_0_#ff3d8a]">
+      <Link to="/" className="mt-6 inline-flex h-12 items-center rounded-lg bg-ink px-5 font-semibold text-card shadow-[0_4px_0_var(--color-brand)]">
         Back to beds →
       </Link>
     </Shell>
@@ -44,7 +46,7 @@ function ListingPage() {
         <p className="mt-3 max-w-md text-muted">
           The owner has to pass the identity check before anyone else can open this bed.
         </p>
-        <Link to="/" className="mt-6 inline-flex h-12 items-center rounded-lg bg-ink px-5 font-semibold text-card shadow-[0_4px_0_#ff3d8a]">
+        <Link to="/" className="mt-6 inline-flex h-12 items-center rounded-lg bg-ink px-5 font-semibold text-card shadow-[0_4px_0_var(--color-brand)]">
           Back to beds →
         </Link>
       </Shell>
@@ -103,7 +105,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
   return (
     <Shell>
       {room.onlyYou ? (
-        <p className="mb-6 rounded-[14px] border border-line bg-card p-4 text-sm shadow-[6px_6px_0_#ff3d8a]">
+        <p className="mb-6 rounded-[14px] border border-line bg-card p-4 text-sm shadow-[6px_6px_0_var(--color-brand)]">
           Only you can see this bed. It stays hidden from everyone else until your identity check passes.{" "}
           <Link to="/verification" className="font-semibold text-brand">
             Pass the check →
@@ -137,13 +139,21 @@ function ListingBody({ room }: { room: LoadedRoom }) {
             ) : (
               <span className="rounded-full bg-paper px-2 py-1 text-xs font-semibold text-muted">Not verified yet</span>
             )}
-            {room.isDemo ? <span className="rounded-full bg-marigold-soft px-2 py-1 text-xs font-semibold">Sample</span> : null}
+            {room.isDemo ? <span className="rounded-full bg-marigold-soft px-2 py-1 text-xs font-semibold text-ink">Demo</span> : null}
             {room.tier !== "FREE" ? <span className="rounded-full bg-paper px-2 py-1 text-xs font-semibold">{room.tier}</span> : null}
           </div>
           <h1 className="mt-3 font-display text-4xl leading-tight">{room.title}</h1>
           <p className="mt-2 text-muted">
             {room.locality}, {room.city} · {room.propertyType}
           </p>
+          <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Vibe">
+            {(room.vibes ?? []).map((v) => (
+              <li key={v} className="rounded-full bg-pop-soft px-2.5 py-1 text-xs font-semibold text-pop">{v}</li>
+            ))}
+          </ul>
+          <div className="mt-3">
+            <ShareButtons room={room} url={`${SITE_URL}/listing/${room.id}`} />
+          </div>
           <p className="mt-4 text-4xl font-semibold tabular-nums text-trust">
             {inr(room.rent)} <span className="text-lg font-medium text-muted">/ month</span>
           </p>

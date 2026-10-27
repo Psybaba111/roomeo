@@ -5,7 +5,10 @@ import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
 import { RoomCard, control } from "@/components/cards";
 import { FURNISHED, GENDER_PREFS, ROOM_TYPES, SORTS } from "@/lib/roomsetu/constants";
-import { listCities, searchListings } from "@/lib/roomsetu/public-api";
+import { listAreaCentroids, listCities, searchListings } from "@/lib/roomsetu/public-api";
+import { areaPins, type Centroid } from "@/lib/roomsetu/area-pins";
+import { AreaMap } from "@/components/area-map";
+import { RoomGridSkeleton } from "@/components/skeletons";
 import { rememberSearch } from "@/lib/roomsetu/account-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
@@ -39,6 +42,14 @@ function SearchPage() {
   const [rooms, setRooms] = useState<Awaited<ReturnType<typeof searchListings>> | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<"list" | "map">("list");
+  const [centroids, setCentroids] = useState<Centroid[]>([]);
+
+  useEffect(() => {
+    void listAreaCentroids()
+      .then(setCentroids)
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     void listCities()
@@ -102,7 +113,7 @@ function SearchPage() {
       <div className="mb-5 flex items-end justify-between gap-3">
         <div>
           <h1 className="text-4xl font-semibold tracking-tight">Bengaluru beds</h1>
-          <p className="mt-1 text-muted">{loading ? "Looking…" : `${rooms?.total ?? 0} open now. One person per bed.`}</p>
+          <p className="mt-1 text-muted">{loading ? "Finding your people…" : `${rooms?.total ?? 0} beds open now. One person per bed.`}</p>
         </div>
       </div>
       <div className="grid gap-6 lg:grid-cols-12">
@@ -171,7 +182,26 @@ function SearchPage() {
         </form>
         <div className="lg:col-span-9">
           {error ? <p className="text-danger">{error}</p> : null}
-          {loading ? <p className="text-muted">Gathering rooms…</p> : null}
+          <div role="tablist" aria-label="View" className="mb-4 inline-flex rounded-full border border-line bg-card p-1 text-sm font-semibold">
+            {(["list", "map"] as const).map((v) => (
+              <button
+                key={v}
+                role="tab"
+                type="button"
+                aria-selected={view === v}
+                onClick={() => setView(v)}
+                className={`rounded-full px-4 py-1.5 ${view === v ? "bg-ink text-card" : "text-muted"}`}
+              >
+                {v === "list" ? "List" : "Map"}
+              </button>
+            ))}
+          </div>
+          {view === "map" && rooms ? (
+            <div className="mb-5">
+              <AreaMap pins={areaPins(rooms.listings, centroids)} onPick={(locality) => set("locality", locality)} />
+            </div>
+          ) : null}
+          {loading ? <RoomGridSkeleton /> : null}
           {!loading && rooms && rooms.listings.length === 0 ? (
             <p className="rounded-3xl border border-line bg-card p-6">No rooms match that. Widen the budget or clear a filter.</p>
           ) : null}
