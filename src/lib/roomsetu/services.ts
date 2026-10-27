@@ -77,8 +77,9 @@ export function mapEmbed(lat: number, lng: number): string {
   return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat.toFixed(5)}%2C${lng.toFixed(5)}`;
 }
 
+/** Plan payments use direct UPI (see upi.ts). Razorpay is deprecated and only guards the legacy rent flow. */
 export const payments = {
-  provider: "razorpay" as const,
-  configured: false,
-  reason: "Razorpay is not connected on this prototype.",
+  provider: "upi" as const,
+  configured: true,
+  reason: "Plans are paid by direct UPI. Razorpay is not used.",
 };

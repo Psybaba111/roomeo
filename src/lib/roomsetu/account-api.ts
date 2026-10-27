@@ -1,10 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
+import QRCode from "qrcode";
+import { buildUpiLink, makeRef, planCodeSchema, rateLimited, submitUtrInput, upiPayee, UTR_LIMIT } from "@/lib/roomsetu/upi";
 import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { listingCard, bool, num, str } from "@/lib/roomsetu/map";
 import { scoreMatch, type SeekerFacts } from "@/lib/roomsetu/match";
 import { rentQuote } from "@/lib/roomsetu/money";
-import { payments, photoUrlError, logEvent } from "@/lib/roomsetu/services";
+import { photoUrlError, logEvent } from "@/lib/roomsetu/services";
 import {
   FURNISHED,
   GENDER_PREFS,
@@ -1085,21 +1087,58 @@ export const rememberSearch = createServerFn({ method: "POST" })
 
 export const startCheckout = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: unknown) => text(asRecord(input).code, 40, "Plan", true))
+  .validator((input: unknown) => planCodeSchema.parse(asRecord(input).code))
   .handler(async ({ context, data }) => {
+    const payee = upiPayee();
+    if (!payee.ready) return { ok: false as const, message: "UPI payments are not set up yet." };
     const sql = await getSql();
     await requireProfile(sql, context.userId);
     const plan = await sql<{ id: string; price_inr: number; name: string }>`select id, price_inr, name from subscription_plans where code = ${data} and active = true`;
-    if (!plan[0]) throw new Error("That plan is not available.");
-    await sql.query(
-      `insert into payments (id, user_id, purpose, amount_inr, status, provider) values ($1,$2,$3,$4,'NOT_CONFIGURED','RAZORPAY')`,
-      [crypto.randomUUID(), context.userId, plan[0].name, num(plan[0].price_inr)],
-    );
-    await sql.query(
-      `insert into subscriptions (id, user_id, plan_id, status) values ($1,$2,$3,'NONE')`,
-      [crypto.randomUUID(), context.userId, plan[0].id],
-    );
-    return { ok: false, message: payments.reason };
+    if (!plan[0] || num(plan[0].price_inr) <= 0) throw new Error("That plan is not available.");
+    const amount = num(plan[0].price_inr);
+    // Idempotent: reuse the open checkout for this user + plan (unique partial index backs this up).
+    let row = (await sql<{ ref: string; status: string; amount_inr: number }>`
+      select ref, status, amount_inr from payments
+      where user_id = ${context.userId} and plan_id = ${plan[0].id} and provider = 'UPI' and status in ('PENDING','SUBMITTED')
+      limit 1`)[0];
+    if (!row) {
+      const ref = makeRef();
+      const inserted = await sql<{ ref: string; status: string; amount_inr: number }>`
+        insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, plan_id)
+        values (${crypto.randomUUID()}, ${context.userId}, ${plan[0].name}, ${amount}, 'PENDING', 'UPI', ${ref}, ${plan[0].id})
+        on conflict do nothing
+        returning ref, status, amount_inr`;
+      row = inserted[0] ?? (await sql<{ ref: string; status: string; amount_inr: number }>`
+        select ref, status, amount_inr from payments
+        where user_id = ${context.userId} and plan_id = ${plan[0].id} and provider = 'UPI' and status in ('PENDING','SUBMITTED')
+        limit 1`)[0];
+    }
+    const link = buildUpiLink({ vpa: payee.vpa, name: payee.name, amountInr: num(row.amount_inr), ref: str(row.ref) });
+    const qr = await QRCode.toDataURL(link, { margin: 1, width: 320, errorCorrectionLevel: "M" });
+    return { ok: true as const, ref: str(row.ref), status: str(row.status), amount: num(row.amount_inr), plan: plan[0].name, payee: payee.name, vpa: payee.vpa, link, qr };
+  });
+
+export const submitUtr = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => submitUtrInput.parse(input))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const recent = await sql<{ n: number }>`select count(*)::int as n from payment_utr_attempts
+      where user_id = ${context.userId} and created_at > now() - make_interval(mins => ${UTR_LIMIT.windowMinutes}::int)`;
+    if (rateLimited(num(recent[0]?.n))) throw new Error("Too many attempts. Try again in an hour.");
+    await sql`insert into payment_utr_attempts (id, user_id) values (${crypto.randomUUID()}, ${context.userId})`;
+    const taken = await sql`select id from payments where utr = ${data.utr} limit 1`;
+    if (taken.length) throw new Error("That UTR has already been submitted.");
+    const updated = await sql<{ id: string }>`
+      update payments set utr = ${data.utr}, status = 'SUBMITTED', submitted_at = now()
+      where ref = ${data.ref} and user_id = ${context.userId} and provider = 'UPI' and status = 'PENDING'
+      returning id`.catch((e: unknown) => {
+      if (String(e).includes("payments_utr_key")) throw new Error("That UTR has already been submitted.");
+      throw e;
+    });
+    if (!updated.length) throw new Error("This payment is not waiting for a UTR.");
+    logEvent("payment.utr_submitted", {});
+    return { ok: true, message: "Thanks. We'll confirm once the ₹ lands in our account, usually within a few hours." };
   });
 
 export const listPlans = createServerFn({ method: "GET" }).handler(async () => {

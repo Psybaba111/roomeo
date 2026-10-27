@@ -26,6 +26,7 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminListingsRouteImport } from './routes/admin.listings'
+import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminReportsRouteImport } from './routes/admin.reports'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminVerificationsRouteImport } from './routes/admin.verifications'
@@ -118,6 +119,11 @@ const AdminListingsRoute = AdminListingsRouteImport.update({
   path: '/listings',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminReportsRoute = AdminReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -167,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/listings': typeof AdminListingsRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
@@ -192,6 +199,7 @@ export interface FileRoutesByTo {
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/listings': typeof AdminListingsRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
@@ -218,6 +226,7 @@ export interface FileRoutesById {
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/listings': typeof AdminListingsRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
@@ -245,6 +254,7 @@ export interface FileRouteTypes {
     | '/verification'
     | '/admin/analytics'
     | '/admin/listings'
+    | '/admin/payments'
     | '/admin/reports'
     | '/admin/users'
     | '/admin/verifications'
@@ -270,6 +280,7 @@ export interface FileRouteTypes {
     | '/verification'
     | '/admin/analytics'
     | '/admin/listings'
+    | '/admin/payments'
     | '/admin/reports'
     | '/admin/users'
     | '/admin/verifications'
@@ -295,6 +306,7 @@ export interface FileRouteTypes {
     | '/verification'
     | '/admin/analytics'
     | '/admin/listings'
+    | '/admin/payments'
     | '/admin/reports'
     | '/admin/users'
     | '/admin/verifications'
@@ -445,6 +457,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminListingsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/payments': {
+      id: '/admin/payments'
+      path: '/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/reports': {
       id: '/admin/reports'
       path: '/reports'
@@ -493,6 +512,7 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminListingsRoute: typeof AdminListingsRoute
+  AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminReportsRoute: typeof AdminReportsRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVerificationsRoute: typeof AdminVerificationsRoute
@@ -501,6 +521,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminListingsRoute: AdminListingsRoute,
+  AdminPaymentsRoute: AdminPaymentsRoute,
   AdminReportsRoute: AdminReportsRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminVerificationsRoute: AdminVerificationsRoute,

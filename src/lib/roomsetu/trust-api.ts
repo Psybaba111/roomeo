@@ -21,6 +21,7 @@ function digilockerEnv() {
   return { ready: Boolean(clientId && clientSecret), clientId, clientSecret, base };
 }
 
+/** @deprecated Legacy rent checkout. Disabled unless RAZORPAY_* keys are set; plans use direct UPI (upi.ts). */
 function razorpayEnv() {
   const keyId = process.env.RAZORPAY_KEY_ID?.trim() ?? "";
   const secret = process.env.RAZORPAY_KEY_SECRET?.trim() ?? "";
