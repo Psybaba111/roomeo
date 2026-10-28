@@ -25,6 +25,7 @@ export const Route = createFileRoute("/listing/$id")({
   loader: ({ params }) => getListing({ data: params.id }),
   head: ({ loaderData }) => listingHead(loaderData),
   component: ListingPage,
+  notFoundComponent: GoneListing,
   errorComponent: ({ error }) => (
     <Shell>
       <h1 className="font-display text-4xl">Room unavailable</h1>
@@ -38,6 +39,24 @@ export const Route = createFileRoute("/listing/$id")({
     </Shell>
   ),
 });
+
+function GoneListing() {
+  return (
+    <Shell>
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">404</p>
+      <h1 className="mt-2 font-display text-4xl">This bed isn't available anymore</h1>
+      <p className="mt-3 max-w-md text-muted">
+        Someone grabbed it or the owner took it down. Plenty more beds where that came from.
+      </p>
+      <Link
+        to="/"
+        className="mt-6 inline-flex h-12 items-center rounded-lg bg-ink px-4 font-semibold text-card shadow-[0_4px_0_var(--color-brand)]"
+      >
+        Back to beds →
+      </Link>
+    </Shell>
+  );
+}
 
 function ListingPage() {
   const room = Route.useLoaderData();
