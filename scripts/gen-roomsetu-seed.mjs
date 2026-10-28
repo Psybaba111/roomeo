@@ -443,5 +443,12 @@ for (let i = 0; i < 8; i++) {
 
 push("commit;");
 
-writeFileSync(new URL("../migrations/0003_seed.sql", import.meta.url), lines.join("\n") + "\n");
+// Reference data (cities, localities, amenities, plans, permissions) ships to every
+// database. Demo marketplace rows only load into the local PGlite preview.
+const REFERENCE = /^insert into (cities|localities|amenities|permissions|subscription_plans) /;
+const body = lines.filter((l) => l !== "begin;" && l !== "commit;" && !l.startsWith("--"));
+const reference = ["-- RoomSetu reference data (cities, localities, amenities, plans). No demo rows.", "begin;", ...body.filter((l) => REFERENCE.test(l)), "commit;"];
+const demo = ["-- Demo marketplace for local/dev PGlite only. Never applied in production.", "begin;", ...body.filter((l) => !REFERENCE.test(l)), "commit;"];
+writeFileSync(new URL("../migrations/0003_seed.sql", import.meta.url), reference.join("\n") + "\n");
+writeFileSync(new URL("../migrations/dev/9000_demo_seed.sql", import.meta.url), demo.join("\n") + "\n");
 console.log("lines", lines.length);

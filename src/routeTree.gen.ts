@@ -27,6 +27,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
+import { Route as AdminHostsRouteImport } from './routes/admin.hosts'
 import { Route as AdminListingsRouteImport } from './routes/admin.listings'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminReportsRouteImport } from './routes/admin.reports'
@@ -127,6 +128,11 @@ const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
   path: '/admin/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminHostsRoute = AdminHostsRouteImport.update({
+  id: '/admin/hosts',
+  path: '/admin/hosts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminListingsRoute = AdminListingsRouteImport.update({
   id: '/admin/listings',
   path: '/admin/listings',
@@ -191,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -220,6 +227,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -250,6 +258,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -281,6 +290,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/verification'
     | '/admin/analytics'
+    | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
     | '/admin/reports'
@@ -310,6 +320,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/verification'
     | '/admin/analytics'
+    | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
     | '/admin/reports'
@@ -339,6 +350,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/verification'
     | '/admin/analytics'
+    | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
     | '/admin/reports'
@@ -369,6 +381,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerificationRoute: typeof VerificationRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
+  AdminHostsRoute: typeof AdminHostsRoute
   AdminListingsRoute: typeof AdminListingsRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminReportsRoute: typeof AdminReportsRoute
@@ -509,6 +522,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/hosts': {
+      id: '/admin/hosts'
+      path: '/admin/hosts'
+      fullPath: '/admin/hosts'
+      preLoaderRoute: typeof AdminHostsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/listings': {
       id: '/admin/listings'
       path: '/admin/listings'
@@ -593,6 +613,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerificationRoute: VerificationRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
+  AdminHostsRoute: AdminHostsRoute,
   AdminListingsRoute: AdminListingsRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
   AdminReportsRoute: AdminReportsRoute,

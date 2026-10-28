@@ -11,6 +11,7 @@ export const LIMITS = {
   listing: { max: 8, windowMinutes: 60 },
   otp_send: { max: 3, windowMinutes: 60 },
   otp_verify: { max: 10, windowMinutes: 60 },
+  id_submit: { max: 5, windowMinutes: 60 },
 } as const;
 
 export type Bucket = keyof typeof LIMITS;

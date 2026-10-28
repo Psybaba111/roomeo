@@ -8,7 +8,7 @@ function asRecord(input: unknown): Record<string, unknown> {
   return input && typeof input === "object" ? (input as Record<string, unknown>) : {};
 }
 
-async function assertAdmin(sql: Sql, userId: string) {
+export async function assertAdmin(sql: Sql, userId: string) {
   const profile = await sql<{ account_status: string }>`select account_status from profiles where user_id = ${userId}`;
   if (str(profile[0]?.account_status) === "SUSPENDED") throw new Error("This account is suspended.");
   const roles = await sql<{ role: string }>`select role from profile_roles where user_id = ${userId}`;
@@ -19,7 +19,7 @@ async function assertAdmin(sql: Sql, userId: string) {
   return names;
 }
 
-async function audit(sql: Sql, actor: string, action: string, targetType: string, targetId: string, detail: string) {
+export async function audit(sql: Sql, actor: string, action: string, targetType: string, targetId: string, detail: string) {
   await sql`insert into audit_log (id, actor_id, action, target_type, target_id, detail) values (${crypto.randomUUID()}, ${actor}, ${action}, ${targetType}, ${targetId}, ${detail})`;
 }
 

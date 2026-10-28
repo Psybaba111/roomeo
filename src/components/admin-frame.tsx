@@ -6,6 +6,7 @@ const LINKS = [
   ["/admin", "Pulse"],
   ["/admin/users", "People"],
   ["/admin/listings", "Rooms"],
+  ["/admin/hosts", "Hosts"],
   ["/admin/verifications", "Checks"],
   ["/admin/payments", "Payments"],
   ["/admin/reports", "Reports"],

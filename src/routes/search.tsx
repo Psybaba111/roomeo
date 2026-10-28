@@ -8,6 +8,7 @@ import { FURNISHED, GENDER_PREFS, ROOM_TYPES, SORTS } from "@/lib/roomsetu/const
 import { listAreaCentroids, listCities, searchListings } from "@/lib/roomsetu/public-api";
 import { areaPins, type Centroid } from "@/lib/roomsetu/area-pins";
 import { AreaMap } from "@/components/area-map";
+import { EmptyBeds } from "@/components/empty-beds";
 import { RoomGridSkeleton } from "@/components/skeletons";
 import { rememberSearch } from "@/lib/roomsetu/account-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -325,9 +326,21 @@ function SearchPage() {
           ) : null}
           {loading ? <RoomGridSkeleton /> : null}
           {!loading && rooms && rooms.listings.length === 0 ? (
-            <p className="rounded-3xl border border-line bg-card p-6">
-              No rooms match that. Widen the budget or clear a filter.
-            </p>
+            activeFilters ? (
+              <div className="space-y-3">
+                <p className="rounded-3xl border border-line bg-card p-4 text-sm">
+                  No beds match those filters. Widen the budget or clear a filter.
+                </p>
+                <EmptyBeds area={initial.locality || "Bengaluru"} compact />
+              </div>
+            ) : (
+              <EmptyBeds area="Bengaluru" />
+            )
+          ) : null}
+          {!loading && rooms && rooms.listings.length > 0 && rooms.listings.length < 3 ? (
+            <div className="mt-4">
+              <EmptyBeds area={initial.locality || "your area"} compact />
+            </div>
           ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             {rooms?.listings.map((room) => (

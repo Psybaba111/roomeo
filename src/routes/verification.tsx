@@ -1,10 +1,16 @@
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
+import { HostIdReview } from "@/components/host-id-review";
 import { createFileRoute } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
-import { getVerification, startDigilocker, startPhoneOtp, verifyPhoneOtp } from "@/lib/roomsetu/trust-api";
+import {
+  getVerification,
+  startDigilocker,
+  startPhoneOtp,
+  verifyPhoneOtp,
+} from "@/lib/roomsetu/trust-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/verification")({
@@ -25,7 +31,9 @@ function Verify() {
   const [sent, setSent] = useState(false);
   const [phoneMsg, setPhoneMsg] = useState("");
   function load() {
-    void getVerification().then(setData).catch((e) => setError(errText(e)));
+    void getVerification()
+      .then(setData)
+      .catch((e) => setError(errText(e)));
   }
   useEffect(() => {
     if (user) load();
@@ -46,7 +54,8 @@ function Verify() {
     <Shell>
       <h1 className="font-display text-4xl">Verification</h1>
       <p className="mt-2 max-w-xl text-muted">
-        To publish a bed you need both a verified phone and a verified ID. The Verified badge only shows once both pass.
+        To publish a bed you need both a verified phone and a verified ID. The Verified badge only
+        shows once both pass.
         {data ? (data.canPublish ? " You're all set to publish." : "") : ""}
       </p>
       <section className="mt-6 max-w-xl rounded-2xl border border-line bg-card p-4">
@@ -54,7 +63,9 @@ function Verify() {
         {data?.phoneVerified ? (
           <p className="mt-2 text-sm">Verified: {data.phone}</p>
         ) : data?.otpReady === false ? (
-          <p className="mt-2 text-sm text-muted">Phone codes aren't set up on this deployment yet.</p>
+          <p className="mt-2 text-sm text-muted">
+            Phone codes aren't set up on this deployment yet.
+          </p>
         ) : (
           <form
             className="mt-2 flex flex-wrap items-end gap-2"
@@ -79,13 +90,39 @@ function Verify() {
             }}
           >
             {!sent ? (
-              <input aria-label="Mobile number" inputMode="tel" autoComplete="tel" className="h-11 rounded-lg border border-line px-3" placeholder="98765 43210" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+              <input
+                aria-label="Mobile number"
+                inputMode="tel"
+                autoComplete="tel"
+                className="h-11 rounded-lg border border-line px-3"
+                placeholder="98765 43210"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+              />
             ) : (
-              <input aria-label="One-time code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} className="h-11 w-32 rounded-lg border border-line px-3 font-mono" placeholder="123456" value={code} onChange={(e) => setCode(e.target.value)} required />
+              <input
+                aria-label="One-time code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                className="h-11 w-32 rounded-lg border border-line px-3 font-mono"
+                placeholder="123456"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+              />
             )}
-            <button type="submit" className="h-11 rounded-full bg-ink px-4 text-sm font-semibold text-card">{sent ? "Verify code" : "Send code"}</button>
+            <button
+              type="submit"
+              className="h-11 rounded-full bg-ink px-4 text-sm font-semibold text-card"
+            >
+              {sent ? "Verify code" : "Send code"}
+            </button>
             {sent ? (
-              <button type="button" className="text-sm underline" onClick={() => setSent(false)}>Change number</button>
+              <button type="button" className="text-sm underline" onClick={() => setSent(false)}>
+                Change number
+              </button>
             ) : null}
           </form>
         )}
@@ -93,10 +130,16 @@ function Verify() {
       </section>
       <h2 className="mt-8 font-display text-2xl">Identity</h2>
       <p className="mt-2 max-w-xl text-muted">{statusLine}</p>
-      <p className="mt-2 max-w-xl text-sm text-muted">On each rent payment, you pay ₹{data?.feeInr ?? 499} on top of the rent. The host’s ₹{data?.feeInr ?? 499} is taken from the payout.</p>
+      <p className="mt-2 max-w-xl text-sm text-muted">
+        On each rent payment, you pay ₹{data?.feeInr ?? 499} on top of the rent. The host’s ₹
+        {data?.feeInr ?? 499} is taken from the payout.
+      </p>
       {error ? <p className="mt-3 text-danger">{error}</p> : null}
       {data?.digilockerReady === false ? (
-        <p className="mt-4 max-w-xl text-sm">The DigiLocker sign-in is built. This deployment still needs the partner client id and secret before a live check can start.</p>
+        <p className="mt-4 max-w-xl text-sm">
+          The DigiLocker sign-in is built. This deployment still needs the partner client id and
+          secret before a live check can start.
+        </p>
       ) : null}
       <button
         type="button"
@@ -113,6 +156,7 @@ function Verify() {
       >
         Continue with DigiLocker
       </button>
+      <HostIdReview />
     </Shell>
   );
 }
