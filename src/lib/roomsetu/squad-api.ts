@@ -1,4 +1,5 @@
-import { contactQuote, pricingConfig, squadUnlockReady, type SquadPayMode } from "@/lib/roomsetu/pricing";
+import { contactQuote, pricingConfig, squadFeeInr, squadUnlockReady, type SquadPayMode } from "@/lib/roomsetu/pricing";
+import { contactSummary, grantContact, recordDecline, squadActivePass, startSquadPass } from "@/lib/roomsetu/pricing-db";
 import { createServerFn } from "@tanstack/react-start";
 import QRCode from "qrcode";
 import { getSql, type Sql } from "@/lib/db";
@@ -75,6 +76,10 @@ export async function assertContactAllowed(
   ownerId: string,
 ) {
   const unlocked = viewerId === ownerId ? true : await isUnlocked(sql, listingId, viewerId);
+  if (!unlocked && pricingConfig().contactModel === "FREE_THEN_PASS") {
+    await grantContact(sql, listingId, viewerId);
+    return;
+  }
   if (contactNeedsPayment({ viewerId, ownerId, unlocked, existingThread: false })) {
     throw new Error(`Pay the ₹${contactFeeInr()} contact fee to message this owner.`);
   }
@@ -117,7 +122,13 @@ export async function unlockFromPayment(sql: Sql, paymentId: string) {
         return;
       }
     }
-    await sql`insert into contact_unlocks (id, listing_id, squad_id, payment_id) values (${crypto.randomUUID()}, ${p.listing_id}, ${p.squad_id}, ${paymentId}) on conflict do nothing`;
+    const passCode = (await sql<{ pass_code: string | null }>`select pass_code from payments where id = ${paymentId}`)[0]?.pass_code;
+    if (passCode === "SQUAD") {
+      const passId = await startSquadPass(sql, p.squad_id, p.listing_id, paymentId);
+      await sql`insert into contact_unlocks (id, listing_id, squad_id, payment_id, source, pass_id) values (${crypto.randomUUID()}, ${p.listing_id}, ${p.squad_id}, ${paymentId}, 'PASS', ${passId}) on conflict do nothing`;
+    } else {
+      await sql`insert into contact_unlocks (id, listing_id, squad_id, payment_id) values (${crypto.randomUUID()}, ${p.listing_id}, ${p.squad_id}, ${paymentId}) on conflict do nothing`;
+    }
     await ensureSquadThread(sql, p.squad_id, p.listing_id, owner, p.user_id);
   } else {
     await sql`insert into contact_unlocks (id, listing_id, seeker_id, payment_id) values (${crypto.randomUUID()}, ${p.listing_id}, ${p.user_id}, ${paymentId}) on conflict do nothing`;
@@ -183,8 +194,16 @@ export const getContactStatus = createServerFn({ method: "POST" })
       payer_vpa: string | null;
     }>`select ref, status, refund_utr, payer_vpa from payments
       where user_id = ${context.userId} and listing_id = ${data} and kind = 'CONTACT' and squad_id is null and status in ('REFUND_DUE','REFUNDED') order by created_at desc limit 1`;
+    const cfg = pricingConfig();
+    const summary = await contactSummary(sql, context.userId);
+    const pendingPass = await sql<{ ref: string; status: string; pass_code: string }>`select ref, status, pass_code from payments
+      where user_id = ${context.userId} and kind = 'PASS' and status in ('PENDING','SUBMITTED') order by created_at desc limit 1`;
     return {
       fee: contactFeeInr(),
+      model: cfg.contactModel,
+      summary,
+      passes: { weekly: cfg.passes.WEEKLY.priceInr, monthly: cfg.passes.MONTHLY.priceInr, enabled: cfg.passesEnabled },
+      pendingPass: pendingPass[0] ? { ref: str(pendingPass[0].ref), status: str(pendingPass[0].status), code: str(pendingPass[0].pass_code) } : null,
       isOwner,
       unlocked,
       pending: open[0] ? { ref: str(open[0].ref), status: str(open[0].status) } : null,
@@ -222,9 +241,13 @@ export const startContactCheckout = createServerFn({ method: "POST" })
     if (!l[0]) throw new Error("That room is not available.");
     if (l[0].owner_id === context.userId) throw new Error("Hosts never pay to talk to seekers.");
     const squadId = data.squadId || null;
+    if (!squadId && pricingConfig().contactModel === "FREE_THEN_PASS")
+      throw new Error("Contacts are free or covered by a pass now. Use your free contacts or get a pass.");
     let splitMembers = 0;
+    let memberCount = 0;
     if (squadId) {
-      await requireMember(sql, squadId, context.userId);
+      memberCount = (await requireMember(sql, squadId, context.userId)).members.length;
+      if (await squadActivePass(sql, squadId)) throw new Error("Your squad pass is active. Send requests and chat for free.");
       const req = await sql<{
         status: string;
       }>`select status from squad_requests where squad_id = ${squadId} and listing_id = ${data.listingId}`;
@@ -252,9 +275,11 @@ export const startContactCheckout = createServerFn({ method: "POST" })
     } else if (await isUnlocked(sql, data.listingId, context.userId)) {
       throw new Error("Contact is already unlocked.");
     }
-    const quote = contactQuote(pricingConfig(), { squadMembers: squadId ? splitMembers : 0, mode: squadId ? data.mode : "FULL" });
+    const cfg = pricingConfig();
+    const quote = contactQuote(cfg, { squadMembers: squadId ? (data.mode === "SPLIT" ? splitMembers : memberCount) : 0, mode: squadId ? data.mode : "FULL" });
+    const passCode = squadId && cfg.contactModel === "FREE_THEN_PASS" ? "SQUAD" : null;
     const amount = quote.amountInr;
-    const purpose = `Contact unlock${squadId ? (quote.splitParts ? " (squad share)" : " (squad)") : ""}: ${l[0].title}`.slice(0, 120);
+    const purpose = (passCode ? `Squad pass${quote.splitParts ? " (squad share)" : ""}: ${l[0].title}` : `Contact unlock${squadId ? (quote.splitParts ? " (squad share)" : " (squad)") : ""}: ${l[0].title}`).slice(0, 120);
     const find = () => sql<{
       ref: string;
       status: string;
@@ -265,12 +290,12 @@ export const startContactCheckout = createServerFn({ method: "POST" })
     let row = (await find())[0];
     if (row && num(row.split_parts) !== quote.splitParts) {
       if (row.status === "SUBMITTED") throw new Error("Your earlier payment is being checked. Wait for it first.");
-      await sql`update payments set amount_inr = ${amount}, split_parts = ${quote.splitParts}, purpose = ${purpose} where ref = ${row.ref} and status = 'PENDING'`;
+      await sql`update payments set amount_inr = ${amount}, split_parts = ${quote.splitParts}, purpose = ${purpose}, pass_code = ${passCode} where ref = ${row.ref} and status = 'PENDING'`;
       row = (await find())[0];
     }
     if (!row) {
-      await sql`insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, kind, listing_id, squad_id, split_parts)
-        values (${crypto.randomUUID()}, ${context.userId}, ${purpose}, ${amount}, 'PENDING', 'UPI', ${makeRef()}, 'CONTACT', ${data.listingId}, ${squadId}, ${quote.splitParts}) on conflict do nothing`;
+      await sql`insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, kind, listing_id, squad_id, split_parts, pass_code)
+        values (${crypto.randomUUID()}, ${context.userId}, ${purpose}, ${amount}, 'PENDING', 'UPI', ${makeRef()}, 'CONTACT', ${data.listingId}, ${squadId}, ${quote.splitParts}, ${passCode}) on conflict do nothing`;
       row = (await find())[0];
     }
     if (!row) throw new Error("Could not start the payment. Try again.");
@@ -285,7 +310,11 @@ export const startContactCheckout = createServerFn({ method: "POST" })
       ref: str(row.ref),
       status: str(row.status),
       amount: num(row.amount_inr),
-      plan: squadId ? (quote.splitParts ? `your squad share (1 of ${quote.splitParts})` : "squad contact unlock") : "contact unlock",
+      plan: squadId
+        ? passCode
+          ? quote.splitParts ? `your squad pass share (1 of ${quote.splitParts})` : "the squad pass"
+          : quote.splitParts ? `your squad share (1 of ${quote.splitParts})` : "squad contact unlock"
+        : "contact unlock",
       payee: payee.name,
       vpa: payee.vpa,
       link,
@@ -301,21 +330,22 @@ export async function markContactRefundDue(
   sql: Sql,
   p: { listingId: string; seekerId?: string; squadId?: string; reason: string },
 ) {
+  const declined = await recordDecline(sql, { listingId: p.listingId, seekerId: p.seekerId, squadId: p.squadId });
   const rows = p.squadId
     ? await sql<{
         id: string;
         user_id: string;
       }>`update payments set status = 'REFUND_DUE', refund_due_at = now(), refund_reason = ${p.reason}
-        where kind = 'CONTACT' and status = 'PAID' and listing_id = ${p.listingId} and squad_id = ${p.squadId} returning id, user_id`
+        where kind = 'CONTACT' and status = 'PAID' and pass_code is null and listing_id = ${p.listingId} and squad_id = ${p.squadId} returning id, user_id`
     : await sql<{
         id: string;
         user_id: string;
       }>`update payments set status = 'REFUND_DUE', refund_due_at = now(), refund_reason = ${p.reason}
-        where kind = 'CONTACT' and status = 'PAID' and listing_id = ${p.listingId} and squad_id is null and user_id = ${p.seekerId ?? ""} returning id, user_id`;
+        where kind = 'CONTACT' and status = 'PAID' and pass_code is null and listing_id = ${p.listingId} and squad_id is null and user_id = ${p.seekerId ?? ""} returning id, user_id`;
   if (p.squadId)
-    await sql`delete from contact_unlocks where listing_id = ${p.listingId} and squad_id = ${p.squadId}`;
+    await sql`delete from contact_unlocks where listing_id = ${p.listingId} and squad_id = ${p.squadId} and source = 'PAID'`;
   else
-    await sql`delete from contact_unlocks where listing_id = ${p.listingId} and seeker_id = ${p.seekerId ?? ""}`;
+    await sql`delete from contact_unlocks where listing_id = ${p.listingId} and seeker_id = ${p.seekerId ?? ""} and source = 'PAID'`;
   const threads = p.squadId
     ? await sql<{
         id: string;
@@ -325,7 +355,12 @@ export async function markContactRefundDue(
       }>`select c.id from conversations c join conversation_members m on m.conversation_id = c.id and m.user_id = ${p.seekerId ?? ""}
         where c.listing_id = ${p.listingId} and c.squad_id is null and c.closed_at is null`;
   for (const t of threads) {
-    await sql`insert into messages (id, conversation_id, sender_id, body, kind) select ${crypto.randomUUID()}, ${t.id}, user_id, ${"The owner declined, so this chat is closed. Your contact fee will be refunded to your UPI ID."}, 'SYSTEM' from conversation_members where conversation_id = ${t.id} limit 1`;
+    const body = rows.length
+      ? "The owner declined, so this chat is closed. Your contact fee will be refunded to your UPI ID."
+      : declined.some((d) => d.source === "FREE")
+        ? "The owner declined, so this chat is closed. Your free contact is back."
+        : "The owner declined, so this chat is closed. It counts toward your pass refund promise.";
+    await sql`insert into messages (id, conversation_id, sender_id, body, kind) select ${crypto.randomUUID()}, ${t.id}, user_id, ${body}, 'SYSTEM' from conversation_members where conversation_id = ${t.id} limit 1`;
     await sql`update conversations set closed_at = now(), updated_at = now() where id = ${t.id}`;
   }
   for (const r of rows) {
@@ -515,7 +550,10 @@ export const getSquad = createServerFn({ method: "POST" })
       moveIn: str(squad.move_in).slice(0, 10),
       inviteCode: str(squad.invite_code),
       me: context.userId,
-      fee: contactFeeInr(),
+      fee: squadFeeInr(pricingConfig(), members.length),
+      model: pricingConfig().contactModel,
+      perMember: pricingConfig().passes.SQUAD.priceInr,
+      passEndsAt: str((await squadActivePass(sql, data))?.ends_at),
       splitEnabled: pricingConfig().squadSplitEnabled,
       members: people.map((p) => ({
         id: str(p.user_id),
@@ -629,6 +667,12 @@ export const sendJointRequest = createServerFn({ method: "POST" })
       await sql`update squad_requests set status = 'PENDING', updated_at = now() where squad_id = ${data.squadId} and listing_id = ${data.listingId}`;
     } else {
       await sql`insert into squad_requests (id, squad_id, listing_id, owner_id) values (${crypto.randomUUID()}, ${data.squadId}, ${data.listingId}, ${l[0].owner_id})`;
+    }
+    // Squad pass active: the request opens the squad chat with the owner straight away.
+    const pass = await squadActivePass(sql, data.squadId);
+    if (pass) {
+      await sql`insert into contact_unlocks (id, listing_id, squad_id, source, pass_id) values (${crypto.randomUUID()}, ${data.listingId}, ${data.squadId}, 'PASS', ${pass.id}) on conflict do nothing`;
+      await ensureSquadThread(sql, data.squadId, data.listingId, l[0].owner_id, context.userId);
     }
     await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${l[0].owner_id}, 'squad', 'New squad request', ${`${str(squad.name)} (${members.length} people) want your flat.`}, '/squads')`;
     return { ok: true };

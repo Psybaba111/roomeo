@@ -3,6 +3,7 @@ import { getHostReview, submitHostId } from "@/lib/roomsetu/host-review-api";
 import { ID_DOC_TYPES } from "@/lib/roomsetu/host-review";
 import { errText } from "@/lib/ui-text";
 import { btnDark, errorBox, input } from "@/components/ui-tokens";
+import { FastTrackOffer } from "@/components/host-extras";
 
 const TONE = {
   ok: "bg-pop-soft text-pop",
@@ -38,6 +39,7 @@ export function HostIdReview() {
       >
         {data.message.text}
       </p>
+      {data.identityStatus !== "VERIFIED" ? <FastTrackOffer /> : null}
       {canSubmit ? (
         <form
           className="mt-4 space-y-3"

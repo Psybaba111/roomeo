@@ -148,6 +148,11 @@ function Squad() {
         {s.area} · {inr(s.budget)} per person · {inr(s.budget * s.members.length)} combined each
         month{s.moveIn ? ` · move in ${s.moveIn}` : ""}
       </p>
+      {s.passEndsAt ? (
+        <p className={`mt-4 text-sm font-semibold ${inner}`} data-testid="squad-pass-active">
+          Squad pass active until {s.passEndsAt.slice(0, 10)}. Every joint request opens a chat with the owner.
+        </p>
+      ) : null}
       {error ? (
         <p className={`mt-4 ${errorBox}`} role="alert">
           {error}
@@ -346,7 +351,7 @@ function Squad() {
                 {f.refund ? (
                   <p className={`mt-4 text-sm font-semibold ${inner}`} data-testid="refund-status">
                     {f.refund.startsWith("REFUND_DUE")
-                      ? `Owner declined. ${f.splitParts ? "Every share" : `The ${inr(s.fee)} contact fee`} is being refunded to the UPI ID it was paid from${f.refund.split("|")[2] ? ` (${f.refund.split("|")[2]})` : ""}.`
+                      ? `Refund due. ${f.splitParts ? "Every share" : `The ${inr(s.fee)} payment`} is being refunded to the UPI ID it was paid from${f.refund.split("|")[2] ? ` (${f.refund.split("|")[2]})` : ""}.`
                       : `Refunded to ${f.refund.split("|")[2] || "the payer"}. Refund UTR ${f.refund.split("|")[1]}.`}
                   </p>
                 ) : null}
@@ -383,18 +388,34 @@ function Squad() {
                         {f.myPayStatus !== "PAID" && f.myPayStatus !== "SUBMITTED" ? payButtons(k, true) : null}
                       </>
                     ) : f.payStatus === "SUBMITTED" ? (
-                      <p>Contact fee paid. Roomeo is confirming it and the squad chat opens right after.</p>
+                      <p>{s.model === "FREE_THEN_PASS" ? "Squad pass paid" : "Contact fee paid"}. Roomeo is confirming it and the squad chat opens right after.</p>
                     ) : (
                       <>
-                        <p className="[text-wrap:pretty]">
-                          <b>Unlock squad chat for {inr(s.fee)} once.</b> One member pays it all, or each of
-                          you pays an equal share by UPI. The owner never pays.
-                        </p>
-                        <p className="mt-2 text-xs text-muted">
-                          Refund rule: if the owner declines, even after proposing a visit, every share goes
-                          back to the UPI ID it was paid from. No refund once the owner has accepted, or if
-                          someone leaves.
-                        </p>
+                        {s.model === "FREE_THEN_PASS" ? (
+                          <>
+                            <p className="[text-wrap:pretty]" data-testid="squad-pass-offer">
+                              <b>Squad pass: {inr(s.perMember)} per person ({inr(s.fee)} for {s.members.length}).</b> Chat
+                              with this owner and every flat you request for 30 days. One member pays it all, or
+                              each of you pays {inr(s.perMember)} by UPI. The owner never pays.
+                            </p>
+                            <p className="mt-2 text-xs text-muted">
+                              Refund promise: if every owner your squad contacts with the pass declines or does
+                              not reply in 48 hours, every share goes back to the UPI ID it was paid from.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="[text-wrap:pretty]">
+                              <b>Unlock squad chat for {inr(s.fee)} once.</b> One member pays it all, or each of
+                              you pays an equal share by UPI. The owner never pays.
+                            </p>
+                            <p className="mt-2 text-xs text-muted">
+                              Refund rule: if the owner declines, even after proposing a visit, every share goes
+                              back to the UPI ID it was paid from. No refund once the owner has accepted, or if
+                              someone leaves.
+                            </p>
+                          </>
+                        )}
                         {payButtons(k, false)}
                       </>
                     )}

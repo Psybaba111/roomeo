@@ -2,6 +2,7 @@ import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
+import { BoostPanel } from "@/components/host-extras";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
 import { RoomCard } from "@/components/cards";
@@ -277,6 +278,8 @@ function Desk() {
         {checkout ? <UpiCheckout data={checkout} onClose={() => setCheckout(null)} /> : null}
         {note ? <p className="mt-3 text-sm">{note}</p> : null}
       </section>
+
+      {hostish ? <BoostPanel /> : null}
 
       <section className="mt-8">
         <h2 className="font-display text-2xl">Coming soon</h2>

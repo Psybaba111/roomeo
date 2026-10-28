@@ -66,14 +66,15 @@ export const adminHostQueue = createServerFn({ method: "GET" })
     const sql = await getSql();
     await assertAdmin(sql, context.userId);
     const rows = await sql.query<Record<string, unknown>>(
-      `select p.user_id, p.full_name, p.city, p.identity_status, p.identity_source, p.identity_attempts, p.id_review_status, p.id_doc_type, p.id_doc_last4, p.id_name,
+      `select p.user_id, p.full_name, p.city, p.identity_status, p.identity_source, p.identity_attempts, p.id_review_status, p.id_doc_type, p.id_doc_last4, p.id_name, p.fast_track_at is not null as fast_track,
               p.id_submitted_at::text as submitted, p.id_review_note, p.approved_at::text as approved_at, p.phone_verified_at is not null as phone_ok, u.email,
               (select count(*)::int from listings l where l.owner_id = p.user_id and l.status <> 'REMOVED') as listings
        from profiles p left join "user" u on u.id = p.user_id
        where p.is_demo = false
          and (p.identity_status <> 'VERIFIED' or p.id_review_status <> '')
          and exists (select 1 from profile_roles r where r.user_id = p.user_id and r.role = 'HOST')
-       order by case p.id_review_status when 'PENDING' then 0 when 'REJECTED' then 2 when 'APPROVED' then 3 else 1 end, p.id_submitted_at desc nulls last
+       order by case when p.id_review_status = 'PENDING' and p.fast_track_at is not null then 0 else 1 end, p.fast_track_at asc nulls last,
+                case p.id_review_status when 'PENDING' then 0 when 'REJECTED' then 2 when 'APPROVED' then 3 else 1 end, p.id_submitted_at desc nulls last
        limit 100`,
     );
     return rows.map((r) => ({
@@ -92,6 +93,7 @@ export const adminHostQueue = createServerFn({ method: "GET" })
       approvedAt: str(r.approved_at),
       phoneVerified: bool(r.phone_ok),
       listings: Number(r.listings ?? 0),
+      fastTrack: bool(r.fast_track),
     }));
   });
 

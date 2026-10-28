@@ -40,6 +40,9 @@ export function Shell({ children }: { children: ReactNode }) {
             <Link to="/create-listing" className="hover:text-brand">
               List a bed
             </Link>
+            <Link to="/pricing" className="hover:text-brand">
+              Pricing
+            </Link>
           </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle />

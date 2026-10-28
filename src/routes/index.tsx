@@ -34,7 +34,7 @@ const STEPS = [
     "Choose your own flatmates. No random allotment, no awkward surprises.",
   ],
   ["02", "Owner says yes once", "One clear yes or no. No endless calls, no ghosting."],
-  ["03", "Pay ₹499, move in", "One time fee, not a broker's month. After that it's just rent."],
+  ["03", "Message 3 owners free", "Your first 3 owner chats cost nothing. After that a pass from ₹149 a week."],
 ];
 
 const TRUST: [typeof ShieldCheck, string, string][] = [
@@ -70,8 +70,8 @@ function Home() {
             <span className="block text-lime">Then your bed.</span>
           </h1>
           <p className="mt-4 max-w-md text-base leading-relaxed text-white/90">
-            Spare beds near college and office. Pick your flatmates, the owner says yes once, you
-            pay ₹499. Not a broker's month. Simple.
+            Spare beds near college and office. Pick your flatmates and message 3 owners free. No
+            broker's month, no cut of your rent.
           </p>
           <form
             className="mt-6 grid max-w-2xl gap-2 rounded-3xl bg-white p-2 text-[#14111f] shadow-xl sm:grid-cols-[1fr_1fr_auto]"

@@ -34,6 +34,11 @@ export function RoomCard({ room, score }: { room: ListingCard; score?: number })
               <BadgeCheck className="h-3.5 w-3.5" /> Verified
             </span>
           ) : null}
+          {room.boosted ? (
+            <span className="rounded-full bg-ink px-2 py-1 text-xs font-semibold text-card" data-testid="boosted-badge">
+              Boosted
+            </span>
+          ) : null}
           {room.kind === "ENTIRE_FLAT" ? (
             <span className="rounded-full bg-ink px-2 py-1 text-xs font-semibold text-card">
               Entire flat · {room.bedrooms}BR

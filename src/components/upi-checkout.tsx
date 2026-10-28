@@ -21,7 +21,7 @@ function isMobile() {
 export function UpiCheckout({ data, onClose }: { data: UpiCheckoutData; onClose: () => void }) {
   const [utr, setUtr] = useState("");
   const [payerVpa, setPayerVpa] = useState("");
-  const isContact = /contact unlock|squad share/i.test(data.plan);
+  const isContact = /contact unlock|squad share|pass/i.test(data.plan);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(
     data.status === "SUBMITTED" ? "UTR received. We're checking it." : "",
@@ -96,8 +96,8 @@ export function UpiCheckout({ data, onClose }: { data: UpiCheckoutData; onClose:
                     autoComplete="off"
                   />
                   <p className="text-xs text-muted">
-                    If the owner declines your request, we refund the fee to this UPI ID. No refund
-                    once the owner has accepted, or if you withdraw or leave.
+                    Refunds under the refund promise go back to this UPI ID. No refund once an
+                    owner has replied or accepted, or if you withdraw or leave.
                   </p>
                 </>
               ) : null}

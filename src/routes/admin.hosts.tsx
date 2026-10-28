@@ -81,6 +81,11 @@ function Hosts() {
               >
                 {row.reviewStatus || "NOT SUBMITTED"}
               </span>
+              {row.fastTrack ? (
+                <span className="rounded-full bg-ink px-2 py-0.5 text-xs font-semibold text-card" data-testid="fast-track-badge">
+                  Fast track
+                </span>
+              ) : null}
               {row.identityStatus === "VERIFIED" ? (
                 <span className="rounded-full bg-pop-soft px-2 py-0.5 text-xs font-semibold text-pop">
                   Can publish

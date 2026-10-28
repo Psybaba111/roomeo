@@ -17,6 +17,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MatchesRouteImport } from './routes/matches'
 import { Route as MessagesRouteImport } from './routes/messages'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
@@ -31,6 +32,7 @@ import { Route as AdminHostsRouteImport } from './routes/admin.hosts'
 import { Route as AdminListingsRouteImport } from './routes/admin.listings'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminReportsRouteImport } from './routes/admin.reports'
+import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminVerificationsRouteImport } from './routes/admin.verifications'
 import { Route as ListingIdRouteImport } from './routes/listing.$id'
@@ -38,6 +40,7 @@ import { Route as SquadsIndexRouteImport } from './routes/squads.index'
 import { Route as SquadsIdRouteImport } from './routes/squads.$id'
 import { Route as VerifyDigilockerRouteImport } from './routes/verify.digilocker'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCronPricingRouteImport } from './routes/api/cron/pricing'
 import { Route as ApiWebhooksMappstoreRouteImport } from './routes/api/webhooks/mappstore'
 import { Route as SquadsJoinCodeRouteImport } from './routes/squads.join.$code'
 
@@ -79,6 +82,11 @@ const MatchesRoute = MatchesRouteImport.update({
 const MessagesRoute = MessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -151,6 +159,11 @@ const AdminReportsRoute = AdminReportsRouteImport.update({
   path: '/admin/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRevenueRoute = AdminRevenueRouteImport.update({
+  id: '/admin/revenue',
+  path: '/admin/revenue',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/admin/users',
   path: '/admin/users',
@@ -186,6 +199,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronPricingRoute = ApiCronPricingRouteImport.update({
+  id: '/api/cron/pricing',
+  path: '/api/cron/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksMappstoreRoute = ApiWebhooksMappstoreRouteImport.update({
   id: '/api/webhooks/mappstore',
   path: '/api/webhooks/mappstore',
@@ -206,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
+  '/pricing': typeof PricingRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -219,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
+  '/admin/revenue': typeof AdminRevenueRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/listing/$id': typeof ListingIdRoute
@@ -227,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/pricing': typeof ApiCronPricingRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
   '/squads/join/$code': typeof SquadsJoinCodeRoute
 }
@@ -239,6 +260,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
+  '/pricing': typeof PricingRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -252,6 +274,7 @@ export interface FileRoutesByTo {
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
+  '/admin/revenue': typeof AdminRevenueRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/listing/$id': typeof ListingIdRoute
@@ -260,6 +283,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/squads': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/pricing': typeof ApiCronPricingRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
   '/squads/join/$code': typeof SquadsJoinCodeRoute
 }
@@ -273,6 +297,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
+  '/pricing': typeof PricingRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -286,6 +311,7 @@ export interface FileRoutesById {
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
+  '/admin/revenue': typeof AdminRevenueRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/listing/$id': typeof ListingIdRoute
@@ -294,6 +320,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/pricing': typeof ApiCronPricingRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
   '/squads/join/$code': typeof SquadsJoinCodeRoute
 }
@@ -308,6 +335,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/matches'
     | '/messages'
+    | '/pricing'
     | '/profile'
     | '/register'
     | '/robots.txt'
@@ -321,6 +349,7 @@ export interface FileRouteTypes {
     | '/admin/listings'
     | '/admin/payments'
     | '/admin/reports'
+    | '/admin/revenue'
     | '/admin/users'
     | '/admin/verifications'
     | '/listing/$id'
@@ -329,6 +358,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/squads/'
     | '/api/auth/$'
+    | '/api/cron/pricing'
     | '/api/webhooks/mappstore'
     | '/squads/join/$code'
   fileRoutesByTo: FileRoutesByTo
@@ -341,6 +371,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/matches'
     | '/messages'
+    | '/pricing'
     | '/profile'
     | '/register'
     | '/robots.txt'
@@ -354,6 +385,7 @@ export interface FileRouteTypes {
     | '/admin/listings'
     | '/admin/payments'
     | '/admin/reports'
+    | '/admin/revenue'
     | '/admin/users'
     | '/admin/verifications'
     | '/listing/$id'
@@ -362,6 +394,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/squads'
     | '/api/auth/$'
+    | '/api/cron/pricing'
     | '/api/webhooks/mappstore'
     | '/squads/join/$code'
   id:
@@ -374,6 +407,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/matches'
     | '/messages'
+    | '/pricing'
     | '/profile'
     | '/register'
     | '/robots.txt'
@@ -387,6 +421,7 @@ export interface FileRouteTypes {
     | '/admin/listings'
     | '/admin/payments'
     | '/admin/reports'
+    | '/admin/revenue'
     | '/admin/users'
     | '/admin/verifications'
     | '/listing/$id'
@@ -395,6 +430,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/squads/'
     | '/api/auth/$'
+    | '/api/cron/pricing'
     | '/api/webhooks/mappstore'
     | '/squads/join/$code'
   fileRoutesById: FileRoutesById
@@ -408,6 +444,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MatchesRoute: typeof MatchesRoute
   MessagesRoute: typeof MessagesRoute
+  PricingRoute: typeof PricingRoute
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
@@ -421,6 +458,7 @@ export interface RootRouteChildren {
   AdminListingsRoute: typeof AdminListingsRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminReportsRoute: typeof AdminReportsRoute
+  AdminRevenueRoute: typeof AdminRevenueRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVerificationsRoute: typeof AdminVerificationsRoute
   ListingIdRoute: typeof ListingIdRoute
@@ -429,6 +467,7 @@ export interface RootRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   SquadsIndexRoute: typeof SquadsIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCronPricingRoute: typeof ApiCronPricingRoute
   ApiWebhooksMappstoreRoute: typeof ApiWebhooksMappstoreRoute
   SquadsJoinCodeRoute: typeof SquadsJoinCodeRoute
 }
@@ -489,6 +528,13 @@ declare module '@tanstack/react-router' {
       path: '/messages'
       fullPath: '/messages'
       preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -589,6 +635,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/revenue': {
+      id: '/admin/revenue'
+      path: '/admin/revenue'
+      fullPath: '/admin/revenue'
+      preLoaderRoute: typeof AdminRevenueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/users': {
       id: '/admin/users'
       path: '/admin/users'
@@ -638,6 +691,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/pricing': {
+      id: '/api/cron/pricing'
+      path: '/api/cron/pricing'
+      fullPath: '/api/cron/pricing'
+      preLoaderRoute: typeof ApiCronPricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/mappstore': {
       id: '/api/webhooks/mappstore'
       path: '/api/webhooks/mappstore'
@@ -664,6 +724,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MatchesRoute: MatchesRoute,
   MessagesRoute: MessagesRoute,
+  PricingRoute: PricingRoute,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
@@ -677,6 +738,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminListingsRoute: AdminListingsRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
   AdminReportsRoute: AdminReportsRoute,
+  AdminRevenueRoute: AdminRevenueRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminVerificationsRoute: AdminVerificationsRoute,
   ListingIdRoute: ListingIdRoute,
@@ -685,6 +747,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   SquadsIndexRoute: SquadsIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCronPricingRoute: ApiCronPricingRoute,
   ApiWebhooksMappstoreRoute: ApiWebhooksMappstoreRoute,
   SquadsJoinCodeRoute: SquadsJoinCodeRoute,
 }

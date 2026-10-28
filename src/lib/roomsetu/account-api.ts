@@ -1365,8 +1365,8 @@ export const submitUtr = createServerFn({ method: "POST" })
     const kindRow = await sql<{
       kind: string;
     }>`select kind from payments where ref = ${data.ref} and user_id = ${context.userId}`;
-    if (kindRow[0]?.kind === "CONTACT" && !data.payerVpa)
-      throw new Error("Add your UPI ID so we can refund you if the owner declines.");
+    if ((kindRow[0]?.kind === "CONTACT" || kindRow[0]?.kind === "PASS") && !data.payerVpa)
+      throw new Error("Add your UPI ID so we can refund you under the refund promise.");
     const updated = await sql<{ id: string }>`
       update payments set utr = ${data.utr}, payer_vpa = ${data.payerVpa ?? null}, status = 'SUBMITTED', submitted_at = now()
       where ref = ${data.ref} and user_id = ${context.userId} and provider = 'UPI' and status = 'PENDING'

@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { applyPaidPayment } from "@/lib/roomsetu/pricing-db";
 import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { bool, num, str } from "@/lib/roomsetu/map";
@@ -573,6 +574,8 @@ export const adminReviewPayment = createServerFn({ method: "POST" })
     if (!rows.length) throw new Error("Already reviewed.");
     // Contact-fee payments unlock messaging with the owner (single seeker or whole squad).
     await unlockFromPayment(sql, data.id);
+    // Passes, boosts, fast track and move in fees.
+    await applyPaidPayment(sql, data.id);
     const who = await sql<{
       phone_e164: string | null;
       purpose: string;

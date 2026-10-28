@@ -30,6 +30,7 @@ export type ListingCard = {
   photo: string | null;
   hostName: string;
   isDemo: boolean;
+  boosted: boolean;
   propertyType: string;
   food: boolean;
   quality: number;
@@ -70,6 +71,7 @@ export function listingCard(row: Record<string, unknown>): ListingCard {
     photo: row.photo ? cardPhoto(str(row.photo), 720) : null,
     hostName: str(row.host_name),
     isDemo: bool(row.is_demo),
+    boosted: bool(row.boosted),
     propertyType: str(row.property_type),
     food: bool(row.food_available),
     quality: num(row.quality_score),

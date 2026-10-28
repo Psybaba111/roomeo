@@ -7,7 +7,7 @@ const CARD_SQL = `
   l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type, l.listing_kind, l.bedrooms,
   l.furnished, l.gender_pref, l.available_from::text as available_from,
   case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status,
-  l.status, l.listing_tier, l.is_demo, l.food_available, l.quality_score,
+  l.status, l.listing_tier, l.is_demo, (l.boosted_until is not null and l.boosted_until > now()) as boosted, l.food_available, l.quality_score,
   l.wifi, l.ac, l.pets_allowed, l.smoking_allowed, l.kitchen, l.guest_policy, l.occupation_pref,
   p.property_type,
   pr.full_name as host_name,
@@ -84,7 +84,8 @@ export const getHome = createServerFn({ method: "GET" }).handler(async () => {
      where l.status = 'ACTIVE' and pr.account_status = 'ACTIVE'
        and lower(l.city_name) = 'bengaluru'
        and (l.is_demo = true or pr.identity_status = 'VERIFIED')
-     order by case when l.listing_tier = 'FEATURED' then 0 when l.listing_tier = 'PREMIUM' then 1 else 2 end,
+     order by case when l.boosted_until > now() then 0 else 1 end,
+              case when l.listing_tier = 'FEATURED' then 0 when l.listing_tier = 'PREMIUM' then 1 else 2 end,
               case when l.verification_status = 'VERIFIED' then 0 else 1 end,
               l.quality_score desc
      limit 8`,
@@ -187,7 +188,7 @@ export const searchListings = createServerFn({ method: "POST" })
     if (data.propertyType) add(data.propertyType, "p.property_type = $#");
     if (data.q) add(likeContains(data.q), "(lower(l.title) like $# escape '\\' or lower(l.locality_name) like $# escape '\\' or lower(l.city_name) like $# escape '\\')");
 
-    let order = `case when l.listing_tier = 'FEATURED' then 0 when l.listing_tier = 'PREMIUM' then 1 else 2 end, case when l.verification_status = 'VERIFIED' then 0 else 1 end, l.quality_score desc, l.created_at desc`;
+    let order = `case when l.boosted_until > now() then 0 else 1 end, case when l.listing_tier = 'FEATURED' then 0 when l.listing_tier = 'PREMIUM' then 1 else 2 end, case when l.verification_status = 'VERIFIED' then 0 else 1 end, l.quality_score desc, l.created_at desc`;
     if (data.sort === "rent_asc") order = "l.monthly_rent asc, l.created_at desc";
     if (data.sort === "rent_desc") order = "l.monthly_rent desc";
     if (data.sort === "newest") order = "l.created_at desc";
