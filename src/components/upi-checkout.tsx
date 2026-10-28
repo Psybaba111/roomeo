@@ -21,7 +21,7 @@ function isMobile() {
 export function UpiCheckout({ data, onClose }: { data: UpiCheckoutData; onClose: () => void }) {
   const [utr, setUtr] = useState("");
   const [payerVpa, setPayerVpa] = useState("");
-  const isContact = /contact unlock/i.test(data.plan);
+  const isContact = /contact unlock|squad share/i.test(data.plan);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(
     data.status === "SUBMITTED" ? "UTR received. We're checking it." : "",
@@ -31,7 +31,7 @@ export function UpiCheckout({ data, onClose }: { data: UpiCheckoutData; onClose:
   return (
     <div className="mt-4 rounded-2xl border border-line bg-card p-4" aria-live="polite">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="font-semibold">
             Pay ₹{data.amount} for {data.plan}
           </p>
@@ -40,7 +40,7 @@ export function UpiCheckout({ data, onClose }: { data: UpiCheckoutData; onClose:
             <span className="font-mono">{data.ref}</span>
           </p>
         </div>
-        <button type="button" className={btnSmall} onClick={onClose}>
+        <button type="button" className={`${btnSmall} shrink-0`} onClick={onClose}>
           Close
         </button>
       </div>
