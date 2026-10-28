@@ -1,5 +1,7 @@
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
+import { notFound } from "@tanstack/react-router";
 import { getSql } from "@/lib/db";
+import { badListingId, listingGone } from "@/lib/roomsetu/listing-gone";
 import { listingCard, num, str, bool, type ListingCard } from "@/lib/roomsetu/map";
 import { likeContains } from "@/lib/roomsetu/services";
 import { areaCentroid, searchCity } from "@/lib/roomsetu/cities";
@@ -223,13 +225,6 @@ export const searchListings = createServerFn({ method: "POST" })
     return { listings: rows.map(listingCard), total: rows.length };
   });
 
-function listingId(input: unknown): string {
-  if (typeof input !== "string" || !/^[0-9a-f-]{8,80}$/i.test(input)) {
-    throw new Error("That room could not be found.");
-  }
-  return input;
-}
-
 export const getListing = createServerFn({ method: "POST" })
   .middleware([
     createMiddleware({ type: "function" })
@@ -244,7 +239,10 @@ export const getListing = createServerFn({ method: "POST" })
         return next({ context: { userId: user?.id ?? null } });
       }),
   ])
-  .validator(listingId)
+  .validator((input: unknown) => {
+    if (badListingId(input)) throw notFound();
+    return input as string;
+  })
   .handler(async ({ data: id, context }) => {
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
@@ -260,9 +258,8 @@ export const getListing = createServerFn({ method: "POST" })
       [id],
     );
     const row = rows[0];
-    if (!row || str(row.account_status) === "SUSPENDED") {
-      throw new Error("That room is no longer listed.");
-    }
+    // Missing / REMOVED / suspended owner: a clean 404, not a thrown Error (which SSR turned into a 500).
+    if (listingGone(row)) throw notFound();
     const visible = bool(row.is_demo) || bool(row.host_demo) || str(row.host_identity) === "VERIFIED";
     const isOwner = Boolean(context.userId && context.userId === str(row.owner_id));
     if (!visible && !isOwner) {
