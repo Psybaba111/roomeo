@@ -3,7 +3,8 @@ import QRCode from "qrcode";
 import { hitLimit } from "@/lib/roomsetu/rate-limit";
 import { notifyWhatsApp } from "@/lib/roomsetu/mappstore";
 import { canPublish } from "@/lib/roomsetu/otp";
-import { assertContactAllowed } from "@/lib/roomsetu/squad-api";
+import { assertContactAllowed, markContactRefundDue } from "@/lib/roomsetu/squad-api";
+import { contactRefundDue } from "@/lib/roomsetu/contact";
 import {
   buildUpiLink,
   makeRef,
@@ -1142,7 +1143,9 @@ export const setApplication = createServerFn({ method: "POST" })
     const rows = await sql<{
       seeker_id: string;
       host_id: string;
-    }>`select seeker_id, host_id from applications where id = ${data.id}`;
+      status: string;
+      listing_id: string;
+    }>`select seeker_id, host_id, status, listing_id from applications where id = ${data.id}`;
     const row = rows[0];
     if (!row) throw new Error("Request not found.");
     if (data.status === "WITHDRAWN" && row.seeker_id !== context.userId)
@@ -1150,6 +1153,13 @@ export const setApplication = createServerFn({ method: "POST" })
     if (data.status !== "WITHDRAWN" && row.host_id !== context.userId)
       throw new Error("Only the host can decide.");
     await sql`update applications set status = ${data.status}, updated_at = now() where id = ${data.id}`;
+    if (contactRefundDue({ decision: data.status, previousStatus: row.status })) {
+      await markContactRefundDue(sql, {
+        listingId: row.listing_id,
+        seekerId: row.seeker_id,
+        reason: "Owner declined the request.",
+      });
+    }
     if (data.status === "ACCEPTED" || data.status === "DECLINED") {
       const title = data.status === "ACCEPTED" ? "Visit accepted" : "Request declined";
       const body =
@@ -1352,8 +1362,13 @@ export const submitUtr = createServerFn({ method: "POST" })
     await hitLimit(sql, context.userId, "utr");
     const taken = await sql`select id from payments where utr = ${data.utr} limit 1`;
     if (taken.length) throw new Error("That UTR has already been submitted.");
+    const kindRow = await sql<{
+      kind: string;
+    }>`select kind from payments where ref = ${data.ref} and user_id = ${context.userId}`;
+    if (kindRow[0]?.kind === "CONTACT" && !data.payerVpa)
+      throw new Error("Add your UPI ID so we can refund you if the owner declines.");
     const updated = await sql<{ id: string }>`
-      update payments set utr = ${data.utr}, status = 'SUBMITTED', submitted_at = now()
+      update payments set utr = ${data.utr}, payer_vpa = ${data.payerVpa ?? null}, status = 'SUBMITTED', submitted_at = now()
       where ref = ${data.ref} and user_id = ${context.userId} and provider = 'UPI' and status = 'PENDING'
       returning id`.catch((e: unknown) => {
       if (String(e).includes("payments_utr_key"))

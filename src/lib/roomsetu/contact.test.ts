@@ -89,3 +89,13 @@ test("invite code + whatsapp url", () => {
   assert.match(makeInviteCode(), /^[a-z2-9]{10}$/);
   assert.equal(whatsappShareUrl("Join a b"), "https://wa.me/?text=Join%20a%20b");
 });
+
+import { contactRefundDue } from "./contact.ts";
+test("refund only when owner declines a not-yet-accepted proposal", () => {
+  assert.equal(contactRefundDue({ decision: "DECLINED", previousStatus: "PENDING" }), true);
+  assert.equal(contactRefundDue({ decision: "DECLINED", previousStatus: "VISIT_PROPOSED" }), true);
+  assert.equal(contactRefundDue({ decision: "DECLINED", previousStatus: "ACCEPTED" }), false);
+  assert.equal(contactRefundDue({ decision: "DECLINED", previousStatus: "DECLINED" }), false);
+  assert.equal(contactRefundDue({ decision: "WITHDRAWN", previousStatus: "PENDING" }), false);
+  assert.equal(contactRefundDue({ decision: "ACCEPTED", previousStatus: "PENDING" }), false);
+});

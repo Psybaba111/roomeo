@@ -8,6 +8,7 @@ import { buildUpiLink, makeRef, upiPayee } from "@/lib/roomsetu/upi";
 import {
   allSaidYes,
   contactFeeInr,
+  contactRefundDue,
   contactNeedsPayment,
   joinBlocker,
   makeInviteCode,
@@ -93,6 +94,13 @@ export async function unlockFromPayment(sql: Sql, paymentId: string) {
   if (!listing[0]) return;
   const owner = listing[0].owner_id;
   if (p.squad_id) {
+    const req = await sql<{
+      status: string;
+    }>`select status from squad_requests where squad_id = ${p.squad_id} and listing_id = ${p.listing_id}`;
+    if (req[0]?.status === "DECLINED") {
+      await sql`update payments set status = 'REFUND_DUE', refund_due_at = now(), refund_reason = 'Owner declined before the payment was confirmed.' where id = ${paymentId}`;
+      return;
+    }
     await sql`insert into contact_unlocks (id, listing_id, squad_id, payment_id) values (${crypto.randomUUID()}, ${p.listing_id}, ${p.squad_id}, ${paymentId}) on conflict do nothing`;
     await ensureSquadThread(sql, p.squad_id, p.listing_id, owner, p.user_id);
   } else {
@@ -152,12 +160,27 @@ export const getContactStatus = createServerFn({ method: "POST" })
       ref: string;
       status: string;
     }>`select ref, status from payments where user_id = ${context.userId} and listing_id = ${data} and kind = 'CONTACT' and squad_id is null and status in ('PENDING','SUBMITTED') limit 1`;
+    const refund = await sql<{
+      ref: string;
+      status: string;
+      refund_utr: string | null;
+      payer_vpa: string | null;
+    }>`select ref, status, refund_utr, payer_vpa from payments
+      where user_id = ${context.userId} and listing_id = ${data} and kind = 'CONTACT' and squad_id is null and status in ('REFUND_DUE','REFUNDED') order by created_at desc limit 1`;
     return {
       fee: contactFeeInr(),
       isOwner,
       unlocked,
       pending: open[0] ? { ref: str(open[0].ref), status: str(open[0].status) } : null,
       upiReady: upiPayee().ready,
+      refund: refund[0]
+        ? {
+            ref: str(refund[0].ref),
+            status: str(refund[0].status),
+            utr: str(refund[0].refund_utr),
+            vpa: str(refund[0].payer_vpa),
+          }
+        : null,
     };
   });
 
@@ -235,6 +258,47 @@ export const startContactCheckout = createServerFn({ method: "POST" })
       qr,
     };
   });
+
+/**
+ * Owner declined: the paid contact fee becomes REFUND_DUE (operator refunds by UPI by hand),
+ * the unlock is revoked and the thread is closed.
+ */
+export async function markContactRefundDue(
+  sql: Sql,
+  p: { listingId: string; seekerId?: string; squadId?: string; reason: string },
+) {
+  const rows = p.squadId
+    ? await sql<{
+        id: string;
+        user_id: string;
+      }>`update payments set status = 'REFUND_DUE', refund_due_at = now(), refund_reason = ${p.reason}
+        where kind = 'CONTACT' and status = 'PAID' and listing_id = ${p.listingId} and squad_id = ${p.squadId} returning id, user_id`
+    : await sql<{
+        id: string;
+        user_id: string;
+      }>`update payments set status = 'REFUND_DUE', refund_due_at = now(), refund_reason = ${p.reason}
+        where kind = 'CONTACT' and status = 'PAID' and listing_id = ${p.listingId} and squad_id is null and user_id = ${p.seekerId ?? ""} returning id, user_id`;
+  if (p.squadId)
+    await sql`delete from contact_unlocks where listing_id = ${p.listingId} and squad_id = ${p.squadId}`;
+  else
+    await sql`delete from contact_unlocks where listing_id = ${p.listingId} and seeker_id = ${p.seekerId ?? ""}`;
+  const threads = p.squadId
+    ? await sql<{
+        id: string;
+      }>`select id from conversations where squad_id = ${p.squadId} and listing_id = ${p.listingId} and closed_at is null`
+    : await sql<{
+        id: string;
+      }>`select c.id from conversations c join conversation_members m on m.conversation_id = c.id and m.user_id = ${p.seekerId ?? ""}
+        where c.listing_id = ${p.listingId} and c.squad_id is null and c.closed_at is null`;
+  for (const t of threads) {
+    await sql`insert into messages (id, conversation_id, sender_id, body, kind) select ${crypto.randomUUID()}, ${t.id}, user_id, ${"The owner declined, so this chat is closed. Your contact fee will be refunded to your UPI ID."}, 'SYSTEM' from conversation_members where conversation_id = ${t.id} limit 1`;
+    await sql`update conversations set closed_at = now(), updated_at = now() where id = ${t.id}`;
+  }
+  for (const r of rows) {
+    await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${r.user_id}, 'payment', 'Refund on the way', 'The owner declined, so your contact fee will be refunded to your UPI ID.', '/dashboard')`;
+  }
+  return rows.length;
+}
 
 // ---------------------------------------------------------------- squads
 
@@ -390,7 +454,8 @@ export const getSquad = createServerFn({ method: "POST" })
               r.id as request_id, r.status as request_status, r.owner_note,
               exists (select 1 from contact_unlocks u where u.listing_id = s.listing_id and u.squad_id = s.squad_id) as unlocked,
               (select c.id from conversations c where c.squad_id = s.squad_id and c.listing_id = s.listing_id limit 1) as thread_id,
-              (select p.status from payments p where p.squad_id = s.squad_id and p.listing_id = s.listing_id and p.kind = 'CONTACT' and p.status in ('PENDING','SUBMITTED') order by (p.status = 'SUBMITTED') desc limit 1) as pay_status
+              (select p.status from payments p where p.squad_id = s.squad_id and p.listing_id = s.listing_id and p.kind = 'CONTACT' and p.status in ('PENDING','SUBMITTED') order by (p.status = 'SUBMITTED') desc limit 1) as pay_status,
+              (select p.status || '|' || coalesce(p.refund_utr, '') || '|' || coalesce(p.payer_vpa, '') from payments p where p.squad_id = s.squad_id and p.listing_id = s.listing_id and p.kind = 'CONTACT' and p.status in ('REFUND_DUE','REFUNDED') order by p.created_at desc limit 1) as refund
        from squad_shortlist s join listings l on l.id = s.listing_id
        left join squad_requests r on r.squad_id = s.squad_id and r.listing_id = s.listing_id
        where s.squad_id = $1 order by s.created_at`,
@@ -438,6 +503,7 @@ export const getSquad = createServerFn({ method: "POST" })
           unlocked: bool(s.unlocked),
           threadId: str(s.thread_id),
           payStatus: str(s.pay_status),
+          refund: str(s.refund),
           votes: Object.fromEntries(v.map((x) => [x.user_id, x.vote])),
           allYes: allSaidYes({ size, memberIds: members, yesIds }),
         };
@@ -585,11 +651,19 @@ export const ownerDecideSquad = createServerFn({ method: "POST" })
     const rows = await sql<{
       squad_id: string;
       status: string;
-    }>`select squad_id, status from squad_requests where id = ${data.id} and owner_id = ${context.userId}`;
+      listing_id: string;
+    }>`select squad_id, status, listing_id from squad_requests where id = ${data.id} and owner_id = ${context.userId}`;
     if (!rows[0]) throw new Error("That request is not for your flat.");
     if (rows[0].status === "PAUSED")
       throw new Error("This squad changed members. Wait for them to resend.");
     await sql`update squad_requests set status = ${data.decision}, owner_note = ${data.note}, updated_at = now() where id = ${data.id}`;
+    if (contactRefundDue({ decision: data.decision, previousStatus: rows[0].status })) {
+      await markContactRefundDue(sql, {
+        listingId: rows[0].listing_id,
+        squadId: rows[0].squad_id,
+        reason: "Owner declined the squad request.",
+      });
+    }
     for (const m of await activeMembers(sql, rows[0].squad_id)) {
       await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${m}, 'squad', 'Owner replied', ${`Your squad request is now ${data.decision.toLowerCase().replace("_", " ")}.`}, ${"/squads/" + rows[0].squad_id})`;
     }

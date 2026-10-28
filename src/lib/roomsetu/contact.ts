@@ -86,3 +86,17 @@ export type OwnerDecision = (typeof OWNER_DECISIONS)[number];
 export function whatsappShareUrl(text: string): string {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
+
+/**
+ * Refund rule for the contact fee: refunded only when the owner declines a proposal
+ * (application or squad request) that they had NOT accepted before. No refund once the
+ * owner accepted, and none when the seeker withdraws or leaves.
+ */
+export function contactRefundDue(p: { decision: string; previousStatus: string }): boolean {
+  return (
+    p.decision === "DECLINED" && p.previousStatus !== "ACCEPTED" && p.previousStatus !== "DECLINED"
+  );
+}
+
+export const REFUND_RULE =
+  "If the owner declines your request, the ₹ contact fee is refunded to your UPI ID. No refund once the owner has accepted, or if you withdraw or leave.";

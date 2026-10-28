@@ -589,3 +589,62 @@ export const adminReviewPayment = createServerFn({ method: "POST" })
       ]);
     return { ok: true };
   });
+
+export const adminRefunds = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    const rows = await sql.query<Record<string, unknown>>(
+      `select p.id, p.ref, p.utr, p.amount_inr, p.status, p.purpose, p.payer_vpa, p.refund_reason, p.refund_utr,
+              p.refund_due_at::text as due_at, p.refunded_at::text as refunded_at, coalesce(pr.full_name, p.user_id) as name
+       from payments p left join profiles pr on pr.user_id = p.user_id
+       where p.status in ('REFUND_DUE','REFUNDED') order by (p.status = 'REFUND_DUE') desc, p.refund_due_at desc nulls last limit 200`,
+    );
+    return rows.map((r) => ({
+      id: str(r.id),
+      ref: str(r.ref),
+      utr: str(r.utr),
+      amount: num(r.amount_inr),
+      status: str(r.status),
+      purpose: str(r.purpose),
+      payerVpa: str(r.payer_vpa),
+      reason: str(r.refund_reason),
+      refundUtr: str(r.refund_utr),
+      dueAt: str(r.due_at),
+      refundedAt: str(r.refunded_at),
+      name: str(r.name),
+    }));
+  });
+
+export const adminMarkRefunded = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => {
+    const r = asRecord(input);
+    const id = str(r.id);
+    if (!/^[0-9a-f-]{8,80}$/i.test(id)) throw new Error("Unknown payment.");
+    const utr = str(r.utr).replace(/\s+/g, "");
+    if (!/^\d{12}$/.test(utr)) throw new Error("Enter the 12-digit UTR of the refund you sent.");
+    return { id, utr };
+  })
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    const rows = await sql<{
+      user_id: string;
+      amount_inr: number;
+    }>`update payments set status = 'REFUNDED', refund_utr = ${data.utr}, refunded_by = ${context.userId}, refunded_at = now()
+      where id = ${data.id} and status = 'REFUND_DUE' returning user_id, amount_inr`;
+    if (!rows[0]) throw new Error("This payment is not waiting for a refund.");
+    await audit(
+      sql,
+      context.userId,
+      "payment.refund",
+      "payment",
+      data.id,
+      `refund UTR ${data.utr}`,
+    );
+    await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${rows[0].user_id}, 'payment', 'Refund sent',
+      ${`₹${num(rows[0].amount_inr)} was refunded to your UPI ID. Refund UTR ${data.utr}.`}, '/dashboard')`;
+    return { ok: true };
+  });
