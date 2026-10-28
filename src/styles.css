@@ -1,39 +1,34 @@
 @import "tailwindcss";
 
 @font-face {
-  font-family: "DM Sans";
+  font-family: "Manrope";
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 200 800;
   font-display: swap;
-  src: url("/fonts/dm-sans-latin.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "Syne";
-  font-style: normal;
-  font-weight: 700 800;
-  font-display: swap;
-  src: url("/fonts/syne-latin.woff2") format("woff2");
+  src: url("/fonts/manrope-latin.woff2") format("woff2");
 }
 
 @theme {
-  --font-sans: "DM Sans", "Segoe UI", sans-serif;
-  --font-display: "Syne", "DM Sans", sans-serif;
-  --color-ink: #0d0d0d;
-  --color-paper: #faf9f7;
+  /* One approved typeface (landing-page-design B1). */
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --ease-base: cubic-bezier(0.22, 1, 0.36, 1);
+  --color-ink: #14111f;
+  --color-paper: #f7f5ff;
   --color-card: #ffffff;
-  --color-line: #e8e5e0;
-  --color-muted: #666666;
-  --color-brand: #ff3d8a;
-  --color-brand-deep: #c01040;
-  --color-brand-soft: #ffe4f1;
-  --color-pop: #7c3aed;
-  --color-pop-soft: #efe7ff;
-  --color-trust: #2f4bff;
-  --color-marigold: #7c3aed;
-  --color-marigold-soft: #efe7ff;
-  --color-danger: #c4234a;
+  --color-line: #e4e0f2;
+  --color-muted: #5b5670;
+  --color-brand: #d1006b;
+  --color-brand-deep: #9e0052;
+  --color-brand-soft: #ffe3f1;
+  --color-pop: #5b21b6;
+  --color-pop-soft: #ede6ff;
+  --color-trust: #2f3ccf;
+  --color-marigold: #5b21b6;
+  --color-marigold-soft: #ede6ff;
+  --color-danger: #b4183f;
   --color-danger-soft: #ffe4ec;
+  --color-lime: #c6f432;
 }
 
 @layer base {
@@ -50,7 +45,7 @@
   }
   h1, h2, h3 {
     font-family: var(--font-display);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: -0.03em;
     text-wrap: balance;
   }
@@ -59,8 +54,64 @@
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
+  /* Interaction states everywhere: hover, pressed, focus (B7, B9). Only transform and opacity animate. */
+  a, button, [role="button"], [role="tab"], summary {
+    transition-property: transform, opacity;
+    transition-duration: 300ms;
+    transition-timing-function: var(--ease-base);
+  }
+  button:not(:disabled):hover, [role="tab"]:hover, a[class*="rounded-full"]:hover { opacity: 0.88; }
+  button:not(:disabled):active, [role="tab"]:active, a[class*="rounded-full"]:active, a[class*="rounded-3xl"]:active { transform: scale(0.98); }
+  button:disabled { cursor: not-allowed; opacity: 0.45; }
+  @media (prefers-reduced-motion: reduce) {
+    a, button, [role="button"], [role="tab"], summary { transition-property: opacity; }
+    button:not(:disabled):active, [role="tab"]:active, a:active { transform: none; }
+  }
 }
 
 @utility no-scrollbar {
   scrollbar-width: none;
 }
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+.dark {
+  --color-ink: #f4f1ff;
+  --color-paper: #181818;
+  --color-card: #1f1f1f;
+  --color-line: #313131;
+  --color-muted: #b3adc9;
+  --color-brand: #ff6aa9;
+  --color-brand-deep: #ff9cc6;
+  --color-brand-soft: #3a1730;
+  --color-pop: #c4b0ff;
+  --color-pop-soft: #2a2047;
+  --color-trust: #9fb0ff;
+  --color-marigold: #c4b0ff;
+  --color-marigold-soft: #2a2047;
+  --color-danger: #ff7b98;
+  --color-danger-soft: #3a1420;
+  --color-lime: #c6f432;
+  color-scheme: dark;
+}
+
+/* Flat skeleton that pulses opacity only (no gradient backgrounds). */
+@utility skeleton {
+  background: var(--color-line);
+  animation: skeleton-pulse 1.4s var(--ease-base) infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  html { scroll-behavior: auto; }
+}
+
+:focus-visible { outline: 3px solid var(--color-brand); outline-offset: 2px; }
+
+.leaflet-container { font-family: var(--font-sans); border-radius: 1.5rem; }
+.dark .leaflet-tile-pane { filter: brightness(0.7) contrast(1.1) saturate(0.8); }

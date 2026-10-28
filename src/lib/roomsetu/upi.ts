@@ -18,14 +18,36 @@ export const utrSchema = z
 export const submitUtrInput = z.object({
   ref: z.string().regex(/^RM[A-Z0-9]{8}$/, "Unknown payment."),
   utr: utrSchema,
+  /** Payer's own UPI ID, collected for contact-fee refunds. */
+  payerVpa: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => v || undefined)
+    .pipe(
+      z
+        .string()
+        .regex(
+          /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z][a-zA-Z0-9]{1,64}$/,
+          "Enter your UPI ID, like name@okbank.",
+        )
+        .optional(),
+    ),
 });
 
-export const planCodeSchema = z.string().trim().min(2).max(40).regex(/^[a-z0-9-]+$/);
+export const planCodeSchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(40)
+  .regex(/^[a-z0-9-]+$/);
 
 const REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 /** Short, unambiguous reference shown in the UPI note (e.g. RM7K2QX9AB). */
-export function makeRef(random: (n: number) => Uint8Array = (n) => crypto.getRandomValues(new Uint8Array(n))): string {
+export function makeRef(
+  random: (n: number) => Uint8Array = (n) => crypto.getRandomValues(new Uint8Array(n)),
+): string {
   const bytes = random(8);
   let out = "RM";
   for (const b of bytes) out += REF_ALPHABET[b % REF_ALPHABET.length];
@@ -33,7 +55,12 @@ export function makeRef(random: (n: number) => Uint8Array = (n) => crypto.getRan
 }
 
 /** upi://pay deep link per the NPCI UPI linking spec. */
-export function buildUpiLink(p: { vpa: string; name: string; amountInr: number; ref: string }): string {
+export function buildUpiLink(p: {
+  vpa: string;
+  name: string;
+  amountInr: number;
+  ref: string;
+}): string {
   if (!vpaSchema.safeParse(p.vpa).success) throw new Error("Invalid UPI ID.");
   if (!Number.isInteger(p.amountInr) || p.amountInr <= 0) throw new Error("Invalid amount.");
   const q = new URLSearchParams({
@@ -47,4 +74,3 @@ export function buildUpiLink(p: { vpa: string; name: string; amountInr: number; 
   // Keep "@" literal in the VPA: some UPI apps fail to parse pa=…%40….
   return `upi://pay?${q.toString().replace(/\+/g, "%20").replace(/%40/g, "@")}`;
 }
-

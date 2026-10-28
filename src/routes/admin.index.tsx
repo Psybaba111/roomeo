@@ -99,7 +99,7 @@ function Pulse() {
         cities: (
           <ul>
             {data.cities.map((c) => (
-              <li key={c.city} className="flex justify-between border-b border-line py-2 text-sm">
+              <li key={c.city} className="flex justify-between rounded-lg bg-paper px-3 py-2 text-sm">
                 <span>{c.city}</span>
                 <span className="tabular-nums text-muted">{c.rooms}</span>
               </li>
@@ -131,7 +131,7 @@ function Pulse() {
         Counts include sample rooms so the city network is visible. Sample rows are marked elsewhere. Real accounts: {data?.realUsers ?? "…"}. Drag a section or use the arrows, then save this desk for yourself.
       </p>
       {error ? <p className="mt-3 text-danger">{error}</p> : null}
-      {!data && !error ? <p className="mt-4 text-muted">Loading the desk…</p> : null}
+      {!data && !error ? <div className="mt-4 grid gap-4 sm:grid-cols-3" aria-busy="true" aria-label="Loading the desk">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-24 rounded-3xl" />)}</div> : null}
       <div className="mt-4 flex flex-wrap gap-2">
         {widgets.map((w) => (
           <span key={w.id} className="inline-flex items-center gap-1 rounded-full border border-line bg-card px-2 py-1 text-xs">

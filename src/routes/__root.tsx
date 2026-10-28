@@ -2,16 +2,18 @@ import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-r
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "roomeo — ₹499, not a broker's month" },
-      { name: "description", content: "A bed in Bengaluru. People choose their own group. The owner says yes once. Each share is paid here. ₹499 once. No visit." },
-      { name: "theme-color", content: "#ff3d8a" },
+      { title: "roomeo · Bengaluru beds for students & first jobbers" },
+      { name: "description", content: "A bed in Bengaluru. People choose their own group. Browse free and message 3 owners free. Zero commission on rent." },
+      { name: "theme-color", content: "var(--color-brand)" },
     ],
+    scripts: [{ children: THEME_INIT_SCRIPT }],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },

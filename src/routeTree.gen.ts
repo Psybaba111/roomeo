@@ -17,8 +17,10 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MatchesRouteImport } from './routes/matches'
 import { Route as MessagesRouteImport } from './routes/messages'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as RoomWantedRouteImport } from './routes/room-wanted'
 import { Route as SavedRouteImport } from './routes/saved'
 import { Route as SearchRouteImport } from './routes/search'
@@ -26,15 +28,21 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
+import { Route as AdminHostsRouteImport } from './routes/admin.hosts'
 import { Route as AdminListingsRouteImport } from './routes/admin.listings'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminReportsRouteImport } from './routes/admin.reports'
+import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminVerificationsRouteImport } from './routes/admin.verifications'
 import { Route as ListingIdRouteImport } from './routes/listing.$id'
+import { Route as SquadsIndexRouteImport } from './routes/squads.index'
+import { Route as SquadsIdRouteImport } from './routes/squads.$id'
 import { Route as VerifyDigilockerRouteImport } from './routes/verify.digilocker'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCronPricingRouteImport } from './routes/api/cron/pricing'
 import { Route as ApiWebhooksMappstoreRouteImport } from './routes/api/webhooks/mappstore'
+import { Route as SquadsJoinCodeRouteImport } from './routes/squads.join.$code'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -76,6 +84,11 @@ const MessagesRoute = MessagesRouteImport.update({
   path: '/messages',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -84,6 +97,11 @@ const ProfileRoute = ProfileRouteImport.update({
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RoomWantedRoute = RoomWantedRouteImport.update({
@@ -121,6 +139,11 @@ const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
   path: '/admin/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminHostsRoute = AdminHostsRouteImport.update({
+  id: '/admin/hosts',
+  path: '/admin/hosts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminListingsRoute = AdminListingsRouteImport.update({
   id: '/admin/listings',
   path: '/admin/listings',
@@ -134,6 +157,11 @@ const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
 const AdminReportsRoute = AdminReportsRouteImport.update({
   id: '/admin/reports',
   path: '/admin/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRevenueRoute = AdminRevenueRouteImport.update({
+  id: '/admin/revenue',
+  path: '/admin/revenue',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
@@ -151,6 +179,16 @@ const ListingIdRoute = ListingIdRouteImport.update({
   path: '/listing/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SquadsIndexRoute = SquadsIndexRouteImport.update({
+  id: '/squads/',
+  path: '/squads/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SquadsIdRoute = SquadsIdRouteImport.update({
+  id: '/squads/$id',
+  path: '/squads/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerifyDigilockerRoute = VerifyDigilockerRouteImport.update({
   id: '/verify/digilocker',
   path: '/verify/digilocker',
@@ -161,9 +199,19 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronPricingRoute = ApiCronPricingRouteImport.update({
+  id: '/api/cron/pricing',
+  path: '/api/cron/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksMappstoreRoute = ApiWebhooksMappstoreRouteImport.update({
   id: '/api/webhooks/mappstore',
   path: '/api/webhooks/mappstore',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SquadsJoinCodeRoute = SquadsJoinCodeRouteImport.update({
+  id: '/squads/join/$code',
+  path: '/squads/join/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -176,24 +224,32 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
+  '/pricing': typeof PricingRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/room-wanted': typeof RoomWantedRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
+  '/admin/revenue': typeof AdminRevenueRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/listing/$id': typeof ListingIdRoute
+  '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
   '/admin/': typeof AdminIndexRoute
+  '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/pricing': typeof ApiCronPricingRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
+  '/squads/join/$code': typeof SquadsJoinCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -204,24 +260,32 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
+  '/pricing': typeof PricingRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/room-wanted': typeof RoomWantedRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
+  '/admin/revenue': typeof AdminRevenueRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/listing/$id': typeof ListingIdRoute
+  '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
   '/admin': typeof AdminIndexRoute
+  '/squads': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/pricing': typeof ApiCronPricingRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
+  '/squads/join/$code': typeof SquadsJoinCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -233,24 +297,32 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
+  '/pricing': typeof PricingRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/room-wanted': typeof RoomWantedRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/reports': typeof AdminReportsRoute
+  '/admin/revenue': typeof AdminRevenueRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/listing/$id': typeof ListingIdRoute
+  '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
   '/admin/': typeof AdminIndexRoute
+  '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/pricing': typeof ApiCronPricingRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
+  '/squads/join/$code': typeof SquadsJoinCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -263,24 +335,32 @@ export interface FileRouteTypes {
     | '/login'
     | '/matches'
     | '/messages'
+    | '/pricing'
     | '/profile'
     | '/register'
+    | '/robots.txt'
     | '/room-wanted'
     | '/saved'
     | '/search'
     | '/sitemap.xml'
     | '/verification'
     | '/admin/analytics'
+    | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
     | '/admin/reports'
+    | '/admin/revenue'
     | '/admin/users'
     | '/admin/verifications'
     | '/listing/$id'
+    | '/squads/$id'
     | '/verify/digilocker'
     | '/admin/'
+    | '/squads/'
     | '/api/auth/$'
+    | '/api/cron/pricing'
     | '/api/webhooks/mappstore'
+    | '/squads/join/$code'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -291,24 +371,32 @@ export interface FileRouteTypes {
     | '/login'
     | '/matches'
     | '/messages'
+    | '/pricing'
     | '/profile'
     | '/register'
+    | '/robots.txt'
     | '/room-wanted'
     | '/saved'
     | '/search'
     | '/sitemap.xml'
     | '/verification'
     | '/admin/analytics'
+    | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
     | '/admin/reports'
+    | '/admin/revenue'
     | '/admin/users'
     | '/admin/verifications'
     | '/listing/$id'
+    | '/squads/$id'
     | '/verify/digilocker'
     | '/admin'
+    | '/squads'
     | '/api/auth/$'
+    | '/api/cron/pricing'
     | '/api/webhooks/mappstore'
+    | '/squads/join/$code'
   id:
     | '__root__'
     | '/'
@@ -319,24 +407,32 @@ export interface FileRouteTypes {
     | '/login'
     | '/matches'
     | '/messages'
+    | '/pricing'
     | '/profile'
     | '/register'
+    | '/robots.txt'
     | '/room-wanted'
     | '/saved'
     | '/search'
     | '/sitemap.xml'
     | '/verification'
     | '/admin/analytics'
+    | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
     | '/admin/reports'
+    | '/admin/revenue'
     | '/admin/users'
     | '/admin/verifications'
     | '/listing/$id'
+    | '/squads/$id'
     | '/verify/digilocker'
     | '/admin/'
+    | '/squads/'
     | '/api/auth/$'
+    | '/api/cron/pricing'
     | '/api/webhooks/mappstore'
+    | '/squads/join/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -348,24 +444,32 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MatchesRoute: typeof MatchesRoute
   MessagesRoute: typeof MessagesRoute
+  PricingRoute: typeof PricingRoute
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   RoomWantedRoute: typeof RoomWantedRoute
   SavedRoute: typeof SavedRoute
   SearchRoute: typeof SearchRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerificationRoute: typeof VerificationRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
+  AdminHostsRoute: typeof AdminHostsRoute
   AdminListingsRoute: typeof AdminListingsRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminReportsRoute: typeof AdminReportsRoute
+  AdminRevenueRoute: typeof AdminRevenueRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVerificationsRoute: typeof AdminVerificationsRoute
   ListingIdRoute: typeof ListingIdRoute
+  SquadsIdRoute: typeof SquadsIdRoute
   VerifyDigilockerRoute: typeof VerifyDigilockerRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  SquadsIndexRoute: typeof SquadsIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCronPricingRoute: typeof ApiCronPricingRoute
   ApiWebhooksMappstoreRoute: typeof ApiWebhooksMappstoreRoute
+  SquadsJoinCodeRoute: typeof SquadsJoinCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -426,6 +530,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MessagesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -438,6 +549,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/room-wanted': {
@@ -489,6 +607,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/hosts': {
+      id: '/admin/hosts'
+      path: '/admin/hosts'
+      fullPath: '/admin/hosts'
+      preLoaderRoute: typeof AdminHostsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/listings': {
       id: '/admin/listings'
       path: '/admin/listings'
@@ -508,6 +633,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/reports'
       fullPath: '/admin/reports'
       preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/revenue': {
+      id: '/admin/revenue'
+      path: '/admin/revenue'
+      fullPath: '/admin/revenue'
+      preLoaderRoute: typeof AdminRevenueRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/users': {
@@ -531,6 +663,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ListingIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/squads/': {
+      id: '/squads/'
+      path: '/squads'
+      fullPath: '/squads/'
+      preLoaderRoute: typeof SquadsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/squads/$id': {
+      id: '/squads/$id'
+      path: '/squads/$id'
+      fullPath: '/squads/$id'
+      preLoaderRoute: typeof SquadsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verify/digilocker': {
       id: '/verify/digilocker'
       path: '/verify/digilocker'
@@ -545,11 +691,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/pricing': {
+      id: '/api/cron/pricing'
+      path: '/api/cron/pricing'
+      fullPath: '/api/cron/pricing'
+      preLoaderRoute: typeof ApiCronPricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/mappstore': {
       id: '/api/webhooks/mappstore'
       path: '/api/webhooks/mappstore'
       fullPath: '/api/webhooks/mappstore'
       preLoaderRoute: typeof ApiWebhooksMappstoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/squads/join/$code': {
+      id: '/squads/join/$code'
+      path: '/squads/join/$code'
+      fullPath: '/squads/join/$code'
+      preLoaderRoute: typeof SquadsJoinCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -564,24 +724,32 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MatchesRoute: MatchesRoute,
   MessagesRoute: MessagesRoute,
+  PricingRoute: PricingRoute,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
   RoomWantedRoute: RoomWantedRoute,
   SavedRoute: SavedRoute,
   SearchRoute: SearchRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerificationRoute: VerificationRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
+  AdminHostsRoute: AdminHostsRoute,
   AdminListingsRoute: AdminListingsRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
   AdminReportsRoute: AdminReportsRoute,
+  AdminRevenueRoute: AdminRevenueRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminVerificationsRoute: AdminVerificationsRoute,
   ListingIdRoute: ListingIdRoute,
+  SquadsIdRoute: SquadsIdRoute,
   VerifyDigilockerRoute: VerifyDigilockerRoute,
   AdminIndexRoute: AdminIndexRoute,
+  SquadsIndexRoute: SquadsIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCronPricingRoute: ApiCronPricingRoute,
   ApiWebhooksMappstoreRoute: ApiWebhooksMappstoreRoute,
+  SquadsJoinCodeRoute: SquadsJoinCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

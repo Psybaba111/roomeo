@@ -43,7 +43,7 @@ function WantedPage() {
           Post that you need a room
         </Link>
       </div>
-      <label className="mt-5 block max-w-xs">
+      <label className="mt-4 block max-w-xs">
         <span className="mb-1 block text-sm text-muted">City</span>
         <select className={control} value={city} onChange={(e) => setCity(e.target.value)}>
           <option value="">All cities</option>
@@ -53,7 +53,7 @@ function WantedPage() {
       {error ? <p className="mt-3 text-danger">{error}</p> : null}
       <ul className="mt-6 space-y-3">
         {rows.map((person) => (
-          <li key={person.id} className="rounded-3xl border border-line bg-card p-5">
+          <li key={person.id} className="rounded-3xl border border-line bg-card p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="font-semibold">
@@ -64,7 +64,7 @@ function WantedPage() {
                 <p className="text-sm text-muted">
                   {person.occupation} · {person.city}
                   {person.localities ? ` · ${person.localities}` : ""} · {inr(person.budget)} · {person.roomPref}
-                  {person.moveIn ? ` · move-in ${whenLabel(person.moveIn)}` : ""}
+                  {person.moveIn ? ` · move in ${whenLabel(person.moveIn)}` : ""}
                 </p>
               </div>
               <button

@@ -4,10 +4,11 @@ import { listingCard, num, str, bool, type ListingCard } from "@/lib/roomsetu/ma
 import { likeContains } from "@/lib/roomsetu/services";
 
 const CARD_SQL = `
-  l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type,
+  l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type, l.listing_kind, l.bedrooms,
   l.furnished, l.gender_pref, l.available_from::text as available_from,
   case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status,
-  l.status, l.listing_tier, l.is_demo, l.food_available, l.quality_score,
+  l.status, l.listing_tier, l.is_demo, (l.boosted_until is not null and l.boosted_until > now()) as boosted, l.food_available, l.quality_score,
+  l.wifi, l.ac, l.pets_allowed, l.smoking_allowed, l.kitchen, l.guest_policy, l.occupation_pref,
   p.property_type,
   pr.full_name as host_name,
   (select i.url from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
@@ -33,6 +34,7 @@ export type SearchFilters = {
   wifi: boolean;
   ac: boolean;
   parking: boolean;
+  entireFlat: boolean;
   availableBy: string;
   propertyType: string;
   sort: string;
@@ -67,6 +69,7 @@ function filters(input: unknown): SearchFilters {
     wifi: o.wifi === true,
     ac: o.ac === true,
     parking: o.parking === true,
+    entireFlat: o.entireFlat === true,
     availableBy: /^\d{4}-\d{2}-\d{2}$/.test(clean(o.availableBy, 10)) ? clean(o.availableBy, 10) : "",
     propertyType: clean(o.propertyType, 40),
     sort: allowed.includes(sort) ? sort : "recommended",
@@ -81,7 +84,8 @@ export const getHome = createServerFn({ method: "GET" }).handler(async () => {
      where l.status = 'ACTIVE' and pr.account_status = 'ACTIVE'
        and lower(l.city_name) = 'bengaluru'
        and (l.is_demo = true or pr.identity_status = 'VERIFIED')
-     order by case when l.listing_tier = 'FEATURED' then 0 when l.listing_tier = 'PREMIUM' then 1 else 2 end,
+     order by case when l.boosted_until > now() then 0 else 1 end,
+              case when l.listing_tier = 'FEATURED' then 0 when l.listing_tier = 'PREMIUM' then 1 else 2 end,
               case when l.verification_status = 'VERIFIED' then 0 else 1 end,
               l.quality_score desc
      limit 8`,
@@ -176,6 +180,7 @@ export const searchListings = createServerFn({ method: "POST" })
     if (data.gender === "WOMEN" || data.gender === "MEN") add(data.gender, "l.gender_pref in ('ANY', $#)");
     if (data.occupation && data.occupation !== "ANY") add(data.occupation, "l.occupation_pref in ('ANY', $#)");
     if (data.food) where.push("l.food_available = true");
+    if (data.entireFlat) where.push("l.listing_kind = 'ENTIRE_FLAT'");
     if (data.wifi) where.push("l.wifi = true");
     if (data.ac) where.push("l.ac = true");
     if (data.parking) where.push("l.parking = true");
@@ -183,7 +188,7 @@ export const searchListings = createServerFn({ method: "POST" })
     if (data.propertyType) add(data.propertyType, "p.property_type = $#");
     if (data.q) add(likeContains(data.q), "(lower(l.title) like $# escape '\\' or lower(l.locality_name) like $# escape '\\' or lower(l.city_name) like $# escape '\\')");
 
-    let order = `case when l.listing_tier = 'FEATURED' then 0 when l.listing_tier = 'PREMIUM' then 1 else 2 end, case when l.verification_status = 'VERIFIED' then 0 else 1 end, l.quality_score desc, l.created_at desc`;
+    let order = `case when l.boosted_until > now() then 0 else 1 end, case when l.listing_tier = 'FEATURED' then 0 when l.listing_tier = 'PREMIUM' then 1 else 2 end, case when l.verification_status = 'VERIFIED' then 0 else 1 end, l.quality_score desc, l.created_at desc`;
     if (data.sort === "rent_asc") order = "l.monthly_rent asc, l.created_at desc";
     if (data.sort === "rent_desc") order = "l.monthly_rent desc";
     if (data.sort === "newest") order = "l.created_at desc";
@@ -292,6 +297,9 @@ export const getListing = createServerFn({ method: "POST" })
       agePref: str(row.age_pref),
       occupationPref: str(row.occupation_pref),
       roommatePref: str(row.roommate_pref),
+      kind: str(row.listing_kind) || "BED",
+      bedrooms: num(row.bedrooms),
+      ownerId: str(row.owner_id),
       lat: num(row.lat),
       lng: num(row.lng),
       images: images.map((img) => ({ url: str(img.url), category: str(img.category) })),
@@ -364,3 +372,27 @@ export const listRoomWanted = createServerFn({ method: "POST" })
   });
 
 export type { ListingCard };
+
+/** Locality centroids for the area-level map. Never property coordinates. */
+export const listAreaCentroids = createServerFn({ method: "GET" }).handler(async () => {
+  const sql = await getSql();
+  const rows = await sql.query<Record<string, unknown>>(
+    `select l.name, l.lat, l.lng from localities l join cities c on c.id = l.city_id where c.name = 'Bengaluru'`,
+  );
+  // Seeded coordinates are placeholders; prefer real public area centroids where we know them.
+  const KNOWN: Record<string, [number, number]> = {
+    Koramangala: [12.935, 77.624],
+    Indiranagar: [12.971, 77.641],
+    Whitefield: [12.97, 77.75],
+    Jayanagar: [12.925, 77.583],
+    "HSR Layout": [12.912, 77.645],
+    "BTM Layout": [12.917, 77.61],
+    Marathahalli: [12.956, 77.701],
+    "Electronic City": [12.845, 77.66],
+  };
+  return rows.map((r) => {
+    const name = str(r.name);
+    const k = KNOWN[name];
+    return { name, lat: k ? k[0] : num(r.lat), lng: k ? k[1] : num(r.lng) };
+  });
+});

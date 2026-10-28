@@ -8,6 +8,70 @@ import { listApplications, openConversation, setApplication } from "@/lib/roomse
 import { agreeRent, confirmRentPayment, startRentPayment } from "@/lib/roomsetu/trust-api";
 import { inr } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { confirmMoveIn, myMoveIns, startSuccessFeeCheckout } from "@/lib/roomsetu/pricing-api";
+import { UpiCheckout, type UpiCheckoutData } from "@/components/upi-checkout";
+import { btnSmallPrimary, errorBox, inner } from "@/components/ui-tokens";
+
+type MoveInfo = Awaited<ReturnType<typeof myMoveIns>>;
+
+/** Both sides confirm the move in. The success fee (off at launch) shows only after both confirm. */
+function MoveIn({ applicationId, mine, info, reload }: { applicationId: string; mine: boolean; info: MoveInfo | null; reload: () => void }) {
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [checkout, setCheckout] = useState<UpiCheckoutData | null>(null);
+  const m = info?.items.find((i) => i.applicationId === applicationId);
+  const meDone = mine ? m?.seekerConfirmed : m?.ownerConfirmed;
+  const fee = mine ? info?.tenantFee ?? 0 : info?.ownerFee ?? 0;
+  return (
+    <div className={`mt-4 text-sm ${inner}`} data-testid="move-in">
+      {m?.confirmed ? (
+        <p className="font-semibold" data-testid="move-in-confirmed">Move in confirmed by both of you.</p>
+      ) : meDone ? (
+        <p>You confirmed. Waiting for the {mine ? "owner" : "tenant"} to confirm.</p>
+      ) : (
+        <button
+          type="button"
+          disabled={busy}
+          className={btnSmallPrimary}
+          data-testid="confirm-move-in"
+          onClick={() => {
+            setBusy(true);
+            setError("");
+            void confirmMoveIn({ data: { applicationId } }).then(reload).catch((e) => setError(errText(e))).finally(() => setBusy(false));
+          }}
+        >
+          Confirm move in
+        </button>
+      )}
+      {m?.confirmed && info?.successFeeEnabled && fee > 0 ? (
+        m.feeStatus === "PAID" ? (
+          <p className="mt-2 text-muted">Move in fee paid. Thanks.</p>
+        ) : m.feeStatus === "SUBMITTED" && !checkout ? (
+          <p className="mt-2 text-muted">Move in fee received. Roomeo is confirming it.</p>
+        ) : checkout ? (
+          <UpiCheckout data={checkout} onClose={() => { setCheckout(null); reload(); }} />
+        ) : (
+          <div className="mt-2">
+            <p className="text-muted [text-wrap:pretty]">A flat ₹{fee} move in fee, never a cut of the rent.</p>
+            <button
+              type="button"
+              disabled={busy}
+              className={`mt-2 ${btnSmallPrimary}`}
+              data-testid="pay-success-fee"
+              onClick={() => {
+                setBusy(true);
+                void startSuccessFeeCheckout({ data: { applicationId } }).then(setCheckout).catch((e) => setError(errText(e))).finally(() => setBusy(false));
+              }}
+            >
+              Pay ₹{fee} move in fee
+            </button>
+          </div>
+        )
+      ) : null}
+      {error ? <p className={`mt-2 ${errorBox}`} role="alert">{error}</p> : null}
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/applications")({
   head: () => pageHead("Room requests", { noindex: true }),
@@ -49,16 +113,21 @@ function Apps() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<Awaited<ReturnType<typeof listApplications>>>([]);
   const [error, setError] = useState("");
+  const [moves, setMoves] = useState<MoveInfo | null>(null);
+  function loadMoves() {
+    void myMoveIns().then(setMoves).catch(() => undefined);
+  }
   function load() {
     void listApplications().then(setRows).catch((e) => setError(errText(e)));
+    loadMoves();
   }
   useEffect(() => {
     if (user) load();
   }, [user]);
   return (
     <Shell>
-      <h1 className="text-4xl font-semibold tracking-tight">The group</h1>
-      <p className="mt-2 text-muted">No visit. The owner says yes or no once. Each person pays their own bed. ₹499 once on the first month. Later months are the rent only.</p>
+      <h1 className="text-4xl font-semibold tracking-tight">Room requests</h1>
+      <p className="mt-2 text-muted [text-wrap:pretty]">Requests are free. Once the owner accepts and you move in, both of you tap Confirm move in.</p>
       {error ? <p className="mt-3 text-danger">{error}</p> : null}
       <ul className="mt-6 space-y-3">
         {rows.map((row) => (
@@ -71,10 +140,13 @@ function Apps() {
                 <p className="mt-1 text-sm">{row.mine ? "You asked" : row.seekerName} · {row.status}</p>
                 {row.status === "ACCEPTED" && !row.demo ? (
                   <p className="mt-2 text-sm">
-                    Seeker pays {inr(row.seekerPays)} the first month. Owner receives {inr(row.hostReceives)}. ₹499 once each. Later months are the rent only.
+                    Rent {inr(row.rent)} a month and {inr(row.deposit)} deposit, paid to the owner. Roomeo takes no cut of the rent.
                     {" "}{row.seekerAgreed ? "Seeker agreed." : "Seeker has not agreed."} {row.hostAgreed ? "Host agreed." : "Host has not agreed."}
                     {row.agreement === "PAID" ? " Paid." : ""}
                   </p>
+                ) : null}
+                {row.status === "ACCEPTED" && !row.demo ? (
+                  <MoveIn applicationId={row.id} mine={row.mine} info={moves} reload={loadMoves} />
                 ) : null}
                 {row.demo ? <p className="mt-2 text-sm text-muted">Sample room. Rent is not collected here.</p> : null}
               </div>

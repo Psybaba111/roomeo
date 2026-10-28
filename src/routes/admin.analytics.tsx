@@ -41,7 +41,7 @@ function Charts() {
               ["Match rows", data.matches],
               ["Enquiry rate", `${data.enquiryRate}%`],
               ["Avg deposit", inr(data.avgDeposit)],
-              ["Paid-tier rooms", data.paidListings],
+              ["Paid tier rooms", data.paidListings],
               ["Occupied", data.roomsOccupied],
               ["Messages", data.messages],
             ].map(([k, v]) => (

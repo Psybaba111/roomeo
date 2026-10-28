@@ -1,3 +1,4 @@
+import { vibeTags, type Vibe } from "./vibes.ts";
 export function num(v: unknown): number {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   const n = Number(v);
@@ -29,9 +30,13 @@ export type ListingCard = {
   photo: string | null;
   hostName: string;
   isDemo: boolean;
+  boosted: boolean;
   propertyType: string;
   food: boolean;
   quality: number;
+  vibes: Vibe[];
+  kind: string;
+  bedrooms: number;
 };
 
 export function cardPhoto(url: string | null, _width = 720): string | null {
@@ -66,9 +71,13 @@ export function listingCard(row: Record<string, unknown>): ListingCard {
     photo: row.photo ? cardPhoto(str(row.photo), 720) : null,
     hostName: str(row.host_name),
     isDemo: bool(row.is_demo),
+    boosted: bool(row.boosted),
     propertyType: str(row.property_type),
     food: bool(row.food_available),
     quality: num(row.quality_score),
+    vibes: vibeTags(row),
+    kind: str(row.listing_kind) || "BED",
+    bedrooms: num(row.bedrooms),
   };
 }
 
