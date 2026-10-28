@@ -19,6 +19,7 @@ import { Route as MatchesRouteImport } from './routes/matches'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as RoomWantedRouteImport } from './routes/room-wanted'
 import { Route as SavedRouteImport } from './routes/saved'
 import { Route as SearchRouteImport } from './routes/search'
@@ -84,6 +85,11 @@ const ProfileRoute = ProfileRouteImport.update({
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RoomWantedRoute = RoomWantedRouteImport.update({
@@ -178,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/room-wanted': typeof RoomWantedRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
@@ -206,6 +213,7 @@ export interface FileRoutesByTo {
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/room-wanted': typeof RoomWantedRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
@@ -235,6 +243,7 @@ export interface FileRoutesById {
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/room-wanted': typeof RoomWantedRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
@@ -265,6 +274,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/profile'
     | '/register'
+    | '/robots.txt'
     | '/room-wanted'
     | '/saved'
     | '/search'
@@ -293,6 +303,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/profile'
     | '/register'
+    | '/robots.txt'
     | '/room-wanted'
     | '/saved'
     | '/search'
@@ -321,6 +332,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/profile'
     | '/register'
+    | '/robots.txt'
     | '/room-wanted'
     | '/saved'
     | '/search'
@@ -350,6 +362,7 @@ export interface RootRouteChildren {
   MessagesRoute: typeof MessagesRoute
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   RoomWantedRoute: typeof RoomWantedRoute
   SavedRoute: typeof SavedRoute
   SearchRoute: typeof SearchRoute
@@ -438,6 +451,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/room-wanted': {
@@ -566,6 +586,7 @@ const rootRouteChildren: RootRouteChildren = {
   MessagesRoute: MessagesRoute,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
   RoomWantedRoute: RoomWantedRoute,
   SavedRoute: SavedRoute,
   SearchRoute: SearchRoute,
