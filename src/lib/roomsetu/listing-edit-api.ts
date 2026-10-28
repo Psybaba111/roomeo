@@ -84,12 +84,14 @@ export const updateListing = createServerFn({ method: "POST" })
       data.availableFrom,
       editQuality(keep.length + data.newPhotos.length, data.description, data.furnished),
       ...EDIT_AMENITIES.map((a) => data.amenities[a.key]),
+      String(data.monthlyRent),
     ];
+    const rentText = `$${params.length}`;
     await sql.query(
-      `update listings set monthly_rent = $2, deposit = $3, description = coalesce(nullif($4, ''), description),
+      `update listings set monthly_rent = $2::int, deposit = $3::int, description = coalesce(nullif($4, ''), description),
          furnished = $5, available_from = $6::date, quality_score = $7,
          ${cols.map((c, i) => `${c} = $${i + 8}`).join(", ")},
-         fingerprint = lower(city_name || '|' || locality_name || '|' || $2::text || '|' || room_type),
+         fingerprint = lower(city_name || '|' || locality_name || '|' || ${rentText}::text || '|' || room_type),
          updated_at = now()
        where id = $1`,
       params,
