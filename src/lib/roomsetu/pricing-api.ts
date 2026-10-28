@@ -261,7 +261,7 @@ export const adminRevenue = createServerFn({ method: "GET" })
       activePasses: await one(`select count(*)::int as n from contact_passes where status = 'ACTIVE' and ends_at > now() and $1 > 0`),
       boosts: await one(`select count(*)::int as n from payments where kind = 'BOOST' and status = 'PAID' and coalesce(reviewed_at, created_at) > ${since}`),
       fastTracks: await one(`select count(*)::int as n from payments where kind = 'FASTTRACK' and status = 'PAID' and coalesce(reviewed_at, created_at) > ${since}`),
-      moveIns: await one(`select count(*)::int as n from move_ins where confirmed_at > ${since}`),
+      moveIns: await one(`select ((select count(*) from move_ins where confirmed_at > ${since}) + (select count(*) from squad_move_ins where confirmed_at > ${since}))::int as n`),
       grossInr: gross,
       refundInr,
       netInr: gross - refundInr,

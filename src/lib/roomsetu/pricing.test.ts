@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { boostedUntil, contactAccess, contactQuote, moveInConfirmed, passRefundDue, passSettleable, passWindow, pricingConfig, squadShareInr, squadUnlockReady } from "./pricing.ts";
+import { squadMoveInConfirmed, squadSuccessShareInr, boostedUntil, contactAccess, contactQuote, moveInConfirmed, passRefundDue, passSettleable, passWindow, pricingConfig, squadShareInr, squadUnlockReady } from "./pricing.ts";
 import { containsContactDetails } from "./contact.ts";
 
 test("legacy model keeps ₹499 per listing", () => {
@@ -81,4 +81,12 @@ test("pass timing, stacking and boost extension", () => {
   assert.equal(boostedUntil(now, end, 7).toISOString(), "2026-11-06T00:00:00.000Z");
   assert.equal(moveInConfirmed({ seekerAt: "x", ownerAt: null }), false);
   assert.equal(moveInConfirmed({ seekerAt: "x", ownerAt: "y" }), true);
+});
+
+test("squad move in needs every member and the owner; fee split per member", () => {
+  assert.equal(squadMoveInConfirmed({ memberIds: ["a", "b"], confirmedIds: ["a", "b"], ownerConfirmed: true }), true);
+  assert.equal(squadMoveInConfirmed({ memberIds: ["a", "b"], confirmedIds: ["a"], ownerConfirmed: true }), false);
+  assert.equal(squadMoveInConfirmed({ memberIds: ["a", "b"], confirmedIds: ["a", "b"], ownerConfirmed: false }), false);
+  assert.equal(squadSuccessShareInr(499, 2), 250);
+  assert.equal(squadSuccessShareInr(499, 3), 167);
 });

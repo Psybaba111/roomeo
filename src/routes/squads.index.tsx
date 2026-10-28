@@ -1,3 +1,4 @@
+import { SquadMoveIn } from "@/components/squad-move-in";
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -168,6 +169,7 @@ function Squads() {
                     ))}
                   </div>
                 )}
+                {r.status === "ACCEPTED" ? <SquadMoveIn requestId={r.id} /> : null}
                 {reqError[r.id] ? (
                   <p className={`mt-2 ${errorBox}`} role="alert">
                     {reqError[r.id]}
@@ -175,8 +177,8 @@ function Squads() {
                 ) : null}
                 <p className="mt-2 text-xs text-muted">
                   Before they pay you can send up to 3 short notes, without phone numbers, emails or
-                  links. If you decline before accepting, the squad's contact fee is refunded by
-                  roomeo. You never pay.
+                  links. If you decline, the squad gets its free chat back or it counts toward their
+                  pass refund promise. You never pay to reply.
                 </p>
                 {r.threadId ? (
                   <Link

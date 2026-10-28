@@ -18,7 +18,6 @@ import {
 } from "@/lib/roomsetu/account-api";
 import { REPORT_CATEGORIES } from "@/lib/roomsetu/constants";
 import { genderLabel, inr, cardPhoto, whenLabel } from "@/lib/roomsetu/map";
-import { rentQuote } from "@/lib/roomsetu/money";
 import { ShareButtons } from "@/components/share-buttons";
 import { SITE_URL } from "@/lib/seo";
 
@@ -98,7 +97,6 @@ function ListingBody({ room }: { room: LoadedRoom }) {
   }
 
   const img = room.images[photo] ?? room.images[0];
-  const quote = rentQuote(room.rent, room.deposit);
   const facts = [
     ["Room", room.roomType],
     ["Furnished", room.furnished],
@@ -203,13 +201,13 @@ function ListingBody({ room }: { room: LoadedRoom }) {
             {inr(room.rent)} <span className="text-lg font-medium text-muted">/ month</span>
           </p>
           <div className="mt-4 rounded-3xl bg-ink p-4 text-card">
-            <p className="text-sm font-semibold text-brand">First month on this bed</p>
+            <p className="text-sm font-semibold text-brand">To move in</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">
-              You pay {inr(quote.seekerPays)}
+              {inr(room.rent)} rent + {inr(room.deposit)} deposit
             </p>
             <p className="mt-1 text-sm text-brand-soft">
-              Rent plus ₹499 once. The owner receives {inr(quote.hostReceives)}. Later months are
-              just the rent. No visit. No score. One person on this bed.
+              Rent and deposit go to the owner. Roomeo takes no cut of your rent. Message 3 owners
+              free, then a pass from ₹149 a week if you need more.
             </p>
           </div>
           <div className="mt-4 flex flex-col gap-2">

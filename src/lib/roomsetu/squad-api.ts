@@ -1,5 +1,6 @@
 import { contactQuote, pricingConfig, squadFeeInr, squadUnlockReady, type SquadPayMode } from "@/lib/roomsetu/pricing";
-import { contactSummary, grantContact, recordDecline, squadActivePass, startSquadPass } from "@/lib/roomsetu/pricing-db";
+import { contactSummary, grantContact, grantSquadContactFromMember, recordDecline, squadActivePass, startSquadPass } from "@/lib/roomsetu/pricing-db";
+import { squadMoveInConfirmed, squadSuccessShareInr } from "@/lib/roomsetu/pricing";
 import { createServerFn } from "@tanstack/react-start";
 import QRCode from "qrcode";
 import { getSql, type Sql } from "@/lib/db";
@@ -554,6 +555,7 @@ export const getSquad = createServerFn({ method: "POST" })
       model: pricingConfig().contactModel,
       perMember: pricingConfig().passes.SQUAD.priceInr,
       passEndsAt: str((await squadActivePass(sql, data))?.ends_at),
+      myContacts: await contactSummary(sql, context.userId),
       splitEnabled: pricingConfig().squadSplitEnabled,
       members: people.map((p) => ({
         id: str(p.user_id),
@@ -576,6 +578,7 @@ export const getSquad = createServerFn({ method: "POST" })
           bedrooms: num(s.bedrooms),
           listingStatus: str(s.status),
           requestStatus: str(s.request_status),
+          requestId: str(s.request_id),
           ownerNote: str(s.owner_note),
           unlocked: bool(s.unlocked),
           threadId: str(s.thread_id),
@@ -789,4 +792,110 @@ export const ownerSquadNote = createServerFn({ method: "POST" })
       await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${m}, 'squad', 'Note from the owner', ${data.note}, ${"/squads/" + r.squad_id})`;
     }
     return { ok: true, notesLeft: OWNER_NOTE_LIMIT - num(r.notes_count) - 1 };
+  });
+
+// ---------------------------------------------------------------- squad unlock from a member + squad move in
+
+/** A member spends one of their free chats, or uses their personal pass, to open the squad chat. */
+export const unlockSquadWithMember = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => {
+    const o = rec(input);
+    if (o.use !== "FREE" && o.use !== "PASS") throw new Error("Pick a free chat or your pass.");
+    return { squadId: key(o.squadId, "squad"), listingId: key(o.listingId, "room"), use: o.use as "FREE" | "PASS" };
+  })
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await requireMember(sql, data.squadId, context.userId);
+    const req = await sql<{ status: string; owner_id: string }>`select status, owner_id from squad_requests where squad_id = ${data.squadId} and listing_id = ${data.listingId}`;
+    if (!req[0] || req[0].status === "DECLINED" || req[0].status === "PAUSED") throw new Error("Send the joint request first.");
+    if ((await sql`select 1 from contact_unlocks where listing_id = ${data.listingId} and squad_id = ${data.squadId}`).length)
+      throw new Error("Your squad already unlocked this owner.");
+    const open = await sql`select 1 from payments where squad_id = ${data.squadId} and listing_id = ${data.listingId} and kind = 'CONTACT' and status in ('SUBMITTED','PAID')`;
+    if (open.length) throw new Error("Your squad already paid for this owner. Wait for Roomeo to confirm.");
+    await grantSquadContactFromMember(sql, { squadId: data.squadId, listingId: data.listingId, userId: context.userId, use: data.use });
+    const threadId = await ensureSquadThread(sql, data.squadId, data.listingId, req[0].owner_id, context.userId);
+    return { threadId };
+  });
+
+async function squadMoveInState(sql: Sql, requestId: string, userId: string) {
+  const r = await sql<{ id: string; squad_id: string; listing_id: string; owner_id: string; status: string }>`select id, squad_id, listing_id, owner_id, status from squad_requests where id = ${requestId}`;
+  const req = r[0];
+  if (!req) throw new Error("Request not found.");
+  const members = await activeMembers(sql, req.squad_id);
+  const isOwner = req.owner_id === userId;
+  if (!isOwner && !members.includes(userId)) throw new Error("Request not found.");
+  const m = (await sql<{ id: string; owner_confirmed_at: string | null; confirmed_at: string | null }>`select id, owner_confirmed_at::text, confirmed_at::text from squad_move_ins where squad_request_id = ${requestId}`)[0] ?? null;
+  const confirmedIds = m ? (await sql<{ user_id: string }>`select user_id from squad_move_in_confirms where squad_move_in_id = ${m.id}`).map((x) => x.user_id) : [];
+  return { req, members, isOwner, m, confirmedIds };
+}
+
+export const squadMoveInStatus = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => key(rec(input).requestId, "request"))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const st = await squadMoveInState(sql, data, context.userId);
+    const cfg = pricingConfig();
+    const fee = await sql<{ status: string }>`select status from payments where kind = 'SUCCESS_FEE' and squad_id = ${st.req.squad_id} and listing_id = ${st.req.listing_id} and user_id = ${context.userId} order by created_at desc limit 1`;
+    return {
+      requestStatus: st.req.status,
+      members: st.members.length,
+      membersConfirmed: st.members.filter((id) => st.confirmedIds.includes(id)).length,
+      ownerConfirmed: Boolean(st.m?.owner_confirmed_at),
+      confirmed: Boolean(st.m?.confirmed_at),
+      meConfirmed: st.isOwner ? Boolean(st.m?.owner_confirmed_at) : st.confirmedIds.includes(context.userId),
+      isOwner: st.isOwner,
+      feeEnabled: cfg.successFeeEnabled,
+      myFee: st.isOwner ? cfg.successFeeOwnerInr : squadSuccessShareInr(cfg.successFeeTenantInr, st.members.length),
+      feeStatus: str(fee[0]?.status),
+    };
+  });
+
+export const confirmSquadMoveIn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => key(rec(input).requestId, "request"))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const st = await squadMoveInState(sql, data, context.userId);
+    if (st.req.status !== "ACCEPTED") throw new Error("The owner has to accept the squad first.");
+    await sql`insert into squad_move_ins (id, squad_request_id, squad_id, listing_id, owner_id) values (${crypto.randomUUID()}, ${data}, ${st.req.squad_id}, ${st.req.listing_id}, ${st.req.owner_id}) on conflict (squad_request_id) do nothing`;
+    const mid = (await sql<{ id: string }>`select id from squad_move_ins where squad_request_id = ${data}`)[0].id;
+    if (st.isOwner) await sql`update squad_move_ins set owner_confirmed_at = coalesce(owner_confirmed_at, now()) where id = ${mid}`;
+    else await sql`insert into squad_move_in_confirms (squad_move_in_id, user_id) values (${mid}, ${context.userId}) on conflict do nothing`;
+    const after = await squadMoveInState(sql, data, context.userId);
+    const done = squadMoveInConfirmed({ memberIds: after.members, confirmedIds: after.confirmedIds, ownerConfirmed: Boolean(after.m?.owner_confirmed_at) });
+    if (done && !after.m?.confirmed_at) {
+      await sql`update squad_move_ins set confirmed_at = now() where id = ${mid} and confirmed_at is null`;
+      for (const u of [...after.members, after.req.owner_id])
+        await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${u}, 'squad', 'Move in confirmed', 'Everyone confirmed the move in. Welcome home.', ${"/squads/" + after.req.squad_id})`;
+    }
+    return { confirmed: done };
+  });
+
+export const startSquadSuccessFee = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => key(rec(input).requestId, "request"))
+  .handler(async ({ context, data }) => {
+    const cfg = pricingConfig();
+    if (!cfg.successFeeEnabled) throw new Error("There is no move in fee right now.");
+    const payee = upiPayee();
+    if (!payee.ready) throw new Error("UPI payments are not set up yet.");
+    const sql = await getSql();
+    const st = await squadMoveInState(sql, data, context.userId);
+    if (!st.m?.confirmed_at) throw new Error("Everyone confirms the move in first.");
+    const amount = st.isOwner ? cfg.successFeeOwnerInr : squadSuccessShareInr(cfg.successFeeTenantInr, st.members.length);
+    if (amount <= 0) throw new Error("There is no move in fee for you.");
+    const find = () => sql<{ ref: string; status: string; amount_inr: number }>`select ref, status, amount_inr from payments
+      where kind = 'SUCCESS_FEE' and squad_id = ${st.req.squad_id} and listing_id = ${st.req.listing_id} and user_id = ${context.userId} and status in ('PENDING','SUBMITTED','PAID') order by created_at desc limit 1`;
+    let row = (await find())[0];
+    if (row?.status === "PAID") throw new Error("Already paid. Thanks.");
+    if (!row) {
+      await sql`insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, kind, listing_id, squad_id)
+        values (${crypto.randomUUID()}, ${context.userId}, ${st.isOwner ? "Move in fee (owner, squad)" : "Move in fee (squad share)"}, ${amount}, 'PENDING', 'UPI', ${makeRef()}, 'SUCCESS_FEE', ${st.req.listing_id}, ${st.req.squad_id})`;
+      row = (await find())[0];
+    }
+    const link = buildUpiLink({ vpa: payee.vpa, name: payee.name, amountInr: num(row.amount_inr), ref: str(row.ref) });
+    const qr = await QRCode.toDataURL(link, { margin: 1, width: 320, errorCorrectionLevel: "M" });
+    return { ref: str(row.ref), status: str(row.status), amount: num(row.amount_inr), plan: st.isOwner ? "the move in fee" : "your share of the move in fee", payee: payee.name, vpa: payee.vpa, link, qr };
   });

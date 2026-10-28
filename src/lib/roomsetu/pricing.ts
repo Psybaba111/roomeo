@@ -145,5 +145,17 @@ export function moveInConfirmed(p: { seekerAt: unknown; ownerAt: unknown }): boo
   return Boolean(p.seekerAt) && Boolean(p.ownerAt);
 }
 
+/** Squad move in: every current member and the owner have confirmed. */
+export function squadMoveInConfirmed(p: { memberIds: string[]; confirmedIds: string[]; ownerConfirmed: boolean }): boolean {
+  if (!p.ownerConfirmed || p.memberIds.length === 0) return false;
+  const done = new Set(p.confirmedIds);
+  return p.memberIds.every((id) => done.has(id));
+}
+
+/** Each squad member's share of the tenant success fee, rounded up to a whole rupee. */
+export function squadSuccessShareInr(tenantFeeInr: number, members: number): number {
+  return Math.ceil(tenantFeeInr / Math.max(1, members));
+}
+
 export const REFUND_PROMISE =
   "If every owner you contact with a pass declines or does not reply within 48 hours, the full pass price goes back to your UPI ID.";

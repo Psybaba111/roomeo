@@ -26,8 +26,8 @@ function Pricing() {
     ["Do I get a free contact back?", `Yes. If the owner declines your request, or does not reply within ${p.noReplyHours} hours, that free contact comes back to you.`],
     ["What does a pass give me?", `Unlimited new owner chats while it lasts: 7 days for ₹${p.weekly}, or 30 days for ₹${p.monthly}. A new pass starts when your current one ends.`],
     ["How does the refund promise work?", `If you start at least one owner chat with your pass and every owner you contacted declines or does not reply within ${p.noReplyHours} hours, the full pass price goes back to the UPI ID you paid from. We check this ${p.noReplyHours} hours after the pass ends.`],
-    ["When is there no refund?", "If any owner you contacted with the pass replies or accepts, or if you bought a pass and never used it to contact anyone."],
-    ["How do squads pay?", `₹${p.squadPerMember} per person for ${p.squadDays} days of chats with every flat your squad requests. One person can pay it all, or everyone pays their own share.`],
+    ["When is there no refund?", "If any owner you contacted with the pass replies or accepts. A pass you never use to contact an owner is not refunded, so buy one when you are ready to message."],
+    ["How do squads pay?", `Any member can use one of their free chats or their own active pass to open the squad chat with an owner. Or buy a squad pass: ₹${p.squadPerMember} per person for ${p.squadDays} days of chats with every flat your squad requests, paid by one person or split.`],
     ["Do hosts pay to list?", `Never. Listing is free. Hosts can choose a ₹${p.boost} boost for ${p.boostDays} days or ₹${p.fastTrack} fast track ID review.`],
     ["Is there a fee when I move in?", p.successFeeEnabled ? `Yes, a flat ₹${p.successFeeTenant} for the tenant and ₹${p.successFeeOwner} for the owner after both confirm the move in. Never a cut of the rent.` : "Not right now. Roomeo never takes a cut of your rent or deposit."],
     ["How do I pay?", "Direct UPI to Roomeo by QR code. Enter the 12 digit UTR and we confirm it, usually within a few hours. No gateway, no card details."],
@@ -88,7 +88,7 @@ function Pricing() {
         <p className="mt-2 text-base [text-wrap:pretty]">{p.refundPromise}</p>
         <ul className="mt-4 space-y-2 text-sm">
           <li className={inner}>Refunded: you contacted 3 owners with a pass, 2 declined and 1 never replied within {p.noReplyHours} hours.</li>
-          <li className={inner}>Not refunded: any owner you contacted with the pass replied, or you did not contact anyone.</li>
+          <li className={inner} data-testid="unused-pass-rule">Not refunded: any owner you contacted with the pass replied, or the pass was never used. Unused passes are not refundable.</li>
           <li className={inner}>Refunds go back to the UPI ID you paid from, checked {p.noReplyHours} hours after the pass ends.</li>
         </ul>
       </section>

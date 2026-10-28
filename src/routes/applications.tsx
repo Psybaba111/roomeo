@@ -140,7 +140,7 @@ function Apps() {
                 <p className="mt-1 text-sm">{row.mine ? "You asked" : row.seekerName} · {row.status}</p>
                 {row.status === "ACCEPTED" && !row.demo ? (
                   <p className="mt-2 text-sm">
-                    Seeker pays {inr(row.seekerPays)} the first month. Owner receives {inr(row.hostReceives)}. ₹499 once each. Later months are the rent only.
+                    Rent {inr(row.rent)} a month and {inr(row.deposit)} deposit, paid to the owner. Roomeo takes no cut of the rent.
                     {" "}{row.seekerAgreed ? "Seeker agreed." : "Seeker has not agreed."} {row.hostAgreed ? "Host agreed." : "Host has not agreed."}
                     {row.agreement === "PAID" ? " Paid." : ""}
                   </p>

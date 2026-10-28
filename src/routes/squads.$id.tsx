@@ -19,9 +19,11 @@ import {
   sendJointRequest,
   shortlistListing,
   startContactCheckout,
+  unlockSquadWithMember,
   voteListing,
 } from "@/lib/roomsetu/squad-api";
 import { UpiCheckout, type UpiCheckoutData } from "@/components/upi-checkout";
+import { SquadMoveIn } from "@/components/squad-move-in";
 import {
   btnDanger,
   btnDark,
@@ -355,6 +357,7 @@ function Squad() {
                       : `Refunded to ${f.refund.split("|")[2] || "the payer"}. Refund UTR ${f.refund.split("|")[1]}.`}
                   </p>
                 ) : null}
+                {f.requestStatus === "ACCEPTED" && f.requestId ? <SquadMoveIn requestId={f.requestId} /> : null}
                 {f.requestStatus && f.requestStatus !== "DECLINED" ? (
                   <div className={`mt-4 text-sm ${inner}`}>
                     {f.unlocked && f.threadId ? (
@@ -416,6 +419,19 @@ function Squad() {
                             </p>
                           </>
                         )}
+                        {s.model === "FREE_THEN_PASS" && (s.myContacts.pass || (s.myContacts.freeLeft > 0 && s.myContacts.phoneVerified)) ? (
+                          <div className="mt-2 flex flex-wrap gap-2" data-testid="squad-member-unlock">
+                            {s.myContacts.pass ? (
+                              <button type="button" disabled={busy !== ""} className={btnDark} data-testid="squad-use-pass" onClick={() => run(k, () => unlockSquadWithMember({ data: { squadId: id, listingId: k, use: "PASS" } }))}>
+                                Use my pass
+                              </button>
+                            ) : (
+                              <button type="button" disabled={busy !== ""} className={btnDark} data-testid="squad-use-free" onClick={() => run(k, () => unlockSquadWithMember({ data: { squadId: id, listingId: k, use: "FREE" } }))}>
+                                Use 1 of my free chats ({s.myContacts.freeLeft} left)
+                              </button>
+                            )}
+                          </div>
+                        ) : null}
                         {payButtons(k, false)}
                       </>
                     )}

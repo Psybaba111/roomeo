@@ -22,7 +22,7 @@ export async function squadActivePass(sql: Sql, squadId: string) {
   return r[0] ?? null;
 }
 export async function freeUsed(sql: Sql, userId: string): Promise<number> {
-  const r = await sql<{ n: number }>`select count(*)::int as n from contact_unlocks where seeker_id = ${userId} and source = 'FREE' and restored_at is null`;
+  const r = await sql<{ n: number }>`select count(*)::int as n from contact_unlocks where (seeker_id = ${userId} or charged_user_id = ${userId}) and source = 'FREE' and restored_at is null`;
   return num(r[0]?.n);
 }
 async function phoneVerified(sql: Sql, userId: string) {
@@ -66,10 +66,10 @@ export async function recordDecline(sql: Sql, p: { listingId: string; seekerId?:
   const rows = p.squadId
     ? await sql<{ id: string; source: string; seeker_id: string | null }>`update contact_unlocks set outcome = 'DECLINED', outcome_at = now(),
         restored_at = case when source = 'FREE' then now() else restored_at end
-        where listing_id = ${p.listingId} and squad_id = ${p.squadId} and source in ('FREE','PASS') and (outcome is null or outcome = 'REPLIED') returning id, source, seeker_id`
+        where listing_id = ${p.listingId} and squad_id = ${p.squadId} and source in ('FREE','PASS') and (outcome is null or outcome = 'REPLIED') returning id, source, coalesce(seeker_id, charged_user_id) as seeker_id`
     : await sql<{ id: string; source: string; seeker_id: string | null }>`update contact_unlocks set outcome = 'DECLINED', outcome_at = now(),
         restored_at = case when source = 'FREE' then now() else restored_at end
-        where listing_id = ${p.listingId} and seeker_id = ${p.seekerId ?? ""} and source in ('FREE','PASS') and (outcome is null or outcome = 'REPLIED') returning id, source, seeker_id`;
+        where listing_id = ${p.listingId} and seeker_id = ${p.seekerId ?? ""} and squad_id is null and source in ('FREE','PASS') and (outcome is null or outcome = 'REPLIED') returning id, source, seeker_id`;
   for (const r of rows) {
     if (r.source === "FREE" && r.seeker_id)
       await notify(sql, r.seeker_id, "Free contact is back", "The owner declined, so we gave your free contact back. Use it on another room.", "/pricing");
@@ -146,7 +146,7 @@ export async function runPricingSweep(sql: Sql) {
     `update contact_unlocks set outcome = 'NO_REPLY', outcome_at = now(),
        restored_at = case when source = 'FREE' then now() else restored_at end
      where outcome is null and source in ('FREE','PASS') and created_at <= now() - make_interval(hours => $1)
-     returning id, source, seeker_id`,
+     returning id, source, coalesce(seeker_id, charged_user_id) as seeker_id`,
     [cfg.noReplyHours],
   );
   for (const r of noReply) {
@@ -175,4 +175,24 @@ export async function runPricingSweep(sql: Sql) {
     await sql`update contact_passes set status = ${refund ? "REFUND_DUE" : "SETTLED"}, settled_at = now() where id = ${pass.id}`;
   }
   return { replied: replied.length, noReply: noReply.length, passesSettled: due.length, refunds };
+}
+
+/**
+ * Unlock a squad's chat with an owner using one member's free chat or that member's active
+ * personal pass (instead of a squad pass). The member is recorded as charged_user_id.
+ */
+export async function grantSquadContactFromMember(sql: Sql, p: { squadId: string; listingId: string; userId: string; use: "FREE" | "PASS" }) {
+  const cfg = pricingConfig();
+  if (cfg.contactModel !== "FREE_THEN_PASS") throw new Error("Use the squad contact fee.");
+  if (p.use === "PASS") {
+    const pass = await activePass(sql, p.userId);
+    if (!pass) throw new Error("You do not have an active pass.");
+    await sql`insert into contact_unlocks (id, listing_id, squad_id, source, pass_id, charged_user_id)
+      values (${crypto.randomUUID()}, ${p.listingId}, ${p.squadId}, 'PASS', ${pass.id}, ${p.userId}) on conflict do nothing`;
+    return;
+  }
+  if (!(await phoneVerified(sql, p.userId))) throw new Error("Verify your phone number to use your free chats.");
+  if ((await freeUsed(sql, p.userId)) >= cfg.freeContacts) throw new Error("You have no free chats left. Use a pass or the squad pass.");
+  await sql`insert into contact_unlocks (id, listing_id, squad_id, source, charged_user_id)
+    values (${crypto.randomUUID()}, ${p.listingId}, ${p.squadId}, 'FREE', ${p.userId}) on conflict do nothing`;
 }
