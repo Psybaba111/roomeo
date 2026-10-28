@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { Shell } from "@/components/shell";
+import { ChangePassword } from "@/components/change-password";
 import { errText } from "@/lib/ui-text";
 import { control } from "@/components/cards";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -164,6 +165,7 @@ function ProfilePage() {
         {saved ? <p className="text-sm text-brand md:col-span-2">{saved}</p> : null}
         <button className="h-12 rounded-full bg-brand font-semibold text-card" type="submit">Save profile</button>
       </form>
+      <ChangePassword />
       <button type="button" className="mt-6 text-sm text-muted underline" onClick={() => void signOut("/").catch(() => setError("Could not sign out. Try again."))}>
         Sign out
       </button>
