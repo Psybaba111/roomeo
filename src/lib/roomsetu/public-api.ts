@@ -34,6 +34,7 @@ export type SearchFilters = {
   wifi: boolean;
   ac: boolean;
   parking: boolean;
+  entireFlat: boolean;
   availableBy: string;
   propertyType: string;
   sort: string;
@@ -68,6 +69,7 @@ function filters(input: unknown): SearchFilters {
     wifi: o.wifi === true,
     ac: o.ac === true,
     parking: o.parking === true,
+    entireFlat: o.entireFlat === true,
     availableBy: /^\d{4}-\d{2}-\d{2}$/.test(clean(o.availableBy, 10)) ? clean(o.availableBy, 10) : "",
     propertyType: clean(o.propertyType, 40),
     sort: allowed.includes(sort) ? sort : "recommended",
@@ -177,6 +179,7 @@ export const searchListings = createServerFn({ method: "POST" })
     if (data.gender === "WOMEN" || data.gender === "MEN") add(data.gender, "l.gender_pref in ('ANY', $#)");
     if (data.occupation && data.occupation !== "ANY") add(data.occupation, "l.occupation_pref in ('ANY', $#)");
     if (data.food) where.push("l.food_available = true");
+    if (data.entireFlat) where.push("l.listing_kind = 'ENTIRE_FLAT'");
     if (data.wifi) where.push("l.wifi = true");
     if (data.ac) where.push("l.ac = true");
     if (data.parking) where.push("l.parking = true");

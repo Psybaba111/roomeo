@@ -9,6 +9,7 @@ import {
   createSquad,
   mySquads,
   ownerDecideSquad,
+  ownerSquadNote,
   ownerSquadRequests,
 } from "@/lib/roomsetu/squad-api";
 import {
@@ -124,6 +125,27 @@ function Squads() {
                       onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })}
                       aria-label="Note to squad"
                     />
+                    {!r.threadId && r.status !== "DECLINED" ? (
+                      <button
+                        type="button"
+                        disabled={busy === r.id || r.notesLeft === 0}
+                        className={btnSmall}
+                        data-testid="owner-note"
+                        onClick={() => {
+                          setReqError({ ...reqError, [r.id]: "" });
+                          setBusy(r.id);
+                          void ownerSquadNote({ data: { id: r.id, note: notes[r.id] ?? "" } })
+                            .then(() => {
+                              setNotes({ ...notes, [r.id]: "" });
+                              load();
+                            })
+                            .catch((e) => setReqError({ ...reqError, [r.id]: errText(e) }))
+                            .finally(() => setBusy(""));
+                        }}
+                      >
+                        Send note ({r.notesLeft} left)
+                      </button>
+                    ) : null}
                     {(["ACCEPTED", "VISIT_PROPOSED", "DECLINED"] as const).map((d) => (
                       <button
                         key={d}
@@ -152,8 +174,9 @@ function Squads() {
                   </p>
                 ) : null}
                 <p className="mt-2 text-xs text-muted">
-                  If you decline before accepting, the squad's contact fee is refunded by roomeo.
-                  You never pay.
+                  Before they pay you can send up to 3 short notes, without phone numbers, emails or
+                  links. If you decline before accepting, the squad's contact fee is refunded by
+                  roomeo. You never pay.
                 </p>
                 {r.threadId ? (
                   <Link

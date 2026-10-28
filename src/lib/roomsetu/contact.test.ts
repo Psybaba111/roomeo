@@ -99,3 +99,8 @@ test("refund only when owner declines a not-yet-accepted proposal", () => {
   assert.equal(contactRefundDue({ decision: "WITHDRAWN", previousStatus: "PENDING" }), false);
   assert.equal(contactRefundDue({ decision: "ACCEPTED", previousStatus: "PENDING" }), false);
 });
+
+test("visit proposed then declined is still refunded", () => {
+  assert.equal(contactRefundDue({ decision: "DECLINED", previousStatus: "VISIT_PROPOSED" }), true);
+  assert.equal(contactRefundDue({ decision: "DECLINED", previousStatus: "ACCEPTED" }), false);
+});

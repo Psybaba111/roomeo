@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { BadgeCheck } from "lucide-react";
+import { SealCheck as BadgeCheck } from "@phosphor-icons/react";
 import { genderLabel, inr, type ListingCard } from "@/lib/roomsetu/map";
 
 export function RoomCard({ room, score }: { room: ListingCard; score?: number }) {
@@ -63,11 +63,11 @@ export function RoomCard({ room, score }: { room: ListingCard; score?: number })
           {room.locality}, {room.city}
         </p>
         {room.vibes?.length ? (
-          <ul className="flex flex-wrap gap-1.5" aria-label="Vibe">
+          <ul className="flex flex-wrap gap-2" aria-label="Vibe">
             {room.vibes.map((v) => (
               <li
                 key={v}
-                className="rounded-full bg-pop-soft px-2.5 py-1 text-xs font-semibold text-pop"
+                className="rounded-full bg-pop-soft px-2 py-1 text-xs font-semibold text-pop"
               >
                 {v}
               </li>

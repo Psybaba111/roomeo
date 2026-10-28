@@ -239,12 +239,12 @@ function Desk() {
       ) : null}
 
       <section className="mt-10 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-3xl border border-line bg-card p-5">
+        <div className="rounded-3xl border border-line bg-card p-4">
           <h2 className="font-display text-2xl">Verification</h2>
           <p className="mt-2 text-sm text-muted">Status: {data.profile.verification}. A badge appears only after an operator marks the checks complete.</p>
           <Link to="/verification" className="mt-3 inline-block font-semibold text-brand">Open verification</Link>
         </div>
-        <div className="rounded-3xl border border-line bg-card p-5">
+        <div className="rounded-3xl border border-line bg-card p-4">
           <h2 className="font-display text-2xl">Earnings</h2>
           <p className="mt-2 font-display text-3xl tabular-nums">{inr(0)}</p>
           <p className="text-sm text-muted">No rent has been collected on roomeo.com. That stays coming soon.</p>

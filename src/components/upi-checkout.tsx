@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { errText } from "@/lib/ui-text";
 import { submitUtr } from "@/lib/roomsetu/account-api";
-import { input } from "@/components/ui-tokens";
+import { btnDark, btnSmall, btnSmallPrimary, errorBox, input } from "@/components/ui-tokens";
 
 export type UpiCheckoutData = {
   ref: string;
@@ -29,7 +29,7 @@ export function UpiCheckout({ data, onClose }: { data: UpiCheckoutData; onClose:
   const [error, setError] = useState("");
   const done = data.status === "SUBMITTED" || msg.startsWith("Thanks");
   return (
-    <div className="mt-4 rounded-2xl border border-line bg-card p-5">
+    <div className="mt-4 rounded-2xl border border-line bg-card p-4" aria-live="polite">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-semibold">
@@ -40,7 +40,7 @@ export function UpiCheckout({ data, onClose }: { data: UpiCheckoutData; onClose:
             <span className="font-mono">{data.ref}</span>
           </p>
         </div>
-        <button type="button" className="text-sm text-muted underline" onClick={onClose}>
+        <button type="button" className={btnSmall} onClick={onClose}>
           Close
         </button>
       </div>
@@ -50,13 +50,13 @@ export function UpiCheckout({ data, onClose }: { data: UpiCheckoutData; onClose:
           alt={`UPI QR code to pay ₹${data.amount} to ${data.payee}`}
           width={200}
           height={200}
-          className="rounded-lg border border-line"
+          className="border border-line bg-card"
         />
         <div className="flex-1 space-y-3">
           {isMobile() ? (
             <a
               href={data.link}
-              className="inline-flex h-11 items-center rounded-full bg-ink px-5 font-semibold text-card"
+              className={btnDark}
             >
               Pay with UPI app
             </a>
@@ -112,15 +112,15 @@ export function UpiCheckout({ data, onClose }: { data: UpiCheckoutData; onClose:
                 pattern="[0-9 ]{12,14}"
                 value={utr}
                 onChange={(e) => setUtr(e.target.value)}
-                className="h-11 w-full rounded-lg border border-line px-3 font-mono"
+                className={`${input} font-mono`}
                 placeholder="412345678901"
                 required
               />
-              {error ? <p className="text-sm text-danger">{error}</p> : null}
+              {error ? <p className={errorBox} role="alert">{error}</p> : null}
               <button
                 type="submit"
                 disabled={busy}
-                className="h-10 rounded-full bg-brand px-4 text-sm font-semibold text-card disabled:opacity-60"
+                className={btnSmallPrimary}
               >
                 {busy ? "Sending…" : "Submit UTR"}
               </button>

@@ -112,7 +112,7 @@ function CreateListing() {
   }
 
   const toggles: { key: keyof typeof form; label: string }[] = [
-    { key: "wifi", label: "Wi-Fi" },
+    { key: "wifi", label: "WiFi" },
     { key: "kitchen", label: "Kitchen" },
     { key: "ac", label: "AC" },
     { key: "attachedBath", label: "Attached bath" },
@@ -253,7 +253,7 @@ function CreateListing() {
         </label>
         <label className="md:col-span-2">
           <span className="mb-1 block text-sm text-muted">
-            Street address (shown only after sign-in)
+            Street address (shown only after you sign in)
           </span>
           <input
             className={control}
@@ -385,7 +385,7 @@ function CreateListing() {
             Photographs of the room. Upload your own, or pick a sample if you are just trying the
             flow.
           </p>
-          <label className="inline-flex h-12 cursor-pointer items-center rounded-full bg-brand px-5 text-sm font-semibold text-card">
+          <label className="inline-flex h-12 cursor-pointer items-center rounded-full bg-brand px-4 text-sm font-semibold text-card">
             Upload photographs
             <input
               type="file"

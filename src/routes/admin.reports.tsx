@@ -55,7 +55,7 @@ function Reports() {
       <p className="text-sm text-muted">Counts only. Message text stays with the people in the thread.</p>
       <ul className="mt-3 space-y-1 text-sm">
         {threads.map((t) => (
-          <li key={t.id} className="flex justify-between border-b border-line py-2">
+          <li key={t.id} className="flex justify-between rounded-lg bg-paper px-3 py-2">
             <span>{t.title}</span>
             <span className="text-muted">{t.messages} messages · {t.updated}</span>
           </li>

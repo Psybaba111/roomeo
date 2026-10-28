@@ -102,9 +102,9 @@ function Verify() {
               />
             ) : (
               <input
-                aria-label="One-time code"
+                aria-label="One time code"
                 inputMode="numeric"
-                autoComplete="one-time-code"
+                autoComplete="one time-code"
                 maxLength={6}
                 className="h-11 w-32 rounded-lg border border-line px-3 font-mono"
                 placeholder="123456"
@@ -137,13 +137,13 @@ function Verify() {
       {error ? <p className="mt-3 text-danger">{error}</p> : null}
       {data?.digilockerReady === false ? (
         <p className="mt-4 max-w-xl text-sm">
-          The DigiLocker sign-in is built. This deployment still needs the partner client id and
+          The DigiLocker sign in is built. This deployment still needs the partner client id and
           secret before a live check can start.
         </p>
       ) : null}
       <button
         type="button"
-        className="mt-6 h-12 rounded-full bg-brand px-5 font-semibold text-card disabled:opacity-50"
+        className="mt-6 h-12 rounded-full bg-brand px-4 font-semibold text-card disabled:opacity-50"
         disabled={!data?.digilockerReady || blocked || source === "DIGILOCKER"}
         onClick={() => {
           setError("");

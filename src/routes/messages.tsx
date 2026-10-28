@@ -74,7 +74,7 @@ function Inbox() {
         Messages refresh live. Phone numbers are not shared here.
       </p>
       {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
-      <div className="mt-5 grid gap-4 lg:grid-cols-12">
+      <div className="mt-4 grid gap-4 lg:grid-cols-12">
         <ul className="space-y-2 lg:col-span-4">
           {threads.length === 0 ? (
             <li className="rounded-2xl border border-line bg-card p-4 text-sm text-muted">
@@ -105,7 +105,7 @@ function Inbox() {
           {!search.thread ? <p className="text-muted">Choose a conversation.</p> : null}
           {search.thread ? (
             <div className="flex min-h-96 flex-col rounded-3xl border border-line bg-card">
-              <div className="border-b border-line px-4 py-3">
+              <div className="bg-paper px-4 py-3">
                 <p className="font-semibold">{active?.otherName ?? "Conversation"}</p>
                 <p className="text-xs text-muted">
                   {active?.listingTitle}
@@ -133,7 +133,7 @@ function Inbox() {
                 ))}
               </ul>
               <form
-                className="flex gap-2 border-t border-line p-3"
+                className="flex gap-2 bg-paper p-3"
                 onSubmit={(e) => {
                   e.preventDefault();
                   const text = body.trim();

@@ -100,3 +100,17 @@ export function contactRefundDue(p: { decision: string; previousStatus: string }
 
 export const REFUND_RULE =
   "If the owner declines your request, the ₹ contact fee is refunded to your UPI ID. No refund once the owner has accepted, or if you withdraw or leave.";
+
+/** Owner notes before payment must not leak contact details (phone, email, links, handles). */
+export function containsContactDetails(text: string): boolean {
+  const t = text.toLowerCase();
+  const digits = t.replace(/[^0-9]/g, "");
+  if (/(\d[\s.\-()]*){8,}/.test(t) || digits.length >= 8) return true;
+  if (/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/.test(t)) return true;
+  if (/(https?:\/\/|www\.|\.com\b|\.in\b|wa\.me|t\.me)/.test(t)) return true;
+  if (/\b(whatsapp|telegram|insta(gram)?|call me|ping me|dm me)\b/.test(t)) return true;
+  if (/@[a-z0-9_.]{3,}/.test(t)) return true;
+  return false;
+}
+
+export const OWNER_NOTE_LIMIT = 3;

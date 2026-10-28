@@ -28,7 +28,7 @@ function Matches() {
   return (
     <Shell>
       <h1 className="font-display text-4xl">Matches</h1>
-      <p className="mt-2 max-w-xl text-muted">A simple rules score using city, budget, move-in, room type, and house rules. Not a black-box ranking.</p>
+      <p className="mt-2 max-w-xl text-muted">A simple rules score using city, budget, move in, room type, and house rules. Not a black box ranking.</p>
       {error ? <p className="mt-3 text-danger">{error}</p> : null}
       {data && !data.ready ? <p className="mt-4">Add a city and a budget on your profile first.</p> : null}
       <div className="mt-6 grid gap-4 lg:grid-cols-2">

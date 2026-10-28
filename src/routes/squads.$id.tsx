@@ -25,6 +25,7 @@ import { UpiCheckout, type UpiCheckoutData } from "@/components/upi-checkout";
 import {
   btnDanger,
   btnDark,
+  btnSecondary,
   btnSmall,
   btnSmallPrimary,
   card,
@@ -87,6 +88,37 @@ function Squad() {
       .catch((e) => setError(errText(e)))
       .finally(() => setBusy(""));
   };
+  const pay = (listingId: string, mode: "FULL" | "SPLIT") => {
+    setError("");
+    setBusy(`pay${listingId}${mode}`);
+    void startContactCheckout({ data: { listingId, squadId: id, mode } })
+      .then((d) => setCheckout({ listingId, data: d }))
+      .catch((e) => setError(errText(e)))
+      .finally(() => setBusy(""));
+  };
+  const payButtons = (k: string, splitOnly: boolean) =>
+    checkout?.listingId === k ? (
+      <UpiCheckout
+        data={checkout.data}
+        onClose={() => {
+          setCheckout(null);
+          load();
+        }}
+      />
+    ) : (
+      <div className="mt-2 flex flex-wrap gap-2">
+        {splitOnly ? null : (
+          <button type="button" disabled={busy !== ""} className={btnDark} onClick={() => pay(k, "FULL")} data-testid="pay-full">
+            Pay {inr(s?.fee ?? 0)} for the squad
+          </button>
+        )}
+        {s?.splitEnabled && s.members.length > 1 ? (
+          <button type="button" disabled={busy !== ""} className={splitOnly ? btnDark : btnSecondary} onClick={() => pay(k, "SPLIT")} data-testid="pay-share">
+            Pay my share ({inr(Math.ceil((s?.fee ?? 0) / s.members.length))})
+          </button>
+        ) : null}
+      </div>
+    );
   if (!s)
     return (
       <Shell>
@@ -198,6 +230,7 @@ function Squad() {
                 furnished: "",
                 gender: "",
                 food: "",
+                kind: "",
                 sort: "recommended",
                 q: "",
                 availableBy: "",
@@ -313,7 +346,7 @@ function Squad() {
                 {f.refund ? (
                   <p className={`mt-4 text-sm font-semibold ${inner}`} data-testid="refund-status">
                     {f.refund.startsWith("REFUND_DUE")
-                      ? `Owner declined. The ${inr(s.fee)} contact fee is being refunded to ${f.refund.split("|")[2] || "the payer's UPI ID"}.`
+                      ? `Owner declined. ${f.splitParts ? "Every share" : `The ${inr(s.fee)} contact fee`} is being refunded to the UPI ID it was paid from${f.refund.split("|")[2] ? ` (${f.refund.split("|")[2]})` : ""}.`
                       : `Refunded to ${f.refund.split("|")[2] || "the payer"}. Refund UTR ${f.refund.split("|")[1]}.`}
                   </p>
                 ) : null}
@@ -328,47 +361,41 @@ function Squad() {
                       >
                         Open squad chat with the owner
                       </Link>
+                    ) : f.splitParts > 0 ? (
+                      <>
+                        <p className="[text-wrap:pretty]" data-testid="split-progress">
+                          <b>
+                            {f.sharesPaid} of {f.splitParts} shares confirmed
+                          </b>{" "}
+                          · {inr(Math.ceil(s.fee / f.splitParts))} each. Chat opens when every share is confirmed.
+                        </p>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-line" aria-hidden="true">
+                          <div
+                            className="h-full origin-left rounded-full bg-brand transition-transform"
+                            style={{ transform: `scaleX(${Math.min(1, f.sharesPaid / f.splitParts)})` }}
+                          />
+                        </div>
+                        {f.myPayStatus === "PAID" ? (
+                          <p className="mt-2 text-sm text-muted">Your share is confirmed.</p>
+                        ) : f.myPayStatus === "SUBMITTED" ? (
+                          <p className="mt-2 text-sm text-muted">Your share is paid. Roomeo is confirming it.</p>
+                        ) : null}
+                        {f.myPayStatus !== "PAID" && f.myPayStatus !== "SUBMITTED" ? payButtons(k, true) : null}
+                      </>
                     ) : f.payStatus === "SUBMITTED" ? (
-                      <p>
-                        Contact fee paid. Roomeo is confirming it and the squad chat opens right
-                        after.
-                      </p>
+                      <p>Contact fee paid. Roomeo is confirming it and the squad chat opens right after.</p>
                     ) : (
                       <>
                         <p className="[text-wrap:pretty]">
-                          <b>Unlock squad chat for {inr(s.fee)} once.</b> One member pays roomeo by
-                          UPI and the whole squad can chat with this owner. The owner never pays.
-                          Splitting the fee between members is coming soon.
+                          <b>Unlock squad chat for {inr(s.fee)} once.</b> One member pays it all, or each of
+                          you pays an equal share by UPI. The owner never pays.
                         </p>
                         <p className="mt-2 text-xs text-muted">
-                          Refund rule: if the owner declines, the fee goes back to the payer's UPI
-                          ID. No refund once the owner has accepted, or if someone leaves.
+                          Refund rule: if the owner declines, even after proposing a visit, every share goes
+                          back to the UPI ID it was paid from. No refund once the owner has accepted, or if
+                          someone leaves.
                         </p>
-                        {checkout?.listingId === k ? (
-                          <UpiCheckout
-                            data={checkout.data}
-                            onClose={() => {
-                              setCheckout(null);
-                              load();
-                            }}
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={busy === `pay${k}`}
-                            className={`mt-2 ${btnDark}`}
-                            onClick={() => {
-                              setError("");
-                              setBusy(`pay${k}`);
-                              void startContactCheckout({ data: { listingId: k, squadId: id } })
-                                .then((d) => setCheckout({ listingId: k, data: d }))
-                                .catch((e) => setError(errText(e)))
-                                .finally(() => setBusy(""));
-                            }}
-                          >
-                            Pay {inr(s.fee)} for the squad
-                          </button>
-                        )}
+                        {payButtons(k, false)}
                       </>
                     )}
                   </div>

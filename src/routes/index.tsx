@@ -7,7 +7,7 @@ import { EmptyBeds } from "@/components/empty-beds";
 import { getHome, listCities } from "@/lib/roomsetu/public-api";
 
 export const Route = createFileRoute("/")({
-  head: () => pageHead("Spare beds in Bengaluru for students & first-jobbers"),
+  head: () => pageHead("Spare beds in Bengaluru for students & first jobbers"),
   loader: () => getHome(),
   component: Home,
 });
@@ -20,6 +20,7 @@ const SEARCH = {
   furnished: "",
   gender: "",
   food: "",
+  kind: "",
   sort: "recommended",
   q: "",
   availableBy: "",
@@ -32,7 +33,7 @@ const STEPS = [
     "Choose your own flatmates. No random allotment, no awkward surprises.",
   ],
   ["02", "Owner says yes once", "One clear yes or no. No endless calls, no ghosting."],
-  ["03", "Pay ₹499, move in", "One-time fee, not a broker's month. After that it's just rent."],
+  ["03", "Pay ₹499, move in", "One time fee, not a broker's month. After that it's just rent."],
 ];
 
 const TRUST = [
@@ -57,13 +58,13 @@ function Home() {
 
   return (
     <Shell>
-      <section className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-gradient-to-br from-[#2a0a4a] via-[#5b21b6] to-[#d1006b] px-5 pb-14 pt-10 text-white">
+      <section className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-[#2a0a4a] px-4 pb-12 pt-10 text-white">
         <div className="relative mx-auto max-w-6xl">
           <p className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
             <span className="h-2 w-2 rounded-full bg-lime" aria-hidden /> Bengaluru · for students &
-            first-jobbers
+            first jobbers
           </p>
-          <h1 className="mt-4 max-w-2xl text-[2.6rem] leading-[1.02] sm:text-7xl">
+          <h1 className="mt-4 max-w-2xl text-4xl leading-[1.02] sm:text-7xl">
             Find your people.
             <span className="block text-lime">Then your bed.</span>
           </h1>
@@ -72,7 +73,7 @@ function Home() {
             pay ₹499. Not a broker's month. Simple.
           </p>
           <form
-            className="mt-7 grid max-w-2xl gap-2 rounded-3xl bg-white p-2 text-[#14111f] shadow-xl sm:grid-cols-[1fr_1fr_auto]"
+            className="mt-6 grid max-w-2xl gap-2 rounded-3xl bg-white p-2 text-[#14111f] shadow-xl sm:grid-cols-[1fr_1fr_auto]"
             onSubmit={(e) => {
               e.preventDefault();
               void navigate({
@@ -82,7 +83,7 @@ function Home() {
             }}
           >
             <label className="flex flex-col rounded-2xl px-3 py-2 focus-within:bg-[#f7f5ff]">
-              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#5b5670]">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-[#5b5670]">
                 Area
               </span>
               <select
@@ -98,7 +99,7 @@ function Home() {
               </select>
             </label>
             <label className="flex flex-col rounded-2xl px-3 py-2 focus-within:bg-[#f7f5ff]">
-              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#5b5670]">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-[#5b5670]">
                 Budget / month
               </span>
               <input
@@ -117,7 +118,7 @@ function Home() {
               Find beds →
             </button>
           </form>
-          <div className="mt-5 flex flex-wrap gap-2 text-sm">
+          <div className="mt-4 flex flex-wrap gap-2 text-sm">
             {[
               ["Under ₹10k", "10000"],
               ["Under ₹15k", "15000"],
@@ -127,14 +128,14 @@ function Home() {
                 key={v}
                 to="/search"
                 search={{ ...SEARCH, maxRent: v }}
-                className="rounded-full border border-white/40 px-3 py-1.5 font-semibold text-white hover:bg-white/10"
+                className="rounded-full border border-white/40 px-3 py-2 font-semibold text-white hover:bg-white/10"
               >
                 {label}
               </Link>
             ))}
             <Link
               to="/create-listing"
-              className="rounded-full bg-white/15 px-3 py-1.5 font-semibold text-white hover:bg-white/25"
+              className="rounded-full bg-white/15 px-3 py-2 font-semibold text-white hover:bg-white/25"
             >
               Got a spare bed? List it
             </Link>
@@ -148,7 +149,7 @@ function Home() {
         </h2>
         <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {TRUST.map(([icon, k, v]) => (
-            <li key={k} className="rounded-3xl border border-line bg-card p-5">
+            <li key={k} className="rounded-3xl border border-line bg-card p-4">
               <p className="text-2xl" aria-hidden>
                 {icon}
               </p>

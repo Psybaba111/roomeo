@@ -1,3 +1,4 @@
+import { contactQuote, pricingConfig, squadUnlockReady, type SquadPayMode } from "@/lib/roomsetu/pricing";
 import { createServerFn } from "@tanstack/react-start";
 import QRCode from "qrcode";
 import { getSql, type Sql } from "@/lib/db";
@@ -8,6 +9,8 @@ import { buildUpiLink, makeRef, upiPayee } from "@/lib/roomsetu/upi";
 import {
   allSaidYes,
   contactFeeInr,
+  containsContactDetails,
+  OWNER_NOTE_LIMIT,
   contactRefundDue,
   contactNeedsPayment,
   joinBlocker,
@@ -84,7 +87,8 @@ export async function unlockFromPayment(sql: Sql, paymentId: string) {
     listing_id: string;
     squad_id: string | null;
     kind: string;
-  }>`select user_id, listing_id, squad_id, kind from payments where id = ${paymentId}`;
+    split_parts: number;
+  }>`select user_id, listing_id, squad_id, kind, split_parts from payments where id = ${paymentId}`;
   const p = rows[0];
   if (!p || p.kind !== "CONTACT" || !p.listing_id) return;
   const listing = await sql<{
@@ -100,6 +104,18 @@ export async function unlockFromPayment(sql: Sql, paymentId: string) {
     if (req[0]?.status === "DECLINED") {
       await sql`update payments set status = 'REFUND_DUE', refund_due_at = now(), refund_reason = 'Owner declined before the payment was confirmed.' where id = ${paymentId}`;
       return;
+    }
+    const splitParts = num(p.split_parts);
+    if (splitParts > 0) {
+      const paid = await sql<{ n: number }>`select count(distinct user_id)::int as n from payments
+        where squad_id = ${p.squad_id} and listing_id = ${p.listing_id} and kind = 'CONTACT' and split_parts > 0 and status = 'PAID'`;
+      const sharesPaid = num(paid[0]?.n);
+      if (!squadUnlockReady({ fullPaid: false, splitParts, sharesPaid })) {
+        for (const m of await activeMembers(sql, p.squad_id)) {
+          await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${m}, 'payment', 'Squad share confirmed', ${`${sharesPaid} of ${splitParts} shares paid for “${listing[0].title}”.`}, ${"/squads/" + p.squad_id})`;
+        }
+        return;
+      }
     }
     await sql`insert into contact_unlocks (id, listing_id, squad_id, payment_id) values (${crypto.randomUUID()}, ${p.listing_id}, ${p.squad_id}, ${paymentId}) on conflict do nothing`;
     await ensureSquadThread(sql, p.squad_id, p.listing_id, owner, p.user_id);
@@ -191,6 +207,7 @@ export const startContactCheckout = createServerFn({ method: "POST" })
     return {
       listingId: key(o.listingId, "room"),
       squadId: o.squadId ? key(o.squadId, "squad") : "",
+      mode: (o.mode === "SPLIT" ? "SPLIT" : "FULL") as SquadPayMode,
     };
   })
   .handler(async ({ context, data }) => {
@@ -205,6 +222,7 @@ export const startContactCheckout = createServerFn({ method: "POST" })
     if (!l[0]) throw new Error("That room is not available.");
     if (l[0].owner_id === context.userId) throw new Error("Hosts never pay to talk to seekers.");
     const squadId = data.squadId || null;
+    let splitMembers = 0;
     if (squadId) {
       await requireMember(sql, squadId, context.userId);
       const req = await sql<{
@@ -217,26 +235,42 @@ export const startContactCheckout = createServerFn({ method: "POST" })
         ).length
       )
         throw new Error("Your squad already unlocked this owner.");
-      const other = await sql<{
-        ref: string;
-      }>`select ref from payments where squad_id = ${squadId} and listing_id = ${data.listingId} and kind = 'CONTACT' and status = 'SUBMITTED' and user_id <> ${context.userId} limit 1`;
-      if (other[0])
-        throw new Error("Someone in your squad already paid. Waiting for Roomeo to confirm.");
+      const others = await sql<{
+        user_id: string;
+        status: string;
+        split_parts: number;
+      }>`select user_id, status, split_parts from payments where squad_id = ${squadId} and listing_id = ${data.listingId} and kind = 'CONTACT' and status in ('SUBMITTED','PAID')`;
+      const fullOther = others.find((o) => num(o.split_parts) === 0 && (o.status === "PAID" || o.user_id !== context.userId));
+      if (fullOther) throw new Error("Someone in your squad already paid. Waiting for Roomeo to confirm.");
+      const split = others.filter((o) => num(o.split_parts) > 0);
+      if (data.mode === "FULL" && split.some((o) => o.user_id !== context.userId))
+        throw new Error("Your squad is splitting the fee. Pay your share instead.");
+      if (data.mode === "SPLIT") {
+        if (split.some((o) => o.user_id === context.userId && o.status === "PAID")) throw new Error("Your share is already paid.");
+        splitMembers = num(split[0]?.split_parts) || (await activeMembers(sql, squadId)).length;
+      }
     } else if (await isUnlocked(sql, data.listingId, context.userId)) {
       throw new Error("Contact is already unlocked.");
     }
-    const amount = contactFeeInr();
-    const purpose = `Contact unlock${squadId ? " (squad)" : ""}: ${l[0].title}`.slice(0, 120);
+    const quote = contactQuote(pricingConfig(), { squadMembers: squadId ? splitMembers : 0, mode: squadId ? data.mode : "FULL" });
+    const amount = quote.amountInr;
+    const purpose = `Contact unlock${squadId ? (quote.splitParts ? " (squad share)" : " (squad)") : ""}: ${l[0].title}`.slice(0, 120);
     const find = () => sql<{
       ref: string;
       status: string;
       amount_inr: number;
-    }>`select ref, status, amount_inr from payments
+      split_parts: number;
+    }>`select ref, status, amount_inr, split_parts from payments
       where user_id = ${context.userId} and listing_id = ${data.listingId} and coalesce(squad_id, '') = ${squadId ?? ""} and kind = 'CONTACT' and provider = 'UPI' and status in ('PENDING','SUBMITTED') limit 1`;
     let row = (await find())[0];
+    if (row && num(row.split_parts) !== quote.splitParts) {
+      if (row.status === "SUBMITTED") throw new Error("Your earlier payment is being checked. Wait for it first.");
+      await sql`update payments set amount_inr = ${amount}, split_parts = ${quote.splitParts}, purpose = ${purpose} where ref = ${row.ref} and status = 'PENDING'`;
+      row = (await find())[0];
+    }
     if (!row) {
-      await sql`insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, kind, listing_id, squad_id)
-        values (${crypto.randomUUID()}, ${context.userId}, ${purpose}, ${amount}, 'PENDING', 'UPI', ${makeRef()}, 'CONTACT', ${data.listingId}, ${squadId}) on conflict do nothing`;
+      await sql`insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, kind, listing_id, squad_id, split_parts)
+        values (${crypto.randomUUID()}, ${context.userId}, ${purpose}, ${amount}, 'PENDING', 'UPI', ${makeRef()}, 'CONTACT', ${data.listingId}, ${squadId}, ${quote.splitParts}) on conflict do nothing`;
       row = (await find())[0];
     }
     if (!row) throw new Error("Could not start the payment. Try again.");
@@ -251,7 +285,7 @@ export const startContactCheckout = createServerFn({ method: "POST" })
       ref: str(row.ref),
       status: str(row.status),
       amount: num(row.amount_inr),
-      plan: squadId ? "squad contact unlock" : "contact unlock",
+      plan: squadId ? (quote.splitParts ? `your squad share (1 of ${quote.splitParts})` : "squad contact unlock") : "contact unlock",
       payee: payee.name,
       vpa: payee.vpa,
       link,
@@ -455,11 +489,15 @@ export const getSquad = createServerFn({ method: "POST" })
               exists (select 1 from contact_unlocks u where u.listing_id = s.listing_id and u.squad_id = s.squad_id) as unlocked,
               (select c.id from conversations c where c.squad_id = s.squad_id and c.listing_id = s.listing_id limit 1) as thread_id,
               (select p.status from payments p where p.squad_id = s.squad_id and p.listing_id = s.listing_id and p.kind = 'CONTACT' and p.status in ('PENDING','SUBMITTED') order by (p.status = 'SUBMITTED') desc limit 1) as pay_status,
+              (select coalesce(max(p.split_parts), 0) from payments p where p.squad_id = s.squad_id and p.listing_id = s.listing_id and p.kind = 'CONTACT' and p.split_parts > 0 and p.status in ('PENDING','SUBMITTED','PAID')) as split_parts,
+              (select count(distinct p.user_id)::int from payments p where p.squad_id = s.squad_id and p.listing_id = s.listing_id and p.kind = 'CONTACT' and p.split_parts > 0 and p.status = 'PAID') as shares_paid,
+              (select p.status from payments p where p.squad_id = s.squad_id and p.listing_id = s.listing_id and p.kind = 'CONTACT' and p.user_id = $2 and p.status in ('PENDING','SUBMITTED','PAID') order by p.created_at desc limit 1) as my_pay_status,
+              coalesce(r.notes_count, 0) as notes_count,
               (select p.status || '|' || coalesce(p.refund_utr, '') || '|' || coalesce(p.payer_vpa, '') from payments p where p.squad_id = s.squad_id and p.listing_id = s.listing_id and p.kind = 'CONTACT' and p.status in ('REFUND_DUE','REFUNDED') order by p.created_at desc limit 1) as refund
        from squad_shortlist s join listings l on l.id = s.listing_id
        left join squad_requests r on r.squad_id = s.squad_id and r.listing_id = s.listing_id
        where s.squad_id = $1 order by s.created_at`,
-      [data],
+      [data, context.userId],
     );
     const votes = await sql<{
       listing_id: string;
@@ -478,6 +516,7 @@ export const getSquad = createServerFn({ method: "POST" })
       inviteCode: str(squad.invite_code),
       me: context.userId,
       fee: contactFeeInr(),
+      splitEnabled: pricingConfig().squadSplitEnabled,
       members: people.map((p) => ({
         id: str(p.user_id),
         name: str(p.full_name),
@@ -504,6 +543,9 @@ export const getSquad = createServerFn({ method: "POST" })
           threadId: str(s.thread_id),
           payStatus: str(s.pay_status),
           refund: str(s.refund),
+          splitParts: num(s.split_parts),
+          sharesPaid: num(s.shares_paid),
+          myPayStatus: str(s.my_pay_status),
           votes: Object.fromEntries(v.map((x) => [x.user_id, x.vote])),
           allYes: allSaidYes({ size, memberIds: members, yesIds }),
         };
@@ -598,7 +640,7 @@ export const ownerSquadRequests = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
-      `select r.id, r.status, r.owner_note, r.listing_id, r.squad_id, l.title, l.monthly_rent, s.name as squad_name, s.size, s.budget_per_person, s.move_in::text as move_in,
+      `select r.id, r.status, r.owner_note, coalesce(r.notes_count, 0) as notes_count, r.listing_id, r.squad_id, l.title, l.monthly_rent, s.name as squad_name, s.size, s.budget_per_person, s.move_in::text as move_in,
               (select c.id from conversations c where c.squad_id = r.squad_id and c.listing_id = r.listing_id limit 1) as thread_id
        from squad_requests r join listings l on l.id = r.listing_id join squads s on s.id = r.squad_id
        where r.owner_id = $1 order by r.updated_at desc limit 50`,
@@ -615,6 +657,7 @@ export const ownerSquadRequests = createServerFn({ method: "GET" })
         id: str(r.id),
         status: str(r.status),
         note: str(r.owner_note),
+        notesLeft: Math.max(0, OWNER_NOTE_LIMIT - num(r.notes_count)),
         listingId: str(r.listing_id),
         title: str(r.title),
         rent: num(r.monthly_rent),
@@ -642,6 +685,8 @@ export const ownerDecideSquad = createServerFn({ method: "POST" })
     const decision = String(o.decision) as OwnerDecision;
     if (!OWNER_DECISIONS.includes(decision)) throw new Error("Unknown decision.");
     const note = typeof o.note === "string" ? o.note.trim().slice(0, 300) : "";
+    if (note && containsContactDetails(note))
+      throw new Error("Keep phone numbers, emails and links out of notes. Chat opens once the squad pays.");
     if (decision === "VISIT_PROPOSED" && note.length < 3)
       throw new Error("Suggest a day and time for the visit.");
     return { id: key(o.id, "request"), decision, note };
@@ -668,4 +713,36 @@ export const ownerDecideSquad = createServerFn({ method: "POST" })
       await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${m}, 'squad', 'Owner replied', ${`Your squad request is now ${data.decision.toLowerCase().replace("_", " ")}.`}, ${"/squads/" + rows[0].squad_id})`;
     }
     return { ok: true };
+  });
+
+/**
+ * Owner sends a short note to a squad before they pay (e.g. "visits on Saturday").
+ * Limited to OWNER_NOTE_LIMIT per request and screened for contact details; real chat stays paid.
+ */
+export const ownerSquadNote = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => {
+    const o = rec(input);
+    const note = typeof o.note === "string" ? o.note.trim().replace(/\s+/g, " ") : "";
+    if (note.length < 2) throw new Error("Write a short note.");
+    if (note.length > 200) throw new Error("Keep it under 200 characters.");
+    if (containsContactDetails(note))
+      throw new Error("Keep phone numbers, emails and links out of notes. Chat opens once the squad pays.");
+    return { id: key(o.id, "request"), note };
+  })
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await hitLimit(sql, context.userId, "squad");
+    const rows = await sql<{ squad_id: string; status: string; notes_count: number }>`select squad_id, status, notes_count from squad_requests where id = ${data.id} and owner_id = ${context.userId}`;
+    const r = rows[0];
+    if (!r) throw new Error("That request is not for your flat.");
+    if (r.status === "DECLINED" || r.status === "PAUSED") throw new Error("This request is closed.");
+    if (num(r.notes_count) >= OWNER_NOTE_LIMIT) throw new Error(`You can send ${OWNER_NOTE_LIMIT} notes before the squad pays.`);
+    const updated = await sql<{ id: string }>`update squad_requests set owner_note = ${data.note}, notes_count = notes_count + 1, updated_at = now()
+      where id = ${data.id} and notes_count < ${OWNER_NOTE_LIMIT} returning id`;
+    if (!updated[0]) throw new Error(`You can send ${OWNER_NOTE_LIMIT} notes before the squad pays.`);
+    for (const m of await activeMembers(sql, r.squad_id)) {
+      await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${m}, 'squad', 'Note from the owner', ${data.note}, ${"/squads/" + r.squad_id})`;
+    }
+    return { ok: true, notesLeft: OWNER_NOTE_LIMIT - num(r.notes_count) - 1 };
   });

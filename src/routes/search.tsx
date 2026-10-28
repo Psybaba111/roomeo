@@ -28,6 +28,7 @@ export const Route = createFileRoute("/search")({
     furnished: textParam(search.furnished),
     gender: textParam(search.gender),
     food: textParam(search.food),
+    kind: textParam(search.kind),
     sort: textParam(search.sort) || "recommended",
     q: textParam(search.q),
     availableBy: textParam(search.availableBy),
@@ -74,6 +75,7 @@ function SearchPage() {
         gender: initial.gender,
         occupation: "",
         food: initial.food === "1",
+        entireFlat: initial.kind === "flat",
         wifi: false,
         ac: false,
         parking: false,
@@ -109,7 +111,7 @@ function SearchPage() {
   const localities = cities.find((c) => c.name === "Bengaluru")?.localities ?? [];
 
   const activeFilters = (
-    ["locality", "maxRent", "roomType", "furnished", "gender", "food", "availableBy", "q"] as const
+    ["locality", "maxRent", "roomType", "furnished", "gender", "food", "kind", "availableBy", "q"] as const
   ).filter((k) => initial[k]).length;
 
   useEffect(() => {
@@ -130,7 +132,7 @@ function SearchPage() {
 
   return (
     <Shell>
-      <div className="mb-5 flex items-end justify-between gap-3">
+      <div className="mb-4 flex items-end justify-between gap-3">
         <div>
           <h1 className="text-4xl font-semibold tracking-tight">Bengaluru beds</h1>
           <p className="mt-1 text-muted">
@@ -151,7 +153,7 @@ function SearchPage() {
         <form
           id="search-filters"
           aria-label="Filters"
-          className={`${filtersOpen ? "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-line bg-card p-5 pb-8 shadow-2xl" : "hidden"} space-y-3 lg:static lg:z-auto lg:col-span-3 lg:block lg:max-h-none lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none`}
+          className={`${filtersOpen ? "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-3xl border border-line bg-card p-4 pb-8 shadow-2xl" : "hidden"} space-y-3 lg:static lg:z-auto lg:col-span-3 lg:block lg:max-h-none lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none`}
           onSubmit={(e) => {
             e.preventDefault();
             setFiltersOpen(false);
@@ -243,6 +245,15 @@ function SearchPage() {
             />
             Food available
           </label>
+          <label className="flex h-12 items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={initial.kind === "flat"}
+              onChange={(e) => set("kind", e.target.checked ? "flat" : "")}
+              data-testid="filter-entire-flat"
+            />
+            Entire flats only
+          </label>
           <label className="block">
             <span className="mb-1 block text-sm text-muted">Available by</span>
             <input
@@ -309,7 +320,7 @@ function SearchPage() {
                   type="button"
                   aria-selected={view === v}
                   onClick={() => setView(v)}
-                  className={`rounded-full px-4 py-1.5 ${view === v ? "bg-ink text-card" : "text-muted"}`}
+                  className={`rounded-full px-4 py-2 ${view === v ? "bg-ink text-card" : "text-muted"}`}
                 >
                   {v === "list" ? "List" : "Map"}
                 </button>
@@ -317,7 +328,7 @@ function SearchPage() {
             </div>
           </div>
           {view === "map" && rooms ? (
-            <div className="mb-5">
+            <div className="mb-4">
               <AreaMap
                 pins={areaPins(rooms.listings, centroids)}
                 onPick={(locality) => set("locality", locality)}

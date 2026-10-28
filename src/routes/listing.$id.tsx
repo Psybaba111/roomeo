@@ -3,7 +3,7 @@ import { ContactGate } from "@/components/contact-gate";
 import { SquadShortlistButton } from "@/components/squad-shortlist-button";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BadgeCheck } from "lucide-react";
+import { SealCheck as BadgeCheck } from "@phosphor-icons/react";
 import { Shell } from "@/components/shell";
 import { errText, safeNext } from "@/lib/ui-text";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -32,7 +32,7 @@ export const Route = createFileRoute("/listing/$id")({
       <p className="mt-3 max-w-md text-muted">{errText(error)}</p>
       <Link
         to="/"
-        className="mt-6 inline-flex h-12 items-center rounded-lg bg-ink px-5 font-semibold text-card shadow-[0_4px_0_var(--color-brand)]"
+        className="mt-6 inline-flex h-12 items-center rounded-lg bg-ink px-4 font-semibold text-card shadow-[0_4px_0_var(--color-brand)]"
       >
         Back to beds →
       </Link>
@@ -45,7 +45,7 @@ function ListingPage() {
   if (room.held) {
     return (
       <Shell>
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">
           Not public yet
         </p>
         <h1 className="mt-2 text-4xl">This bed stays hidden</h1>
@@ -54,7 +54,7 @@ function ListingPage() {
         </p>
         <Link
           to="/"
-          className="mt-6 inline-flex h-12 items-center rounded-lg bg-ink px-5 font-semibold text-card shadow-[0_4px_0_var(--color-brand)]"
+          className="mt-6 inline-flex h-12 items-center rounded-lg bg-ink px-4 font-semibold text-card shadow-[0_4px_0_var(--color-brand)]"
         >
           Back to beds →
         </Link>
@@ -186,11 +186,11 @@ function ListingBody({ room }: { room: LoadedRoom }) {
           <p className="mt-2 text-muted">
             {room.locality}, {room.city} · {room.propertyType}
           </p>
-          <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Vibe">
+          <ul className="mt-3 flex flex-wrap gap-2" aria-label="Vibe">
             {(room.vibes ?? []).map((v) => (
               <li
                 key={v}
-                className="rounded-full bg-pop-soft px-2.5 py-1 text-xs font-semibold text-pop"
+                className="rounded-full bg-pop-soft px-2 py-1 text-xs font-semibold text-pop"
               >
                 {v}
               </li>
@@ -324,7 +324,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
           </div>
         </div>
         <aside className="lg:col-span-5">
-          <div className="rounded-3xl border border-line bg-card p-5">
+          <div className="rounded-3xl border border-line bg-card p-4">
             <p className="text-sm text-muted">Host</p>
             <h2 className="font-display text-2xl">{room.host.name}</h2>
             <p className="mt-1 text-sm text-muted">
@@ -413,6 +413,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
               furnished: "",
               gender: "",
               food: "",
+              kind: "",
               sort: "recommended",
               q: "",
               availableBy: "",

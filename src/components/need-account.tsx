@@ -18,7 +18,7 @@ export function NeedAccount({ next, children }: { next: string; children: ReactN
         <p className="mt-2 max-w-md text-muted">roomeo.com keeps enquiries, saved rooms, and your listings on your account.</p>
         <button
           type="button"
-          className="mt-5 h-12 rounded-full bg-brand px-5 font-semibold text-card"
+          className="mt-4 h-12 rounded-full bg-brand px-4 font-semibold text-card"
           onClick={() => {
             sessionStorage.setItem("roomsetu-next", next);
             window.location.href = "/login";

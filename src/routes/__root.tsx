@@ -9,7 +9,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "roomeo · Bengaluru beds for students & first-jobbers" },
+      { title: "roomeo · Bengaluru beds for students & first jobbers" },
       { name: "description", content: "A bed in Bengaluru. People choose their own group. The owner says yes once. Each share is paid here. ₹499 once. No visit." },
       { name: "theme-color", content: "var(--color-brand)" },
     ],

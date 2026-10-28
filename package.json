@@ -63,7 +63,6 @@
     "kysely": "^0.28.5",
     "leaflet": "^1.9.4",
     "lightningcss": "^1.28.0",
-    "lucide-react": "^0.510.0",
     "nitro": "3.0.260610-beta",
     "pg": "^8.16.3",
     "qrcode": "^1.5.4",

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Instagram, MessageCircle } from "lucide-react";
+import { InstagramLogo as Instagram, WhatsappLogo as MessageCircle } from "@phosphor-icons/react";
 import { shareNative, shareText, whatsappShareUrl } from "@/lib/share";
 
 export function ShareButtons({ room, url }: { room: { title: string; locality: string; rent: number }; url: string }) {

@@ -1,24 +1,18 @@
 @import "tailwindcss";
 
 @font-face {
-  font-family: "DM Sans";
+  font-family: "Manrope";
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 200 800;
   font-display: swap;
-  src: url("/fonts/dm-sans-latin.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "Syne";
-  font-style: normal;
-  font-weight: 700 800;
-  font-display: swap;
-  src: url("/fonts/syne-latin.woff2") format("woff2");
+  src: url("/fonts/manrope-latin.woff2") format("woff2");
 }
 
 @theme {
-  --font-sans: "DM Sans", "Segoe UI", sans-serif;
-  --font-display: "Syne", "DM Sans", sans-serif;
+  /* One approved typeface (landing-page-design B1). */
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --ease-base: cubic-bezier(0.22, 1, 0.36, 1);
   --color-ink: #14111f;
   --color-paper: #f7f5ff;
   --color-card: #ffffff;
@@ -51,7 +45,7 @@
   }
   h1, h2, h3 {
     font-family: var(--font-display);
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: -0.03em;
     text-wrap: balance;
   }
@@ -59,6 +53,19 @@
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+  /* Interaction states everywhere: hover, pressed, focus (B7, B9). Only transform and opacity animate. */
+  a, button, [role="button"], [role="tab"], summary {
+    transition-property: transform, opacity;
+    transition-duration: 300ms;
+    transition-timing-function: var(--ease-base);
+  }
+  button:not(:disabled):hover, [role="tab"]:hover, a[class*="rounded-full"]:hover { opacity: 0.88; }
+  button:not(:disabled):active, [role="tab"]:active, a[class*="rounded-full"]:active, a[class*="rounded-3xl"]:active { transform: scale(0.98); }
+  button:disabled { cursor: not-allowed; opacity: 0.45; }
+  @media (prefers-reduced-motion: reduce) {
+    a, button, [role="button"], [role="tab"], summary { transition-property: opacity; }
+    button:not(:disabled):active, [role="tab"]:active, a:active { transform: none; }
   }
 }
 
@@ -70,9 +77,9 @@
 
 .dark {
   --color-ink: #f4f1ff;
-  --color-paper: #0f0c1a;
-  --color-card: #1b1729;
-  --color-line: #2e2942;
+  --color-paper: #181818;
+  --color-card: #1f1f1f;
+  --color-line: #313131;
   --color-muted: #b3adc9;
   --color-brand: #ff6aa9;
   --color-brand-deep: #ff9cc6;
@@ -88,15 +95,15 @@
   color-scheme: dark;
 }
 
+/* Flat skeleton that pulses opacity only (no gradient backgrounds). */
 @utility skeleton {
-  background: linear-gradient(90deg, var(--color-line) 25%, var(--color-paper) 50%, var(--color-line) 75%);
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.2s ease-in-out infinite;
+  background: var(--color-line);
+  animation: skeleton-pulse 1.4s var(--ease-base) infinite;
 }
 
-@keyframes skeleton-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 @media (prefers-reduced-motion: reduce) {
