@@ -1,3 +1,4 @@
+import { ChatCircle, Flag, MapPin, ShieldCheck } from "@phosphor-icons/react";
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -36,11 +37,11 @@ const STEPS = [
   ["03", "Pay ₹499, move in", "One time fee, not a broker's month. After that it's just rent."],
 ];
 
-const TRUST = [
-  ["🔒", "ID + phone checked", "Hosts verify phone and ID before a bed goes live."],
-  ["📍", "Address stays private", "Exact address only after the owner says yes."],
-  ["💬", "Chat inside roomeo", "Your number stays hidden till you're ready."],
-  ["🚩", "Report in one tap", "Something feels off? Flag it. A real person reviews it."],
+const TRUST: [typeof ShieldCheck, string, string][] = [
+  [ShieldCheck, "ID + phone checked", "Hosts verify phone and ID before a bed goes live."],
+  [MapPin, "Address stays private", "Exact address only after the owner says yes."],
+  [ChatCircle, "Chat inside roomeo", "Your number stays hidden till you're ready."],
+  [Flag, "Report in one tap", "Something feels off? Flag it. A real person reviews it."],
 ];
 
 function Home() {
@@ -147,12 +148,10 @@ function Home() {
         <h2 id="safe" className="text-2xl sm:text-3xl">
           Safe by default, not as an add-on
         </h2>
-        <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {TRUST.map(([icon, k, v]) => (
+        <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {TRUST.map(([Icon, k, v]) => (
             <li key={k} className="rounded-3xl border border-line bg-card p-4">
-              <p className="text-2xl" aria-hidden>
-                {icon}
-              </p>
+              <Icon size={28} weight="duotone" className="text-brand" aria-hidden />
               <p className="mt-2 font-display text-lg">{k}</p>
               <p className="mt-1 text-sm text-muted">{v}</p>
             </li>

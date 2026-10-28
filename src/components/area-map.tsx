@@ -43,7 +43,7 @@ export function AreaMap({ pins, onPick }: { pins: Pin[]; onPick?: (locality: str
   return (
     <div>
       <div ref={el} className="h-[420px] w-full overflow-hidden rounded-3xl border border-line bg-card" role="region" aria-label="Map of areas with open beds" />
-      <p className="mt-2 text-xs text-muted">📍 Pins show the area only. Exact addresses stay private till the owner says yes.</p>
+      <p className="mt-2 text-xs text-muted">Pins show the area only. Exact addresses stay private till the owner says yes.</p>
     </div>
   );
 }
