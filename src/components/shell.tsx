@@ -5,7 +5,7 @@ import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const EMPTY_SEARCH = {
-  city: "",
+  city: "Bengaluru",
   locality: "",
   maxRent: "",
   roomType: "",

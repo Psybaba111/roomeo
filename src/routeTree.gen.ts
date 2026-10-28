@@ -35,6 +35,7 @@ import { Route as AdminReportsRouteImport } from './routes/admin.reports'
 import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminVerificationsRouteImport } from './routes/admin.verifications'
+import { Route as EditListingIdRouteImport } from './routes/edit-listing.$id'
 import { Route as ListingIdRouteImport } from './routes/listing.$id'
 import { Route as SquadsIndexRouteImport } from './routes/squads.index'
 import { Route as SquadsIdRouteImport } from './routes/squads.$id'
@@ -174,6 +175,11 @@ const AdminVerificationsRoute = AdminVerificationsRouteImport.update({
   path: '/admin/verifications',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EditListingIdRoute = EditListingIdRouteImport.update({
+  id: '/edit-listing/$id',
+  path: '/edit-listing/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ListingIdRoute = ListingIdRouteImport.update({
   id: '/listing/$id',
   path: '/listing/$id',
@@ -241,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
+  '/edit-listing/$id': typeof EditListingIdRoute
   '/listing/$id': typeof ListingIdRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
@@ -277,6 +284,7 @@ export interface FileRoutesByTo {
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
+  '/edit-listing/$id': typeof EditListingIdRoute
   '/listing/$id': typeof ListingIdRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
@@ -314,6 +322,7 @@ export interface FileRoutesById {
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
+  '/edit-listing/$id': typeof EditListingIdRoute
   '/listing/$id': typeof ListingIdRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
@@ -352,6 +361,7 @@ export interface FileRouteTypes {
     | '/admin/revenue'
     | '/admin/users'
     | '/admin/verifications'
+    | '/edit-listing/$id'
     | '/listing/$id'
     | '/squads/$id'
     | '/verify/digilocker'
@@ -388,6 +398,7 @@ export interface FileRouteTypes {
     | '/admin/revenue'
     | '/admin/users'
     | '/admin/verifications'
+    | '/edit-listing/$id'
     | '/listing/$id'
     | '/squads/$id'
     | '/verify/digilocker'
@@ -424,6 +435,7 @@ export interface FileRouteTypes {
     | '/admin/revenue'
     | '/admin/users'
     | '/admin/verifications'
+    | '/edit-listing/$id'
     | '/listing/$id'
     | '/squads/$id'
     | '/verify/digilocker'
@@ -461,6 +473,7 @@ export interface RootRouteChildren {
   AdminRevenueRoute: typeof AdminRevenueRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVerificationsRoute: typeof AdminVerificationsRoute
+  EditListingIdRoute: typeof EditListingIdRoute
   ListingIdRoute: typeof ListingIdRoute
   SquadsIdRoute: typeof SquadsIdRoute
   VerifyDigilockerRoute: typeof VerifyDigilockerRoute
@@ -656,6 +669,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminVerificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/edit-listing/$id': {
+      id: '/edit-listing/$id'
+      path: '/edit-listing/$id'
+      fullPath: '/edit-listing/$id'
+      preLoaderRoute: typeof EditListingIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/listing/$id': {
       id: '/listing/$id'
       path: '/listing/$id'
@@ -741,6 +761,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRevenueRoute: AdminRevenueRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminVerificationsRoute: AdminVerificationsRoute,
+  EditListingIdRoute: EditListingIdRoute,
   ListingIdRoute: ListingIdRoute,
   SquadsIdRoute: SquadsIdRoute,
   VerifyDigilockerRoute: VerifyDigilockerRoute,

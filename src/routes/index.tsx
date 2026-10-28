@@ -6,10 +6,16 @@ import { Shell } from "@/components/shell";
 import { RoomCard } from "@/components/cards";
 import { EmptyBeds } from "@/components/empty-beds";
 import { getHome, listCities } from "@/lib/roomsetu/public-api";
+import { CityPicker } from "@/components/city-picker";
+import { DEFAULT_CITY, cityInfo } from "@/lib/roomsetu/cities";
 
 export const Route = createFileRoute("/")({
-  head: () => pageHead("Spare beds in Bengaluru for students & first jobbers"),
-  loader: () => getHome(),
+  head: () =>
+    pageHead("Spare beds in Bengaluru & Mangaluru for students & first jobbers", {
+      description:
+        "Shared rooms, PG beds and whole flats in Bengaluru and Mangaluru. Pick your flatmates and message 3 owners free.",
+    }),
+  loader: () => getHome({ data: { city: DEFAULT_CITY } }),
   component: Home,
 });
 
@@ -45,26 +51,49 @@ const TRUST: [typeof ShieldCheck, string, string][] = [
 ];
 
 function Home() {
-  const data = Route.useLoaderData();
+  const initialData = Route.useLoaderData();
+  const [data, setData] = useState(initialData);
+  const [city, setCity] = useState(initialData.city || DEFAULT_CITY);
   const navigate = useNavigate();
   const [budget, setBudget] = useState("");
   const [area, setArea] = useState("");
   const [areas, setAreas] = useState<string[]>([]);
+  const search = { ...SEARCH, city };
 
   useEffect(() => {
     void listCities()
-      .then((all) => setAreas(all.find((c) => c.name === "Bengaluru")?.localities ?? []))
+      .then((all) => setAreas(all.find((c) => c.name === city)?.localities ?? []))
       .catch(() => undefined);
-  }, []);
+    if (city === initialData.city) {
+      setData(initialData);
+      return;
+    }
+    let live = true;
+    void getHome({ data: { city } })
+      .then((next) => live && setData(next))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [city, initialData]);
 
   return (
     <Shell>
       <section className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-[#2a0a4a] px-4 pb-12 pt-10 text-white">
         <div className="relative mx-auto max-w-6xl">
           <p className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
-            <span className="h-2 w-2 rounded-full bg-lime" aria-hidden /> Bengaluru · for students &
+            <span className="h-2 w-2 rounded-full bg-lime" aria-hidden /> {city} · for students &
             first jobbers
           </p>
+          <CityPicker
+            value={city}
+            tone="dark"
+            className="mt-4 flex w-fit"
+            onChange={(next) => {
+              setCity(next);
+              setArea("");
+            }}
+          />
           <h1 className="mt-4 max-w-2xl text-4xl leading-[1.02] sm:text-7xl">
             Find your people.
             <span className="block text-lime">Then your bed.</span>
@@ -79,7 +108,7 @@ function Home() {
               e.preventDefault();
               void navigate({
                 to: "/search",
-                search: { ...SEARCH, locality: area, maxRent: budget },
+                search: { ...search, locality: area, maxRent: budget },
               });
             }}
           >
@@ -93,7 +122,7 @@ function Home() {
                 value={area}
                 onChange={(e) => setArea(e.target.value)}
               >
-                <option value="">Anywhere in Bengaluru</option>
+                <option value="">Anywhere in {city}</option>
                 {areas.map((a) => (
                   <option key={a}>{a}</option>
                 ))}
@@ -128,7 +157,7 @@ function Home() {
               <Link
                 key={v}
                 to="/search"
-                search={{ ...SEARCH, maxRent: v }}
+                search={{ ...search, maxRent: v }}
                 className="rounded-full border border-white/40 px-3 py-2 font-semibold text-white hover:bg-white/10"
               >
                 {label}
@@ -163,14 +192,15 @@ function Home() {
         <div className="mb-4 flex items-end justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Swipe karo</p>
-            <h2 className="mt-1 text-3xl sm:text-4xl">Fresh beds in Bengaluru</h2>
+            <h2 className="mt-1 text-3xl sm:text-4xl">Fresh beds in {city}</h2>
+            <p className="mt-1 text-sm text-muted">{cityInfo(city).tagline}</p>
           </div>
-          <Link to="/search" search={SEARCH} className="text-sm font-semibold text-brand">
+          <Link to="/search" search={search} className="text-sm font-semibold text-brand">
             See all →
           </Link>
         </div>
         {data.listings.length === 0 ? (
-          <EmptyBeds area="Bengaluru" />
+          <EmptyBeds area={city} />
         ) : (
           <div className="flex snap-x gap-4 overflow-x-auto pb-4 no-scrollbar">
             {data.listings.map((room) => (
