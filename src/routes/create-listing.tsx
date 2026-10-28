@@ -15,7 +15,7 @@ import {
   ROOM_TYPES,
 } from "@/lib/roomsetu/constants";
 import { listCities } from "@/lib/roomsetu/public-api";
-import { fileUploadError, photoUrlError } from "@/lib/roomsetu/services";
+import { readPhotos } from "@/components/photo-upload";
 import { createListing } from "@/lib/roomsetu/account-api";
 
 export const Route = createFileRoute("/create-listing")({
@@ -88,27 +88,9 @@ function CreateListing() {
   async function addFiles(list: FileList | null) {
     if (!list?.length) return;
     setError("");
-    const next = [...uploads];
-    for (const file of Array.from(list)) {
-      if (next.length >= 6) break;
-      const kind = fileUploadError({ type: file.type, bytes: file.size });
-      if (kind) {
-        setError(kind);
-        continue;
-      }
-      try {
-        const url = await compressPhoto(file);
-        const bad = photoUrlError(url);
-        if (bad) {
-          setError(bad);
-          continue;
-        }
-        next.push({ url, category: "Bedroom" });
-      } catch {
-        setError("That photo could not be read. Try a JPG or PNG.");
-      }
-    }
-    setUploads(next);
+    const { added, error: bad } = await readPhotos(list, Math.max(0, 6 - uploads.length));
+    if (bad) setError(bad);
+    setUploads((cur) => [...cur, ...added].slice(0, 6));
   }
 
   const toggles: { key: keyof typeof form; label: string }[] = [
@@ -450,35 +432,4 @@ function CreateListing() {
       </form>
     </Shell>
   );
-}
-
-function compressPhoto(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const blobUrl = URL.createObjectURL(file);
-    img.onload = () => {
-      const max = 960;
-      const scale = Math.min(1, max / Math.max(img.width, img.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(img.width * scale));
-      canvas.height = Math.max(1, Math.round(img.height * scale));
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        URL.revokeObjectURL(blobUrl);
-        reject(new Error("canvas"));
-        return;
-      }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      let url = canvas.toDataURL("image/jpeg", 0.72);
-      if (url.length > 280_000) url = canvas.toDataURL("image/jpeg", 0.5);
-      URL.revokeObjectURL(blobUrl);
-      if (url.length > 280_000) reject(new Error("large"));
-      else resolve(url);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(blobUrl);
-      reject(new Error("read"));
-    };
-    img.src = blobUrl;
-  });
 }

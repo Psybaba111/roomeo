@@ -2,6 +2,7 @@ import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { listingCard, num, str, bool, type ListingCard } from "@/lib/roomsetu/map";
 import { likeContains } from "@/lib/roomsetu/services";
+import { areaCentroid, searchCity } from "@/lib/roomsetu/cities";
 
 const CARD_SQL = `
   l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type, l.listing_kind, l.bedrooms,
@@ -77,22 +78,27 @@ function filters(input: unknown): SearchFilters {
   };
 }
 
-export const getHome = createServerFn({ method: "GET" }).handler(async () => {
+export const getHome = createServerFn({ method: "GET" })
+  .validator((input: unknown) => ({ city: searchCity((input as { city?: unknown } | undefined)?.city) }))
+  .handler(async ({ data }) => {
   const sql = await getSql();
+  const city = data.city;
   const listings = await sql.query<Record<string, unknown>>(
     `select ${CARD_SQL} ${FROM}
      where l.status = 'ACTIVE' and pr.account_status = 'ACTIVE'
-       and lower(l.city_name) = 'bengaluru'
+       and lower(l.city_name) = lower($1)
        and (l.is_demo = true or pr.identity_status = 'VERIFIED')
      order by case when l.boosted_until > now() then 0 else 1 end,
               case when l.listing_tier = 'FEATURED' then 0 when l.listing_tier = 'PREMIUM' then 1 else 2 end,
               case when l.verification_status = 'VERIFIED' then 0 else 1 end,
               l.quality_score desc
      limit 8`,
+    [city],
   );
   const wanted = await sql.query<Record<string, unknown>>(
     `select id, display_name, age, occupation, city, localities, budget, bio, room_pref, is_demo, move_in::text as move_in
-     from room_wanted where status = 'ACTIVE' and lower(city) = 'bengaluru' order by created_at desc limit 4`,
+     from room_wanted where status = 'ACTIVE' and lower(city) = lower($1) order by created_at desc limit 4`,
+    [city],
   );
   const cities = await sql.query<Record<string, unknown>>(
     `select c.name, c.state,
@@ -101,9 +107,10 @@ export const getHome = createServerFn({ method: "GET" }).handler(async () => {
      from cities c
      left join listings l on l.city_name = c.name
      left join profiles pr on pr.user_id = l.owner_id
-     where c.name = 'Bengaluru'
+     where c.name = $1
      group by c.name, c.state
      order by rooms desc, c.name`,
+    [city],
   );
   const statsRow = await sql.query<Record<string, unknown>>(
     `select
@@ -114,6 +121,7 @@ export const getHome = createServerFn({ method: "GET" }).handler(async () => {
   );
   const stats = statsRow[0] ?? {};
   return {
+    city,
     listings: listings.map(listingCard),
     wanted: wanted.map((w) => ({
       id: str(w.id),
@@ -141,7 +149,7 @@ export const getHome = createServerFn({ method: "GET" }).handler(async () => {
       seekers: num(stats.seekers),
     },
   };
-});
+  });
 
 export const listCities = createServerFn({ method: "GET" }).handler(async () => {
   const sql = await getSql();
@@ -165,8 +173,8 @@ export const searchListings = createServerFn({ method: "POST" })
   .validator(filters)
   .handler(async ({ data }) => {
     const sql = await getSql();
-    const where = ["l.status = 'ACTIVE'", "pr.account_status = 'ACTIVE'", "(l.is_demo = true or pr.identity_status = 'VERIFIED')", "lower(l.city_name) = 'bengaluru'"];
-    const params: unknown[] = [];
+    const where = ["l.status = 'ACTIVE'", "pr.account_status = 'ACTIVE'", "(l.is_demo = true or pr.identity_status = 'VERIFIED')", "lower(l.city_name) = lower($1)"];
+    const params: unknown[] = [searchCity(data.city)];
     const add = (value: unknown, clause: string) => {
       params.push(value);
       where.push(clause.replaceAll("$#", `$${params.length}`));
@@ -193,10 +201,10 @@ export const searchListings = createServerFn({ method: "POST" })
     if (data.sort === "rent_desc") order = "l.monthly_rent desc";
     if (data.sort === "newest") order = "l.created_at desc";
     if (data.sort === "soon") order = "l.available_from asc, l.monthly_rent asc";
-    if (data.sort === "nearest" && data.city) {
+    if (data.sort === "nearest") {
       const coords = await sql.query<Record<string, unknown>>(
         "select lat, lng from cities where lower(name) = lower($1) limit 1",
-        [data.city],
+        [searchCity(data.city)],
       );
       if (coords[0]) {
         params.push(num(coords[0].lat), num(coords[0].lng));
@@ -210,7 +218,7 @@ export const searchListings = createServerFn({ method: "POST" })
     );
     await sql.query(
       "insert into metric_events (id, kind, city) values ($1, 'search', $2)",
-      [crypto.randomUUID(), data.city || ""],
+      [crypto.randomUUID(), searchCity(data.city)],
     );
     return { listings: rows.map(listingCard), total: rows.length };
   });
@@ -374,25 +382,17 @@ export const listRoomWanted = createServerFn({ method: "POST" })
 export type { ListingCard };
 
 /** Locality centroids for the area-level map. Never property coordinates. */
-export const listAreaCentroids = createServerFn({ method: "GET" }).handler(async () => {
-  const sql = await getSql();
-  const rows = await sql.query<Record<string, unknown>>(
-    `select l.name, l.lat, l.lng from localities l join cities c on c.id = l.city_id where c.name = 'Bengaluru'`,
-  );
-  // Seeded coordinates are placeholders; prefer real public area centroids where we know them.
-  const KNOWN: Record<string, [number, number]> = {
-    Koramangala: [12.935, 77.624],
-    Indiranagar: [12.971, 77.641],
-    Whitefield: [12.97, 77.75],
-    Jayanagar: [12.925, 77.583],
-    "HSR Layout": [12.912, 77.645],
-    "BTM Layout": [12.917, 77.61],
-    Marathahalli: [12.956, 77.701],
-    "Electronic City": [12.845, 77.66],
-  };
-  return rows.map((r) => {
-    const name = str(r.name);
-    const k = KNOWN[name];
-    return { name, lat: k ? k[0] : num(r.lat), lng: k ? k[1] : num(r.lng) };
+export const listAreaCentroids = createServerFn({ method: "GET" })
+  .validator((input: unknown) => ({ city: searchCity((input as { city?: unknown } | undefined)?.city) }))
+  .handler(async ({ data }) => {
+    const sql = await getSql();
+    const rows = await sql.query<Record<string, unknown>>(
+      `select l.name, l.lat, l.lng from localities l join cities c on c.id = l.city_id where c.name = $1`,
+      [data.city],
+    );
+    return rows.map((r) => {
+      const name = str(r.name);
+      const [lat, lng] = areaCentroid(data.city, name, [num(r.lat), num(r.lng)]);
+      return { name, lat, lng };
+    });
   });
-});

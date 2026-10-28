@@ -224,6 +224,7 @@ function Desk() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link to="/listing/$id" params={{ id: listing.id }} className="inline-flex h-10 items-center rounded-full border border-line px-3 text-sm">Open</Link>
+                  <Link to="/edit-listing/$id" params={{ id: listing.id }} className="inline-flex h-10 items-center gap-1 rounded-full bg-ink px-3 text-sm font-semibold text-card" data-testid="edit-listing">Edit</Link>
                   {listing.status !== "PAUSED" ? (
                     <button type="button" className="h-10 rounded-full border border-line px-3 text-sm" onClick={() => void setListingStatus({ data: { id: listing.id, status: "PAUSED" } }).then(refresh)}>Pause</button>
                   ) : (

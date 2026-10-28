@@ -12,6 +12,8 @@ import { EmptyBeds } from "@/components/empty-beds";
 import { RoomGridSkeleton } from "@/components/skeletons";
 import { rememberSearch } from "@/lib/roomsetu/account-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { CityPicker } from "@/components/city-picker";
+import { cityInfo, citySeoDescription, citySeoTitle, searchCity } from "@/lib/roomsetu/cities";
 
 function textParam(value: unknown): string {
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -19,9 +21,12 @@ function textParam(value: unknown): string {
 }
 
 export const Route = createFileRoute("/search")({
-  head: () => pageHead("Search spare beds in Bengaluru"),
+  head: ({ match }) => {
+    const city = searchCity((match.search as { city?: string } | undefined)?.city);
+    return pageHead(citySeoTitle(city), { description: citySeoDescription(city) });
+  },
   validateSearch: (search: Record<string, unknown>) => ({
-    city: textParam(search.city),
+    city: searchCity(textParam(search.city)),
     locality: textParam(search.locality),
     maxRent: textParam(search.maxRent),
     roomType: textParam(search.roomType),
@@ -48,15 +53,18 @@ function SearchPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [centroids, setCentroids] = useState<Centroid[]>([]);
 
+  const city = searchCity(initial.city);
+  const info = cityInfo(city);
+
   useEffect(() => {
-    void listAreaCentroids()
+    void listAreaCentroids({ data: { city } })
       .then(setCentroids)
       .catch(() => undefined);
-  }, []);
+  }, [city]);
 
   useEffect(() => {
     void listCities()
-      .then((all) => setCities(all.filter((c) => c.name === "Bengaluru")))
+      .then((all) => setCities(all))
       .catch(() => undefined);
   }, []);
 
@@ -65,7 +73,7 @@ function SearchPage() {
     setLoading(true);
     void searchListings({
       data: {
-        city: "Bengaluru",
+        city,
         locality: initial.locality,
         minRent: null,
         maxRent: initial.maxRent ? Number(initial.maxRent) : null,
@@ -99,7 +107,7 @@ function SearchPage() {
     return () => {
       live = false;
     };
-  }, [initial]);
+  }, [initial, city]);
 
   useEffect(() => {
     if (!user || !initial.city) return;
@@ -108,7 +116,7 @@ function SearchPage() {
     );
   }, [user, initial.city, initial.roomType]);
 
-  const localities = cities.find((c) => c.name === "Bengaluru")?.localities ?? [];
+  const localities = cities.find((c) => c.name === city)?.localities ?? [];
 
   const activeFilters = (
     ["locality", "maxRent", "roomType", "furnished", "gender", "food", "kind", "availableBy", "q"] as const
@@ -130,17 +138,23 @@ function SearchPage() {
     void navigate({ search: { ...initial, [key]: value } });
   }
 
+  function pickCity(next: string) {
+    if (next === city) return;
+    void navigate({ search: { ...initial, city: next, locality: "" } });
+  }
+
   return (
     <Shell>
-      <div className="mb-4 flex items-end justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-4 pt-6">
         <div>
-          <h1 className="text-4xl font-semibold tracking-tight">Bengaluru beds</h1>
+          <h1 className="text-4xl font-semibold tracking-tight">{city} beds</h1>
           <p className="mt-1 text-muted">
             {loading
               ? "Finding your people…"
-              : `${rooms?.total ?? 0} beds open now. One person per bed.`}
+              : `${rooms?.total ?? 0} beds open now. ${info.tagline}.`}
           </p>
         </div>
+        <CityPicker value={city} onChange={pickCity} />
       </div>
       <div className="grid gap-6 lg:grid-cols-12">
         {filtersOpen ? (
@@ -170,9 +184,10 @@ function SearchPage() {
               Close
             </button>
           </div>
-          <p className="rounded-2xl bg-pop-soft px-3 py-3 text-sm font-semibold text-pop">
-            Bengaluru only. No other city is in this version.
-          </p>
+          <div className="block">
+            <span className="mb-1 block text-sm text-muted">City</span>
+            <CityPicker value={city} onChange={pickCity} className="w-full justify-between [&>button]:flex-1 [&>button]:justify-center" />
+          </div>
           <label className="block">
             <span className="mb-1 block text-sm text-muted">Locality</span>
             <select
@@ -283,7 +298,7 @@ function SearchPage() {
               className={control}
               value={initial.q}
               onChange={(e) => set("q", e.target.value)}
-              placeholder="Whitefield, PG, studio"
+              placeholder={city === "Mangaluru" ? "Bunder, PG, AC" : "Whitefield, PG, studio"}
             />
           </label>
           <button
@@ -331,6 +346,7 @@ function SearchPage() {
             <div className="mb-4">
               <AreaMap
                 pins={areaPins(rooms.listings, centroids)}
+                center={info.center}
                 onPick={(locality) => set("locality", locality)}
               />
             </div>
@@ -342,10 +358,10 @@ function SearchPage() {
                 <p className="rounded-3xl border border-line bg-card p-4 text-sm">
                   No beds match those filters. Widen the budget or clear a filter.
                 </p>
-                <EmptyBeds area={initial.locality || "Bengaluru"} compact />
+                <EmptyBeds area={initial.locality || city} compact />
               </div>
             ) : (
-              <EmptyBeds area="Bengaluru" />
+              <EmptyBeds area={city} />
             )
           ) : null}
           {!loading && rooms && rooms.listings.length > 0 && rooms.listings.length < 3 ? (

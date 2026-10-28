@@ -43,6 +43,7 @@ function Rooms() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
+                <Link to="/edit-listing/$id" params={{ id: row.id }} className="inline-flex h-9 items-center rounded-full bg-ink px-3 text-sm font-semibold text-card">Edit</Link>
                 <button type="button" className="h-9 rounded-full border border-line px-3 text-sm" onClick={() => void adminSetListing({ data: { id: row.id, action: "verify" } }).then(load)}>Verify</button>
                 <button type="button" className="h-9 rounded-full border border-line px-3 text-sm" onClick={() => void adminSetListing({ data: { id: row.id, action: "reject" } }).then(load)}>Reject</button>
                 <button type="button" className="h-9 rounded-full border border-line px-3 text-sm" onClick={() => void adminSetListing({ data: { id: row.id, action: "feature" } }).then(load)}>Feature</button>
