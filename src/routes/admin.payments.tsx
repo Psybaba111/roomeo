@@ -90,7 +90,7 @@ function Payments() {
           Refunds
         </h2>
         <p className="mt-2 text-sm text-muted [text-wrap:pretty]">
-          Contact fees owed back because the owner declined. Send the amount to the payer's UPI ID
+          Money owed back: passes covered by the refund promise, and old contact fees where the owner declined. Send the amount to the payer's UPI ID
           from roomeo's UPI app, then record the refund UTR here. No refund is owed once the owner
           accepted, or when the seeker withdrew or left.
         </p>
@@ -142,7 +142,7 @@ function Payments() {
         </ul>
         {refunds.length === 0 ? (
           <p className={`mt-4 text-sm text-muted ${card}`}>
-            No refunds owed right now. Declined contact fees show up here.
+            No refunds owed right now. Passes covered by the refund promise show up here.
           </p>
         ) : null}
       </section>
