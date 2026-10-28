@@ -34,6 +34,8 @@ export type ListingCard = {
   food: boolean;
   quality: number;
   vibes: Vibe[];
+  kind: string;
+  bedrooms: number;
 };
 
 export function cardPhoto(url: string | null, _width = 720): string | null {
@@ -72,6 +74,8 @@ export function listingCard(row: Record<string, unknown>): ListingCard {
     food: bool(row.food_available),
     quality: num(row.quality_score),
     vibes: vibeTags(row),
+    kind: str(row.listing_kind) || "BED",
+    bedrooms: num(row.bedrooms),
   };
 }
 

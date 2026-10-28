@@ -5,7 +5,15 @@ import { NeedAccount } from "@/components/need-account";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
 import { control } from "@/components/cards";
-import { CATALOG_PHOTOS, FURNISHED, GENDER_PREFS, OCCUPATION_PREFS, PHOTO_CATEGORIES, PROPERTY_TYPES, ROOM_TYPES } from "@/lib/roomsetu/constants";
+import {
+  CATALOG_PHOTOS,
+  FURNISHED,
+  GENDER_PREFS,
+  OCCUPATION_PREFS,
+  PHOTO_CATEGORIES,
+  PROPERTY_TYPES,
+  ROOM_TYPES,
+} from "@/lib/roomsetu/constants";
 import { listCities } from "@/lib/roomsetu/public-api";
 import { fileUploadError, photoUrlError } from "@/lib/roomsetu/services";
 import { createListing } from "@/lib/roomsetu/account-api";
@@ -43,6 +51,8 @@ function CreateListing() {
     genderPref: "ANY",
     occupationPref: "ANY",
     occupants: "1",
+    listingKind: "BED",
+    bedrooms: "2",
     description: "",
     guestPolicy: "Occasional guests with a day's notice",
     agePref: "18 to 40",
@@ -120,7 +130,9 @@ function CreateListing() {
   return (
     <Shell>
       <h1 className="font-display text-4xl">List a room</h1>
-      <p className="mt-2 max-w-xl text-muted">Tell the truth about the room. You can pause it later when someone moves in.</p>
+      <p className="mt-2 max-w-xl text-muted">
+        Tell the truth about the room. You can pause it later when someone moves in.
+      </p>
       <form
         className="mt-6 grid gap-4 md:grid-cols-2"
         onSubmit={(e) => {
@@ -135,6 +147,9 @@ function CreateListing() {
               minStay: Number(form.minStay),
               maxStay: Number(form.maxStay),
               occupants: Number(form.occupants),
+              listingKind:
+                form.listingKind === "ENTIRE_FLAT" ? ("ENTIRE_FLAT" as const) : ("BED" as const),
+              bedrooms: Number(form.bedrooms),
               photos: [...uploads, ...photos.map((i) => CATALOG_PHOTOS[i])].slice(0, 8),
             },
           })
@@ -147,85 +162,205 @@ function CreateListing() {
       >
         <label className="md:col-span-2">
           <span className="mb-1 block text-sm text-muted">Title</span>
-          <input className={control} value={form.title} onChange={(e) => set("title", e.target.value)} required placeholder="Private room near the metro" />
+          <input
+            className={control}
+            value={form.title}
+            onChange={(e) => set("title", e.target.value)}
+            required
+            placeholder="Private room near the metro"
+          />
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">Property</span>
-          <select className={control} value={form.propertyType} onChange={(e) => set("propertyType", e.target.value)}>
-            {PROPERTY_TYPES.map((t) => <option key={t}>{t}</option>)}
+          <select
+            className={control}
+            value={form.propertyType}
+            onChange={(e) => set("propertyType", e.target.value)}
+          >
+            {PROPERTY_TYPES.map((t) => (
+              <option key={t}>{t}</option>
+            ))}
           </select>
         </label>
         <label>
+          <span className="mb-1 block text-sm text-muted">What are you letting?</span>
+          <select
+            className={control}
+            value={form.listingKind}
+            onChange={(e) => set("listingKind", e.target.value)}
+            aria-label="Listing type"
+          >
+            <option value="BED">A single bed / room</option>
+            <option value="ENTIRE_FLAT">The entire flat (for a squad)</option>
+          </select>
+        </label>
+        {form.listingKind === "ENTIRE_FLAT" ? (
+          <label>
+            <span className="mb-1 block text-sm text-muted">Bedrooms</span>
+            <select
+              className={control}
+              value={form.bedrooms}
+              onChange={(e) => set("bedrooms", e.target.value)}
+              aria-label="Bedrooms"
+            >
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <option key={n} value={String(n)}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <label>
           <span className="mb-1 block text-sm text-muted">Room type</span>
-          <select className={control} value={form.roomType} onChange={(e) => set("roomType", e.target.value)}>
-            {ROOM_TYPES.map((t) => <option key={t}>{t}</option>)}
+          <select
+            className={control}
+            value={form.roomType}
+            onChange={(e) => set("roomType", e.target.value)}
+          >
+            {ROOM_TYPES.map((t) => (
+              <option key={t}>{t}</option>
+            ))}
           </select>
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">City</span>
-          <select className={control} value={form.city} onChange={(e) => {
-            const city = e.target.value;
-            const loc = cities.find((c) => c.name === city)?.localities[0] ?? "";
-            setForm((f) => ({ ...f, city, locality: loc }));
-          }}>
-            {cities.map((c) => <option key={c.name}>{c.name}</option>)}
+          <select
+            className={control}
+            value={form.city}
+            onChange={(e) => {
+              const city = e.target.value;
+              const loc = cities.find((c) => c.name === city)?.localities[0] ?? "";
+              setForm((f) => ({ ...f, city, locality: loc }));
+            }}
+          >
+            {cities.map((c) => (
+              <option key={c.name}>{c.name}</option>
+            ))}
           </select>
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">Locality</span>
-          <select className={control} value={form.locality} onChange={(e) => set("locality", e.target.value)}>
-            {localities.map((l) => <option key={l}>{l}</option>)}
+          <select
+            className={control}
+            value={form.locality}
+            onChange={(e) => set("locality", e.target.value)}
+          >
+            {localities.map((l) => (
+              <option key={l}>{l}</option>
+            ))}
           </select>
         </label>
         <label className="md:col-span-2">
-          <span className="mb-1 block text-sm text-muted">Street address (shown only after sign-in)</span>
-          <input className={control} value={form.address} onChange={(e) => set("address", e.target.value)} required />
+          <span className="mb-1 block text-sm text-muted">
+            Street address (shown only after sign-in)
+          </span>
+          <input
+            className={control}
+            value={form.address}
+            onChange={(e) => set("address", e.target.value)}
+            required
+          />
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">Pincode</span>
-          <input className={control} value={form.pincode} onChange={(e) => set("pincode", e.target.value)} required />
+          <input
+            className={control}
+            value={form.pincode}
+            onChange={(e) => set("pincode", e.target.value)}
+            required
+          />
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">Furnished</span>
-          <select className={control} value={form.furnished} onChange={(e) => set("furnished", e.target.value)}>
-            {FURNISHED.map((t) => <option key={t}>{t}</option>)}
+          <select
+            className={control}
+            value={form.furnished}
+            onChange={(e) => set("furnished", e.target.value)}
+          >
+            {FURNISHED.map((t) => (
+              <option key={t}>{t}</option>
+            ))}
           </select>
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">Monthly rent</span>
-          <input className={control} inputMode="numeric" value={form.monthlyRent} onChange={(e) => set("monthlyRent", e.target.value.replace(/[^\d]/g, ""))} />
+          <input
+            className={control}
+            inputMode="numeric"
+            value={form.monthlyRent}
+            onChange={(e) => set("monthlyRent", e.target.value.replace(/[^\d]/g, ""))}
+          />
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">Deposit</span>
-          <input className={control} inputMode="numeric" value={form.deposit} onChange={(e) => set("deposit", e.target.value.replace(/[^\d]/g, ""))} />
+          <input
+            className={control}
+            inputMode="numeric"
+            value={form.deposit}
+            onChange={(e) => set("deposit", e.target.value.replace(/[^\d]/g, ""))}
+          />
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">Available from</span>
-          <input className={control} type="date" value={form.availableFrom} onChange={(e) => set("availableFrom", e.target.value)} required />
+          <input
+            className={control}
+            type="date"
+            value={form.availableFrom}
+            onChange={(e) => set("availableFrom", e.target.value)}
+            required
+          />
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">Minimum stay (months)</span>
-          <input className={control} value={form.minStay} onChange={(e) => set("minStay", e.target.value)} />
+          <input
+            className={control}
+            value={form.minStay}
+            onChange={(e) => set("minStay", e.target.value)}
+          />
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">For</span>
-          <select className={control} value={form.genderPref} onChange={(e) => set("genderPref", e.target.value)}>
-            {GENDER_PREFS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
+          <select
+            className={control}
+            value={form.genderPref}
+            onChange={(e) => set("genderPref", e.target.value)}
+          >
+            {GENDER_PREFS.map((g) => (
+              <option key={g.value} value={g.value}>
+                {g.label}
+              </option>
+            ))}
           </select>
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">Occupation preference</span>
-          <select className={control} value={form.occupationPref} onChange={(e) => set("occupationPref", e.target.value)}>
-            {OCCUPATION_PREFS.map((g) => <option key={g}>{g}</option>)}
+          <select
+            className={control}
+            value={form.occupationPref}
+            onChange={(e) => set("occupationPref", e.target.value)}
+          >
+            {OCCUPATION_PREFS.map((g) => (
+              <option key={g}>{g}</option>
+            ))}
           </select>
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">People already living here</span>
-          <input className={control} value={form.occupants} onChange={(e) => set("occupants", e.target.value)} />
+          <input
+            className={control}
+            value={form.occupants}
+            onChange={(e) => set("occupants", e.target.value)}
+          />
         </label>
         <label className="md:col-span-2">
           <span className="mb-1 block text-sm text-muted">About the room</span>
-          <textarea className="w-full rounded-xl border border-line bg-paper p-3" rows={4} value={form.description} onChange={(e) => set("description", e.target.value)} />
+          <textarea
+            className="w-full rounded-xl border border-line bg-paper p-3"
+            rows={4}
+            value={form.description}
+            onChange={(e) => set("description", e.target.value)}
+          />
         </label>
         <div className="md:col-span-2">
           <p className="mb-2 text-sm text-muted">House</p>
@@ -246,7 +381,10 @@ function CreateListing() {
           </div>
         </div>
         <div className="md:col-span-2">
-          <p className="mb-2 text-sm text-muted">Photographs of the room. Upload your own, or pick a sample if you are just trying the flow.</p>
+          <p className="mb-2 text-sm text-muted">
+            Photographs of the room. Upload your own, or pick a sample if you are just trying the
+            flow.
+          </p>
           <label className="inline-flex h-12 cursor-pointer items-center rounded-full bg-brand px-5 text-sm font-semibold text-card">
             Upload photographs
             <input
@@ -263,7 +401,10 @@ function CreateListing() {
           {uploads.length ? (
             <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
               {uploads.map((photo, i) => (
-                <div key={photo.url.slice(0, 48) + i} className="relative overflow-hidden rounded-xl border border-brand">
+                <div
+                  key={photo.url.slice(0, 48) + i}
+                  className="relative overflow-hidden rounded-xl border border-brand"
+                >
                   <img src={photo.url} alt="" className="aspect-[4/3] w-full object-cover" />
                   <button
                     type="button"
@@ -284,7 +425,9 @@ function CreateListing() {
                 <button
                   key={p.url}
                   type="button"
-                  onClick={() => setPhotos((cur) => (on ? cur.filter((n) => n !== i) : [...cur, i].slice(0, 6)))}
+                  onClick={() =>
+                    setPhotos((cur) => (on ? cur.filter((n) => n !== i) : [...cur, i].slice(0, 6)))
+                  }
                   className={`overflow-hidden rounded-xl border ${on ? "border-brand" : "border-line"}`}
                 >
                   <img src={p.url} alt={p.category} className="aspect-[4/3] w-full object-cover" />
@@ -292,10 +435,16 @@ function CreateListing() {
               );
             })}
           </div>
-          <p className="mt-2 text-xs text-muted">Categories used: {PHOTO_CATEGORIES.slice(0, 4).join(", ")}.</p>
+          <p className="mt-2 text-xs text-muted">
+            Categories used: {PHOTO_CATEGORIES.slice(0, 4).join(", ")}.
+          </p>
         </div>
         {error ? <p className="text-sm text-danger md:col-span-2">{error}</p> : null}
-        <button disabled={busy} className="h-12 rounded-full bg-brand font-semibold text-card md:col-span-2 disabled:opacity-60" type="submit">
+        <button
+          disabled={busy}
+          className="h-12 rounded-full bg-brand font-semibold text-card md:col-span-2 disabled:opacity-60"
+          type="submit"
+        >
           {busy ? "Publishing…" : "Publish room"}
         </button>
       </form>

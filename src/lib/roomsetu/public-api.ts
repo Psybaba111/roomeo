@@ -4,7 +4,7 @@ import { listingCard, num, str, bool, type ListingCard } from "@/lib/roomsetu/ma
 import { likeContains } from "@/lib/roomsetu/services";
 
 const CARD_SQL = `
-  l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type,
+  l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type, l.listing_kind, l.bedrooms,
   l.furnished, l.gender_pref, l.available_from::text as available_from,
   case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status,
   l.status, l.listing_tier, l.is_demo, l.food_available, l.quality_score,
@@ -293,6 +293,9 @@ export const getListing = createServerFn({ method: "POST" })
       agePref: str(row.age_pref),
       occupationPref: str(row.occupation_pref),
       roommatePref: str(row.roommate_pref),
+      kind: str(row.listing_kind) || "BED",
+      bedrooms: num(row.bedrooms),
+      ownerId: str(row.owner_id),
       lat: num(row.lat),
       lng: num(row.lng),
       images: images.map((img) => ({ url: str(img.url), category: str(img.category) })),

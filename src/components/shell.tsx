@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bookmark, Home, MessageCircle, Search, UserRound } from "lucide-react";
+import { Bookmark, Home, MessageCircle, Search, UserRound, Users } from "lucide-react";
 import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -33,6 +33,9 @@ export function Shell({ children }: { children: ReactNode }) {
             <Link to="/search" search={EMPTY_SEARCH} className="hover:text-brand">
               Beds
             </Link>
+            <Link to="/squads" className="hover:text-brand">
+              Squads
+            </Link>
             <Link to="/create-listing" className="hover:text-brand">
               List a bed
             </Link>
@@ -51,7 +54,10 @@ export function Shell({ children }: { children: ReactNode }) {
               <div className="hidden md:block">
                 <UserButton />
               </div>
-              <Link to="/dashboard" className="inline-flex h-9 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold md:hidden">
+              <Link
+                to="/dashboard"
+                className="inline-flex h-9 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold md:hidden"
+              >
                 Yours
               </Link>
             </SignedIn>
@@ -59,8 +65,11 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 pb-28 pt-0 md:pb-16">{children}</main>
-      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 backdrop-blur md:hidden">
-        <ul className="grid grid-cols-5">
+      <nav
+        aria-label="Main"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 backdrop-blur md:hidden"
+      >
+        <ul className="grid grid-cols-6">
           <li>
             <Link to="/" className={tab(path === "/")}>
               <Home className="h-5 w-5" strokeWidth={2} />
@@ -74,9 +83,19 @@ export function Shell({ children }: { children: ReactNode }) {
             </Link>
           </li>
           <li>
-            <Link to="/messages" search={{ thread: "" }} className={tab(path.startsWith("/messages"))}>
+            <Link
+              to="/messages"
+              search={{ thread: "" }}
+              className={tab(path.startsWith("/messages"))}
+            >
               <MessageCircle className="h-5 w-5" strokeWidth={2} />
               Messages
+            </Link>
+          </li>
+          <li>
+            <Link to="/squads" className={tab(path.startsWith("/squads"))}>
+              <Users className="h-5 w-5" strokeWidth={2} />
+              Squads
             </Link>
           </li>
           <li>

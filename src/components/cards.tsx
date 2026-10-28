@@ -6,7 +6,11 @@ import { genderLabel, inr, type ListingCard } from "@/lib/roomsetu/map";
 export function RoomCard({ room, score }: { room: ListingCard; score?: number }) {
   const [photoOk, setPhotoOk] = useState(true);
   return (
-    <Link to="/listing/$id" params={{ id: room.id }} className="group flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:-translate-y-0.5">
+    <Link
+      to="/listing/$id"
+      params={{ id: room.id }}
+      className="group flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:-translate-y-0.5"
+    >
       <div className="relative aspect-[4/3] overflow-hidden bg-brand-soft">
         {room.photo && photoOk ? (
           <img
@@ -20,7 +24,9 @@ export function RoomCard({ room, score }: { room: ListingCard; score?: number })
             onError={() => setPhotoOk(false)}
           />
         ) : (
-          <div className="flex h-full items-end p-4 font-display text-2xl text-brand-deep">{room.locality}</div>
+          <div className="flex h-full items-end p-4 font-display text-2xl text-brand-deep">
+            {room.locality}
+          </div>
         )}
         <div className="absolute left-3 top-3 flex flex-wrap gap-2">
           {room.verification === "VERIFIED" ? (
@@ -28,8 +34,15 @@ export function RoomCard({ room, score }: { room: ListingCard; score?: number })
               <BadgeCheck className="h-3.5 w-3.5" /> Verified
             </span>
           ) : null}
+          {room.kind === "ENTIRE_FLAT" ? (
+            <span className="rounded-full bg-ink px-2 py-1 text-xs font-semibold text-card">
+              Entire flat · {room.bedrooms}BR
+            </span>
+          ) : null}
           {room.isDemo ? (
-            <span className="rounded-full bg-lime px-2 py-1 text-xs font-semibold text-[#14111f]">Demo</span>
+            <span className="rounded-full bg-lime px-2 py-1 text-xs font-semibold text-[#14111f]">
+              Demo
+            </span>
           ) : null}
         </div>
         {typeof score === "number" ? (
@@ -52,7 +65,10 @@ export function RoomCard({ room, score }: { room: ListingCard; score?: number })
         {room.vibes?.length ? (
           <ul className="flex flex-wrap gap-1.5" aria-label="Vibe">
             {room.vibes.map((v) => (
-              <li key={v} className="rounded-full bg-pop-soft px-2.5 py-1 text-xs font-semibold text-pop">
+              <li
+                key={v}
+                className="rounded-full bg-pop-soft px-2.5 py-1 text-xs font-semibold text-pop"
+              >
                 {v}
               </li>
             ))}
@@ -62,7 +78,9 @@ export function RoomCard({ room, score }: { room: ListingCard; score?: number })
           <span className="rounded-full bg-paper px-2 py-1">{room.roomType}</span>
           <span className="rounded-full bg-paper px-2 py-1">{room.furnished}</span>
           {room.genderPref !== "ANY" ? (
-            <span className="rounded-full bg-paper px-2 py-1">{genderLabel(room.genderPref)} only</span>
+            <span className="rounded-full bg-paper px-2 py-1">
+              {genderLabel(room.genderPref)} only
+            </span>
           ) : null}
           {room.food ? <span className="rounded-full bg-paper px-2 py-1">Food</span> : null}
         </div>
@@ -84,5 +102,7 @@ export const control =
   "h-12 w-full rounded-2xl border-2 border-line bg-card px-4 text-ink outline-none transition focus:border-brand";
 
 export function Notice({ children }: { children: React.ReactNode }) {
-  return <p className="rounded-2xl border border-line bg-card px-4 py-3 text-sm text-ink">{children}</p>;
+  return (
+    <p className="rounded-2xl border border-line bg-card px-4 py-3 text-sm text-ink">{children}</p>
+  );
 }

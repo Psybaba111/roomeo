@@ -34,9 +34,12 @@ import { Route as AdminReportsRouteImport } from './routes/admin.reports'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminVerificationsRouteImport } from './routes/admin.verifications'
 import { Route as ListingIdRouteImport } from './routes/listing.$id'
+import { Route as SquadsIndexRouteImport } from './routes/squads.index'
+import { Route as SquadsIdRouteImport } from './routes/squads.$id'
 import { Route as VerifyDigilockerRouteImport } from './routes/verify.digilocker'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiWebhooksMappstoreRouteImport } from './routes/api/webhooks/mappstore'
+import { Route as SquadsJoinCodeRouteImport } from './routes/squads.join.$code'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -163,6 +166,16 @@ const ListingIdRoute = ListingIdRouteImport.update({
   path: '/listing/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SquadsIndexRoute = SquadsIndexRouteImport.update({
+  id: '/squads/',
+  path: '/squads/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SquadsIdRoute = SquadsIdRouteImport.update({
+  id: '/squads/$id',
+  path: '/squads/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerifyDigilockerRoute = VerifyDigilockerRouteImport.update({
   id: '/verify/digilocker',
   path: '/verify/digilocker',
@@ -176,6 +189,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 const ApiWebhooksMappstoreRoute = ApiWebhooksMappstoreRouteImport.update({
   id: '/api/webhooks/mappstore',
   path: '/api/webhooks/mappstore',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SquadsJoinCodeRoute = SquadsJoinCodeRouteImport.update({
+  id: '/squads/join/$code',
+  path: '/squads/join/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -204,10 +222,13 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/listing/$id': typeof ListingIdRoute
+  '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
   '/admin/': typeof AdminIndexRoute
+  '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
+  '/squads/join/$code': typeof SquadsJoinCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -234,10 +255,13 @@ export interface FileRoutesByTo {
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/listing/$id': typeof ListingIdRoute
+  '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
   '/admin': typeof AdminIndexRoute
+  '/squads': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
+  '/squads/join/$code': typeof SquadsJoinCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -265,10 +289,13 @@ export interface FileRoutesById {
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/listing/$id': typeof ListingIdRoute
+  '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
   '/admin/': typeof AdminIndexRoute
+  '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
+  '/squads/join/$code': typeof SquadsJoinCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -297,10 +324,13 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/verifications'
     | '/listing/$id'
+    | '/squads/$id'
     | '/verify/digilocker'
     | '/admin/'
+    | '/squads/'
     | '/api/auth/$'
     | '/api/webhooks/mappstore'
+    | '/squads/join/$code'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -327,10 +357,13 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/verifications'
     | '/listing/$id'
+    | '/squads/$id'
     | '/verify/digilocker'
     | '/admin'
+    | '/squads'
     | '/api/auth/$'
     | '/api/webhooks/mappstore'
+    | '/squads/join/$code'
   id:
     | '__root__'
     | '/'
@@ -357,10 +390,13 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/verifications'
     | '/listing/$id'
+    | '/squads/$id'
     | '/verify/digilocker'
     | '/admin/'
+    | '/squads/'
     | '/api/auth/$'
     | '/api/webhooks/mappstore'
+    | '/squads/join/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -388,10 +424,13 @@ export interface RootRouteChildren {
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVerificationsRoute: typeof AdminVerificationsRoute
   ListingIdRoute: typeof ListingIdRoute
+  SquadsIdRoute: typeof SquadsIdRoute
   VerifyDigilockerRoute: typeof VerifyDigilockerRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  SquadsIndexRoute: typeof SquadsIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiWebhooksMappstoreRoute: typeof ApiWebhooksMappstoreRoute
+  SquadsJoinCodeRoute: typeof SquadsJoinCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -571,6 +610,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ListingIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/squads/': {
+      id: '/squads/'
+      path: '/squads'
+      fullPath: '/squads/'
+      preLoaderRoute: typeof SquadsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/squads/$id': {
+      id: '/squads/$id'
+      path: '/squads/$id'
+      fullPath: '/squads/$id'
+      preLoaderRoute: typeof SquadsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verify/digilocker': {
       id: '/verify/digilocker'
       path: '/verify/digilocker'
@@ -590,6 +643,13 @@ declare module '@tanstack/react-router' {
       path: '/api/webhooks/mappstore'
       fullPath: '/api/webhooks/mappstore'
       preLoaderRoute: typeof ApiWebhooksMappstoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/squads/join/$code': {
+      id: '/squads/join/$code'
+      path: '/squads/join/$code'
+      fullPath: '/squads/join/$code'
+      preLoaderRoute: typeof SquadsJoinCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -620,10 +680,13 @@ const rootRouteChildren: RootRouteChildren = {
   AdminUsersRoute: AdminUsersRoute,
   AdminVerificationsRoute: AdminVerificationsRoute,
   ListingIdRoute: ListingIdRoute,
+  SquadsIdRoute: SquadsIdRoute,
   VerifyDigilockerRoute: VerifyDigilockerRoute,
   AdminIndexRoute: AdminIndexRoute,
+  SquadsIndexRoute: SquadsIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiWebhooksMappstoreRoute: ApiWebhooksMappstoreRoute,
+  SquadsJoinCodeRoute: SquadsJoinCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

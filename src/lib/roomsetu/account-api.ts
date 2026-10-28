@@ -3,7 +3,14 @@ import QRCode from "qrcode";
 import { hitLimit } from "@/lib/roomsetu/rate-limit";
 import { notifyWhatsApp } from "@/lib/roomsetu/mappstore";
 import { canPublish } from "@/lib/roomsetu/otp";
-import { buildUpiLink, makeRef, planCodeSchema, submitUtrInput, upiPayee } from "@/lib/roomsetu/upi";
+import { assertContactAllowed } from "@/lib/roomsetu/squad-api";
+import {
+  buildUpiLink,
+  makeRef,
+  planCodeSchema,
+  submitUtrInput,
+  upiPayee,
+} from "@/lib/roomsetu/upi";
 import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { listingCard, bool, num, str } from "@/lib/roomsetu/map";
@@ -20,7 +27,9 @@ import {
 } from "@/lib/roomsetu/constants";
 
 async function verifiedPhone(sql: Sql, userId: string): Promise<string | null> {
-  const rows = await sql<{ phone_e164: string | null }>`select phone_e164 from profiles where user_id = ${userId} and phone_verified_at is not null`;
+  const rows = await sql<{
+    phone_e164: string | null;
+  }>`select phone_e164 from profiles where user_id = ${userId} and phone_verified_at is not null`;
   return rows[0]?.phone_e164 ?? null;
 }
 
@@ -28,7 +37,13 @@ async function requirePublishable(sql: Sql, userId: string) {
   const rows = await sql<{ identity_status: string; phone_verified_at: string | null }>`
     select identity_status, phone_verified_at from profiles where user_id = ${userId}`;
   const row = rows[0];
-  if (!row || !canPublish({ identityStatus: str(row.identity_status), phoneVerified: Boolean(row.phone_verified_at) })) {
+  if (
+    !row ||
+    !canPublish({
+      identityStatus: str(row.identity_status),
+      phoneVerified: Boolean(row.phone_verified_at),
+    })
+  ) {
     throw new Error("Verify your phone and ID on the Verification page before publishing a bed.");
   }
 }
@@ -49,7 +64,9 @@ function listingKey(v: unknown): string {
 }
 
 async function rolesOf(sql: Sql, userId: string) {
-  const rows = await sql<{ role: string }>`select role from profile_roles where user_id = ${userId}`;
+  const rows = await sql<{
+    role: string;
+  }>`select role from profile_roles where user_id = ${userId}`;
   return rows.map((r) => r.role);
 }
 
@@ -93,11 +110,19 @@ function viewProfile(row: Record<string, unknown>, roles: string[]) {
   };
 }
 
-function seekerFrom(profile: Record<string, unknown>, wanted?: Record<string, unknown>): SeekerFacts {
+function seekerFrom(
+  profile: Record<string, unknown>,
+  wanted?: Record<string, unknown>,
+): SeekerFacts {
   return {
     city: str(wanted?.city || profile.city),
     localities: str(wanted?.localities || ""),
-    budget: wanted?.budget != null ? num(wanted.budget) : profile.budget == null ? null : num(profile.budget),
+    budget:
+      wanted?.budget != null
+        ? num(wanted.budget)
+        : profile.budget == null
+          ? null
+          : num(profile.budget),
     moveIn: str(wanted?.move_in || profile.move_in).slice(0, 10),
     roomPref: str(wanted?.room_pref || profile.room_pref),
     gender: str(profile.gender),
@@ -113,7 +138,9 @@ export const ensureProfile = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: unknown) => {
     const intent = str(asRecord(input).intent);
-    return { intent: intent === "LOOKING" || intent === "OFFERING" || intent === "BOTH" ? intent : "BOTH" };
+    return {
+      intent: intent === "LOOKING" || intent === "OFFERING" || intent === "BOTH" ? intent : "BOTH",
+    };
   })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
@@ -139,11 +166,13 @@ export const updateProfile = createServerFn({ method: "POST" })
   .validator((input: unknown) => {
     const o = asRecord(input);
     const age = o.age == null || o.age === "" ? null : num(o.age);
-    if (age != null && (age < 18 || age > 80)) throw new Error("Age needs to be between 18 and 80.");
+    if (age != null && (age < 18 || age > 80))
+      throw new Error("Age needs to be between 18 and 80.");
     const budget = o.budget == null || o.budget === "" ? null : num(o.budget);
     if (budget != null && (budget < 1000 || budget > 500000)) throw new Error("Budget looks off.");
     const mobile = text(o.mobile, 16, "Mobile");
-    if (mobile && !/^[0-9+\-\s]{10,16}$/.test(mobile)) throw new Error("Enter a mobile number with at least 10 digits.");
+    if (mobile && !/^[0-9+\-\s]{10,16}$/.test(mobile))
+      throw new Error("Enter a mobile number with at least 10 digits.");
     const gender = text(o.gender, 20, "Gender");
     const intent = text(o.intent, 20, "Intent");
     return {
@@ -161,7 +190,9 @@ export const updateProfile = createServerFn({ method: "POST" })
       pets: text(o.pets, 20, "Pets") || "NO",
       food: text(o.food, 20, "Food") || "ANY",
       budget,
-      moveIn: /^\d{4}-\d{2}-\d{2}$/.test(text(o.moveIn, 10, "Date")) ? text(o.moveIn, 10, "Date") : "",
+      moveIn: /^\d{4}-\d{2}-\d{2}$/.test(text(o.moveIn, 10, "Date"))
+        ? text(o.moveIn, 10, "Date")
+        : "",
       roomPref: text(o.roomPref, 40, "Room"),
       furnishedPref: text(o.furnishedPref, 40, "Furnished"),
       showAge: o.showAge !== false,
@@ -210,7 +241,10 @@ export const updateProfile = createServerFn({ method: "POST" })
     if (data.intent !== "LOOKING") {
       await sql`insert into profile_roles (user_id, role) values (${context.userId}, 'HOST') on conflict do nothing`;
     }
-    return viewProfile(await requireProfile(sql, context.userId), await rolesOf(sql, context.userId));
+    return viewProfile(
+      await requireProfile(sql, context.userId),
+      await rolesOf(sql, context.userId),
+    );
   });
 
 const CARD = `
@@ -242,8 +276,12 @@ export const getDesk = createServerFn({ method: "GET" })
        from room_wanted where user_id = $1 and status <> 'REMOVED' order by created_at desc`,
       [userId],
     );
-    const saved = await sql<{ n: number }>`select count(*)::int as n from saved_listings where user_id = ${userId}`;
-    const apps = await sql<{ n: number }>`select count(*)::int as n from applications where seeker_id = ${userId} or host_id = ${userId}`;
+    const saved = await sql<{
+      n: number;
+    }>`select count(*)::int as n from saved_listings where user_id = ${userId}`;
+    const apps = await sql<{
+      n: number;
+    }>`select count(*)::int as n from applications where seeker_id = ${userId} or host_id = ${userId}`;
     const unread = await sql<{ n: number }>`
       select count(*)::int as n from messages m
       join conversation_members cm on cm.conversation_id = m.conversation_id and cm.user_id = ${userId}
@@ -290,7 +328,15 @@ export const getDesk = createServerFn({ method: "GET" })
       }))
       .sort((a, b) => b.match.score - a.match.score)
       .slice(0, 4);
-    const fields = [row.full_name, row.age, row.gender, row.city, row.occupation, row.about, row.budget || mine.length || wanted.length];
+    const fields = [
+      row.full_name,
+      row.age,
+      row.gender,
+      row.city,
+      row.occupation,
+      row.about,
+      row.budget || mine.length || wanted.length,
+    ];
     const completion = Math.round((fields.filter(Boolean).length / fields.length) * 100);
     return {
       profile: viewProfile(row, roles),
@@ -356,6 +402,8 @@ type Draft = {
   occupationPref: string;
   roommatePref: string;
   occupants: number;
+  listingKind: "BED" | "ENTIRE_FLAT";
+  bedrooms: number;
   description: string;
   photos: { url: string; category: string }[];
 };
@@ -365,13 +413,17 @@ function draftOf(input: unknown): Draft {
   const roomType = text(o.roomType, 40, "Room type", true);
   if (!(ROOM_TYPES as readonly string[]).includes(roomType)) throw new Error("Pick a room type.");
   const propertyType = text(o.propertyType, 40, "Property type", true);
-  if (!(PROPERTY_TYPES as readonly string[]).includes(propertyType)) throw new Error("Pick a property type.");
+  if (!(PROPERTY_TYPES as readonly string[]).includes(propertyType))
+    throw new Error("Pick a property type.");
   const furnished = text(o.furnished, 40, "Furnished", true);
-  if (!(FURNISHED as readonly string[]).includes(furnished)) throw new Error("Pick furnished status.");
+  if (!(FURNISHED as readonly string[]).includes(furnished))
+    throw new Error("Pick furnished status.");
   const genderPref = text(o.genderPref, 20, "Gender") || "ANY";
-  if (!GENDER_PREFS.some((g) => g.value === genderPref)) throw new Error("Pick who the room is for.");
+  if (!GENDER_PREFS.some((g) => g.value === genderPref))
+    throw new Error("Pick who the room is for.");
   const occupationPref = text(o.occupationPref, 40, "Occupation") || "ANY";
-  if (!(OCCUPATION_PREFS as readonly string[]).includes(occupationPref)) throw new Error("Pick an occupation preference.");
+  if (!(OCCUPATION_PREFS as readonly string[]).includes(occupationPref))
+    throw new Error("Pick an occupation preference.");
   const monthlyRent = num(o.monthlyRent);
   const deposit = num(o.deposit);
   if (monthlyRent < 1500 || monthlyRent > 500000) throw new Error("Monthly rent looks off.");
@@ -384,13 +436,18 @@ function draftOf(input: unknown): Draft {
   const photos = photosIn.slice(0, 8).map((p) => {
     const item = asRecord(p);
     const raw = typeof item.url === "string" ? item.url.trim() : "";
-    if (raw.length < 12 || raw.length > 300_000) throw new Error("Add a photo, or use a smaller one.");
+    if (raw.length < 12 || raw.length > 300_000)
+      throw new Error("Add a photo, or use a smaller one.");
     const err = photoUrlError(raw);
     if (err) throw new Error(err);
     return { url: raw, category: text(item.category, 40, "Category") || "Bedroom" };
   });
   if (!photos.length) throw new Error("Add at least one photo.");
   const occupants = Math.min(12, Math.max(0, num(o.occupants)));
+  const listingKind = o.listingKind === "ENTIRE_FLAT" ? "ENTIRE_FLAT" : "BED";
+  const bedrooms = listingKind === "ENTIRE_FLAT" ? Math.round(num(o.bedrooms)) : 0;
+  if (listingKind === "ENTIRE_FLAT" && (bedrooms < 1 || bedrooms > 10))
+    throw new Error("Pick how many bedrooms the flat has (1 to 10).");
   return {
     title: text(o.title, 100, "Title", true),
     propertyType,
@@ -402,7 +459,8 @@ function draftOf(input: unknown): Draft {
     deposit,
     availableFrom,
     minStay: Math.min(36, Math.max(1, num(o.minStay) || 1)),
-    maxStay: o.maxStay == null || o.maxStay === "" ? null : Math.min(60, Math.max(1, num(o.maxStay))),
+    maxStay:
+      o.maxStay == null || o.maxStay === "" ? null : Math.min(60, Math.max(1, num(o.maxStay))),
     roomType,
     furnished,
     attachedBath: o.attachedBath === true,
@@ -424,6 +482,8 @@ function draftOf(input: unknown): Draft {
     occupationPref,
     roommatePref: text(o.roommatePref, 120, "Roommates"),
     occupants,
+    listingKind,
+    bedrooms,
     description: text(o.description, 800, "Description"),
     photos,
   };
@@ -463,7 +523,11 @@ export const createListing = createServerFn({ method: "POST" })
     await requireProfile(sql, userId);
     await requirePublishable(sql, userId);
     await hitLimit(sql, userId, "listing");
-    const city = await sql<{ id: string; lat: number; lng: number }>`select id, lat, lng from cities where lower(name) = lower(${data.city})`;
+    const city = await sql<{
+      id: string;
+      lat: number;
+      lng: number;
+    }>`select id, lat, lng from cities where lower(name) = lower(${data.city})`;
     if (!city[0]) throw new Error("That city is not open yet. An operator can add it.");
     const loc = await sql<{ id: string; lat: number; lng: number }>`
       select id, lat, lng from localities where city_id = ${city[0].id} and lower(name) = lower(${data.locality})`;
@@ -473,14 +537,31 @@ export const createListing = createServerFn({ method: "POST" })
     const description =
       data.description ||
       `${data.roomType} in ${data.locality}, ${data.city}. ${data.furnished}. Rent ₹${data.monthlyRent.toLocaleString("en-IN")} a month.`;
-    const fingerprint = `${data.city}|${data.locality}|${data.monthlyRent}|${data.roomType}`.toLowerCase();
-    const dup = await sql`select id from listings where fingerprint = ${fingerprint} and status = 'ACTIVE' limit 1`;
+    const fingerprint =
+      `${data.city}|${data.locality}|${data.monthlyRent}|${data.roomType}`.toLowerCase();
+    const dup =
+      await sql`select id from listings where fingerprint = ${fingerprint} and status = 'ACTIVE' limit 1`;
     await sql.query(
       `insert into properties (id, owner_id, title, property_type, address, city_id, locality_id, pincode, lat, lng)
        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [propertyId, userId, data.title, data.propertyType, data.address, city[0].id, loc[0].id, data.pincode, num(loc[0].lat), num(loc[0].lng)],
+      [
+        propertyId,
+        userId,
+        data.title,
+        data.propertyType,
+        data.address,
+        city[0].id,
+        loc[0].id,
+        data.pincode,
+        num(loc[0].lat),
+        num(loc[0].lng),
+      ],
     );
-    const quality = 55 + Math.min(15, data.photos.length * 5) + (data.description.length > 80 ? 8 : 0) + (data.furnished !== "Unfurnished" ? 6 : 0);
+    const quality =
+      55 +
+      Math.min(15, data.photos.length * 5) +
+      (data.description.length > 80 ? 8 : 0) +
+      (data.furnished !== "Unfurnished" ? 6 : 0);
     const reply = `Thanks for writing about the ${data.roomType.toLowerCase()} in ${data.locality}. It is listed from ${data.availableFrom}. Tell me your move-in week and I can arrange a video tour.`;
     await sql.query(
       `insert into listings (
@@ -493,13 +574,46 @@ export const createListing = createServerFn({ method: "POST" })
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37
       )`,
       [
-        listingId, propertyId, userId, data.title, description, data.city, data.locality, data.monthlyRent, data.deposit,
-        data.availableFrom, data.minStay, data.maxStay, data.roomType, data.furnished, data.attachedBath, data.balcony,
-        data.ac, data.wifi, data.kitchen, data.washingMachine, data.parking, data.powerBackup, data.lift, data.housekeeping,
-        data.food, data.smoking, data.pets, data.guestPolicy, data.genderPref, data.agePref, data.occupationPref,
-        data.roommatePref, data.occupants, fingerprint, dup.length > 0, reply, Math.min(98, quality),
+        listingId,
+        propertyId,
+        userId,
+        data.title,
+        description,
+        data.city,
+        data.locality,
+        data.monthlyRent,
+        data.deposit,
+        data.availableFrom,
+        data.minStay,
+        data.maxStay,
+        data.roomType,
+        data.furnished,
+        data.attachedBath,
+        data.balcony,
+        data.ac,
+        data.wifi,
+        data.kitchen,
+        data.washingMachine,
+        data.parking,
+        data.powerBackup,
+        data.lift,
+        data.housekeeping,
+        data.food,
+        data.smoking,
+        data.pets,
+        data.guestPolicy,
+        data.genderPref,
+        data.agePref,
+        data.occupationPref,
+        data.roommatePref,
+        data.occupants,
+        fingerprint,
+        dup.length > 0,
+        reply,
+        Math.min(98, quality),
       ],
     );
+    await sql`update listings set listing_kind = ${data.listingKind}, bedrooms = ${data.bedrooms || null} where id = ${listingId}`;
     for (let i = 0; i < data.photos.length; i++) {
       await sql`insert into listing_images (id, listing_id, url, category, sort_order) values (${crypto.randomUUID()}, ${listingId}, ${data.photos[i].url}, ${data.photos[i].category}, ${i})`;
     }
@@ -514,14 +628,16 @@ export const setListingStatus = createServerFn({ method: "POST" })
   .validator((input: unknown) => {
     const o = asRecord(input);
     const status = str(o.status);
-    if (!["ACTIVE", "PAUSED", "OCCUPIED", "REMOVED"].includes(status)) throw new Error("Unknown status.");
+    if (!["ACTIVE", "PAUSED", "OCCUPIED", "REMOVED"].includes(status))
+      throw new Error("Unknown status.");
     return { id: listingKey(o.id), status };
   })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await requireProfile(sql, context.userId);
     if (data.status === "ACTIVE") await requirePublishable(sql, context.userId);
-    const updated = await sql`update listings set status = ${data.status}, updated_at = now() where id = ${data.id} and owner_id = ${context.userId} returning id`;
+    const updated =
+      await sql`update listings set status = ${data.status}, updated_at = now() where id = ${data.id} and owner_id = ${context.userId} returning id`;
     if (!updated.length) throw new Error("You can only change your own listing.");
     return { ok: true };
   });
@@ -560,9 +676,26 @@ export const createRoomWanted = createServerFn({ method: "POST" })
         room_pref, furnished_pref, food_pref, smoking_pref, pet_pref, roommate_gender, people_count, bio, lifestyle
       ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
       [
-        id, context.userId, str(profile.full_name), profile.age == null ? null : num(profile.age), str(profile.gender) || null,
-        str(profile.occupation) || null, data.city, data.localities, data.budget, data.moveIn || null, data.duration,
-        data.roomPref, data.furnished, data.food, data.smoking, data.pets, data.roommateGender, data.people, data.bio, data.lifestyle,
+        id,
+        context.userId,
+        str(profile.full_name),
+        profile.age == null ? null : num(profile.age),
+        str(profile.gender) || null,
+        str(profile.occupation) || null,
+        data.city,
+        data.localities,
+        data.budget,
+        data.moveIn || null,
+        data.duration,
+        data.roomPref,
+        data.furnished,
+        data.food,
+        data.smoking,
+        data.pets,
+        data.roommateGender,
+        data.people,
+        data.bio,
+        data.lifestyle,
       ],
     );
     await sql`insert into profile_roles (user_id, role) values (${context.userId}, 'SEEKER') on conflict do nothing`;
@@ -580,7 +713,8 @@ export const setWantedStatus = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await requireProfile(sql, context.userId);
-    const updated = await sql`update room_wanted set status = ${data.status}, updated_at = now() where id = ${data.id} and user_id = ${context.userId} returning id`;
+    const updated =
+      await sql`update room_wanted set status = ${data.status}, updated_at = now() where id = ${data.id} and user_id = ${context.userId} returning id`;
     if (!updated.length) throw new Error("That request is not yours.");
     return { ok: true };
   });
@@ -627,12 +761,15 @@ export const savedIds = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
-    const rows = await sql<{ listing_id: string }>`select listing_id from saved_listings where user_id = ${context.userId}`;
+    const rows = await sql<{
+      listing_id: string;
+    }>`select listing_id from saved_listings where user_id = ${context.userId}`;
     return rows.map((r) => r.listing_id);
   });
 
 async function blocked(sql: Sql, a: string, b: string) {
-  const rows = await sql`select 1 from blocks where (blocker_id = ${a} and blocked_id = ${b}) or (blocker_id = ${b} and blocked_id = ${a}) limit 1`;
+  const rows =
+    await sql`select 1 from blocks where (blocker_id = ${a} and blocked_id = ${b}) or (blocker_id = ${b} and blocked_id = ${a}) limit 1`;
   return rows.length > 0;
 }
 
@@ -654,19 +791,25 @@ export const openConversation = createServerFn({ method: "POST" })
     let listingId: string | null = null;
     let roomWantedId: string | null = null;
     if (data.listingId) {
-      const listing = await sql<{ owner_id: string }>`select owner_id from listings where id = ${data.listingId} and status <> 'REMOVED'`;
+      const listing = await sql<{
+        owner_id: string;
+      }>`select owner_id from listings where id = ${data.listingId} and status <> 'REMOVED'`;
       if (!listing[0]) throw new Error("That room is not available.");
       listingId = data.listingId;
       if (data.withUserId) {
-        if (listing[0].owner_id !== context.userId) throw new Error("Only the host can message an applicant this way.");
-        const applied = await sql`select id from applications where listing_id = ${data.listingId} and seeker_id = ${data.withUserId} and host_id = ${context.userId}`;
+        if (listing[0].owner_id !== context.userId)
+          throw new Error("Only the host can message an applicant this way.");
+        const applied =
+          await sql`select id from applications where listing_id = ${data.listingId} and seeker_id = ${data.withUserId} and host_id = ${context.userId}`;
         if (!applied.length) throw new Error("That person has not requested this room.");
         other = data.withUserId;
       } else {
         other = listing[0].owner_id;
       }
     } else {
-      const wanted = await sql<{ user_id: string }>`select user_id from room_wanted where id = ${data.roomWantedId} and status = 'ACTIVE'`;
+      const wanted = await sql<{
+        user_id: string;
+      }>`select user_id from room_wanted where id = ${data.roomWantedId} and status = 'ACTIVE'`;
       if (!wanted[0]) throw new Error("That request is closed.");
       other = wanted[0].user_id;
       roomWantedId = data.roomWantedId;
@@ -674,19 +817,35 @@ export const openConversation = createServerFn({ method: "POST" })
     if (other === context.userId) throw new Error("You cannot message yourself.");
     if (await blocked(sql, context.userId, other)) throw new Error("Messaging is blocked.");
     await hitLimit(sql, context.userId, "conversation");
-    const otherProfile = await sql<{ allow_messages: string; account_status: string }>`select allow_messages, account_status from profiles where user_id = ${other}`;
-    if (!otherProfile[0] || otherProfile[0].account_status === "SUSPENDED") throw new Error("This person is not taking messages.");
-    if (otherProfile[0].allow_messages === "NONE") throw new Error("This person is not taking messages.");
+    const otherProfile = await sql<{
+      allow_messages: string;
+      account_status: string;
+    }>`select allow_messages, account_status from profiles where user_id = ${other}`;
+    if (!otherProfile[0] || otherProfile[0].account_status === "SUSPENDED")
+      throw new Error("This person is not taking messages.");
+    if (otherProfile[0].allow_messages === "NONE")
+      throw new Error("This person is not taking messages.");
     const existing = await sql<{ id: string }>`
       select c.id from conversations c
       join conversation_members a on a.conversation_id = c.id and a.user_id = ${context.userId}
       join conversation_members b on b.conversation_id = c.id and b.user_id = ${other}
-      where c.listing_id is not distinct from ${listingId} and c.room_wanted_id is not distinct from ${roomWantedId}
+      where c.listing_id is not distinct from ${listingId} and c.room_wanted_id is not distinct from ${roomWantedId} and c.squad_id is null
       limit 1`;
     if (existing[0]) {
-      const closed = await sql<{ closed_at: string | null }>`select closed_at from conversations where id = ${existing[0].id}`;
+      const closed = await sql<{
+        closed_at: string | null;
+      }>`select closed_at from conversations where id = ${existing[0].id}`;
       if (closed[0]?.closed_at) throw new Error("This thread is closed.");
       return { id: existing[0].id };
+    }
+    // Seekers pay the contact fee once per listing before the first message. Hosts never pay.
+    if (listingId && !data.withUserId) {
+      const owner = await sql<{
+        owner_id: string;
+        is_demo: boolean;
+      }>`select owner_id, is_demo from listings where id = ${listingId}`;
+      if (owner[0] && !owner[0].is_demo)
+        await assertContactAllowed(sql, listingId, context.userId, owner[0].owner_id);
     }
     const id = crypto.randomUUID();
     await sql`insert into conversations (id, listing_id, room_wanted_id) values (${id}, ${listingId}, ${roomWantedId})`;
@@ -702,16 +861,22 @@ export const listConversations = createServerFn({ method: "GET" })
     await requireProfile(sql, context.userId);
     await sql`update profiles set last_seen = now() where user_id = ${context.userId}`;
     const rows = await sql.query<Record<string, unknown>>(
-      `select c.id, c.listing_id, l.title as listing_title,
+      `select c.id, c.listing_id, l.title as listing_title, c.squad_id, sq.name as squad_name,
               op.user_id as other_id, op.full_name as other_name, op.is_demo as other_demo,
               op.last_seen::text as other_seen,
               (select m.body from messages m where m.conversation_id = c.id order by m.created_at desc limit 1) as last_body,
               (select count(*)::int from messages m where m.conversation_id = c.id and m.sender_id <> $1 and m.created_at > coalesce(cm.last_read_at, '1970-01-01')) as unread
        from conversations c
        join conversation_members cm on cm.conversation_id = c.id and cm.user_id = $1
-       join conversation_members om on om.conversation_id = c.id and om.user_id <> $1
+       join lateral (
+         select om.user_id from conversation_members om
+         where om.conversation_id = c.id and om.user_id <> $1
+         order by (om.user_id = (select owner_id from listings where id = c.listing_id)) desc, om.user_id
+         limit 1
+       ) om on true
        join profiles op on op.user_id = om.user_id
        left join listings l on l.id = c.listing_id
+       left join squads sq on sq.id = c.squad_id
        order by c.updated_at desc
        limit 40`,
       [context.userId],
@@ -721,7 +886,8 @@ export const listConversations = createServerFn({ method: "GET" })
       listingId: str(r.listing_id),
       listingTitle: str(r.listing_title),
       otherId: str(r.other_id),
-      otherName: str(r.other_name),
+      otherName: r.squad_id ? `${str(r.squad_name)} · squad chat` : str(r.other_name),
+      isSquad: Boolean(r.squad_id),
       otherDemo: bool(r.other_demo),
       otherSeen: str(r.other_seen),
       lastBody: str(r.last_body),
@@ -735,17 +901,19 @@ export const listMessages = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await requireProfile(sql, context.userId);
-    const member = await sql`select 1 from conversation_members where conversation_id = ${data} and user_id = ${context.userId}`;
+    const member =
+      await sql`select 1 from conversation_members where conversation_id = ${data} and user_id = ${context.userId}`;
     if (!member.length) throw new Error("That conversation is not yours.");
     await sql`update conversation_members set last_read_at = now() where conversation_id = ${data} and user_id = ${context.userId}`;
     const rows = await sql.query<Record<string, unknown>>(
-      `select id, sender_id, body, kind, to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI') as at
-       from messages where conversation_id = $1 order by created_at asc limit 200`,
+      `select m.id, m.sender_id, m.body, m.kind, p.full_name as sender_name, to_char(m.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI') as at
+       from messages m left join profiles p on p.user_id = m.sender_id where m.conversation_id = $1 order by m.created_at asc limit 200`,
       [data],
     );
     return rows.map((m) => ({
       id: str(m.id),
       senderId: str(m.sender_id),
+      senderName: str(m.sender_name),
       body: str(m.body),
       kind: str(m.kind),
       at: str(m.at),
@@ -764,31 +932,51 @@ export const sendMessage = createServerFn({ method: "POST" })
     const sql = await getSql();
     await requireProfile(sql, context.userId);
     await hitLimit(sql, context.userId, "message");
-    const members = await sql<{ user_id: string }>`select user_id from conversation_members where conversation_id = ${data.id}`;
-    if (!members.some((m) => m.user_id === context.userId)) throw new Error("That conversation is not yours.");
-    const closed = await sql<{ closed_at: string | null }>`select closed_at from conversations where id = ${data.id}`;
+    const members = await sql<{
+      user_id: string;
+    }>`select user_id from conversation_members where conversation_id = ${data.id}`;
+    if (!members.some((m) => m.user_id === context.userId))
+      throw new Error("That conversation is not yours.");
+    const closed = await sql<{
+      closed_at: string | null;
+    }>`select closed_at from conversations where id = ${data.id}`;
     if (closed[0]?.closed_at) throw new Error("This thread is closed.");
     const other = members.find((m) => m.user_id !== context.userId)?.user_id;
-    if (other && (await blocked(sql, context.userId, other))) throw new Error("Messaging is blocked.");
+    if (other && (await blocked(sql, context.userId, other)))
+      throw new Error("Messaging is blocked.");
     if (other) {
-      const otherStatus = await sql<{ account_status: string }>`select account_status from profiles where user_id = ${other}`;
-      if (otherStatus[0]?.account_status === "SUSPENDED") throw new Error("This person is not taking messages.");
+      const otherStatus = await sql<{
+        account_status: string;
+      }>`select account_status from profiles where user_id = ${other}`;
+      if (otherStatus[0]?.account_status === "SUSPENDED")
+        throw new Error("This person is not taking messages.");
     }
     await sql`insert into messages (id, conversation_id, sender_id, body) values (${crypto.randomUUID()}, ${data.id}, ${context.userId}, ${data.body})`;
     await sql`update conversations set updated_at = now() where id = ${data.id}`;
     if (other) {
-      const host = await sql<{ is_demo: boolean; full_name: string }>`select is_demo, full_name from profiles where user_id = ${other}`;
-      const prior = await sql`select id from messages where conversation_id = ${data.id} and sender_id = ${other} limit 1`;
+      const host = await sql<{
+        is_demo: boolean;
+        full_name: string;
+      }>`select is_demo, full_name from profiles where user_id = ${other}`;
+      const prior =
+        await sql`select id from messages where conversation_id = ${data.id} and sender_id = ${other} limit 1`;
       if (host[0]?.is_demo && !prior.length) {
-        const convo = await sql<{ listing_id: string | null }>`select listing_id from conversations where id = ${data.id}`;
-        let reply = "Thanks for writing. The room is still open. Tell me your move-in week and I can do a video tour after 7pm.";
+        const convo = await sql<{
+          listing_id: string | null;
+        }>`select listing_id from conversations where id = ${data.id}`;
+        let reply =
+          "Thanks for writing. The room is still open. Tell me your move-in week and I can do a video tour after 7pm.";
         if (convo[0]?.listing_id) {
-          const listing = await sql<{ auto_reply: string }>`select auto_reply from listings where id = ${convo[0].listing_id}`;
+          const listing = await sql<{
+            auto_reply: string;
+          }>`select auto_reply from listings where id = ${convo[0].listing_id}`;
           if (listing[0]?.auto_reply) reply = listing[0].auto_reply;
         }
         await sql`insert into messages (id, conversation_id, sender_id, body, kind) values (${crypto.randomUUID()}, ${data.id}, ${other}, ${reply}, 'QUICK_REPLY')`;
       } else if (host[0] && !host[0].is_demo) {
-        await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${other}, 'message', 'New message', ${data.body.slice(0, 140)}, ${"/messages?thread=" + data.id})`;
+        for (const m of members.filter((x) => x.user_id !== context.userId)) {
+          await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${m.user_id}, 'message', 'New message', ${data.body.slice(0, 140)}, ${"/messages?thread=" + data.id})`;
+        }
       }
     }
     return { ok: true };
@@ -814,7 +1002,8 @@ export const fileReport = createServerFn({ method: "POST" })
   .validator((input: unknown) => {
     const o = asRecord(input);
     const category = text(o.category, 40, "Category", true);
-    if (!(REPORT_CATEGORIES as readonly string[]).includes(category)) throw new Error("Pick a report reason.");
+    if (!(REPORT_CATEGORIES as readonly string[]).includes(category))
+      throw new Error("Pick a report reason.");
     const targetType = str(o.targetType);
     if (targetType !== "LISTING" && targetType !== "USER") throw new Error("Unknown report.");
     return {
@@ -831,7 +1020,15 @@ export const fileReport = createServerFn({ method: "POST" })
     const fraud = data.category === "Scam" || data.category === "Fake listing";
     await sql.query(
       `insert into reports (id, reporter_id, target_type, target_id, category, note, fraud_flag) values ($1,$2,$3,$4,$5,$6,$7)`,
-      [crypto.randomUUID(), context.userId, data.targetType, data.targetId, data.category, data.note, fraud],
+      [
+        crypto.randomUUID(),
+        context.userId,
+        data.targetType,
+        data.targetId,
+        data.category,
+        data.note,
+        fraud,
+      ],
     );
     return { ok: true };
   });
@@ -845,14 +1042,23 @@ export const applyToListing = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const profile = await requireProfile(sql, context.userId);
-    const listing = await sql<{ owner_id: string; title: string }>`select owner_id, title from listings where id = ${data.id} and status = 'ACTIVE'`;
+    const listing = await sql<{
+      owner_id: string;
+      title: string;
+    }>`select owner_id, title from listings where id = ${data.id} and status = 'ACTIVE'`;
     if (!listing[0]) throw new Error("That room is not taking requests.");
     if (listing[0].owner_id === context.userId) throw new Error("This is your own room.");
-    const host = await sql<{ is_demo: boolean; account_status: string }>`select is_demo, account_status from profiles where user_id = ${listing[0].owner_id}`;
-    if (!host[0] || host[0].account_status === "SUSPENDED") throw new Error("That room is not taking requests.");
-    if (await blocked(sql, context.userId, listing[0].owner_id)) throw new Error("That room is not taking requests.");
+    const host = await sql<{
+      is_demo: boolean;
+      account_status: string;
+    }>`select is_demo, account_status from profiles where user_id = ${listing[0].owner_id}`;
+    if (!host[0] || host[0].account_status === "SUSPENDED")
+      throw new Error("That room is not taking requests.");
+    if (await blocked(sql, context.userId, listing[0].owner_id))
+      throw new Error("That room is not taking requests.");
     await hitLimit(sql, context.userId, "apply");
-    const existing = await sql`select id from applications where listing_id = ${data.id} and seeker_id = ${context.userId} and status in ('PENDING','ACCEPTED')`;
+    const existing =
+      await sql`select id from applications where listing_id = ${data.id} and seeker_id = ${context.userId} and status in ('PENDING','ACCEPTED')`;
     if (existing.length) throw new Error("You already have a request on this room.");
     const note = data.note || `${str(profile.full_name)} would like to visit.`;
     await sql.query(
@@ -864,7 +1070,10 @@ export const applyToListing = createServerFn({ method: "POST" })
     }
     if (!host[0].is_demo) {
       const ownerPhone = await verifiedPhone(sql, listing[0].owner_id);
-      await notifyWhatsApp("applicationReceived", ownerPhone, [str(profile.full_name), listing[0].title]);
+      await notifyWhatsApp("applicationReceived", ownerPhone, [
+        str(profile.full_name),
+        listing[0].title,
+      ]);
     }
     logEvent("application.created", { demoHost: Boolean(host[0].is_demo) });
     return { ok: true };
@@ -923,25 +1132,38 @@ export const setApplication = createServerFn({ method: "POST" })
   .validator((input: unknown) => {
     const o = asRecord(input);
     const status = str(o.status);
-    if (!["ACCEPTED", "DECLINED", "WITHDRAWN"].includes(status)) throw new Error("Unknown decision.");
+    if (!["ACCEPTED", "DECLINED", "WITHDRAWN"].includes(status))
+      throw new Error("Unknown decision.");
     return { id: listingKey(o.id), status };
   })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await requireProfile(sql, context.userId);
-    const rows = await sql<{ seeker_id: string; host_id: string }>`select seeker_id, host_id from applications where id = ${data.id}`;
+    const rows = await sql<{
+      seeker_id: string;
+      host_id: string;
+    }>`select seeker_id, host_id from applications where id = ${data.id}`;
     const row = rows[0];
     if (!row) throw new Error("Request not found.");
-    if (data.status === "WITHDRAWN" && row.seeker_id !== context.userId) throw new Error("Only the seeker can withdraw.");
-    if (data.status !== "WITHDRAWN" && row.host_id !== context.userId) throw new Error("Only the host can decide.");
+    if (data.status === "WITHDRAWN" && row.seeker_id !== context.userId)
+      throw new Error("Only the seeker can withdraw.");
+    if (data.status !== "WITHDRAWN" && row.host_id !== context.userId)
+      throw new Error("Only the host can decide.");
     await sql`update applications set status = ${data.status}, updated_at = now() where id = ${data.id}`;
     if (data.status === "ACCEPTED" || data.status === "DECLINED") {
       const title = data.status === "ACCEPTED" ? "Visit accepted" : "Request declined";
-      const body = data.status === "ACCEPTED" ? "The host accepted your visit. You can keep talking in messages." : "The host declined this visit request.";
+      const body =
+        data.status === "ACCEPTED"
+          ? "The host accepted your visit. You can keep talking in messages."
+          : "The host declined this visit request.";
       await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${row.seeker_id}, 'application', ${title}, ${body}, '/applications')`;
       if (data.status === "ACCEPTED") {
-        const info = await sql<{ title: string }>`select l.title from applications a join listings l on l.id = a.listing_id where a.id = ${data.id}`;
-        await notifyWhatsApp("applicationAccepted", await verifiedPhone(sql, row.seeker_id), [str(info[0]?.title)]);
+        const info = await sql<{
+          title: string;
+        }>`select l.title from applications a join listings l on l.id = a.listing_id where a.id = ${data.id}`;
+        await notifyWhatsApp("applicationAccepted", await verifiedPhone(sql, row.seeker_id), [
+          str(info[0]?.title),
+        ]);
       }
     }
     logEvent("application.updated", { status: data.status });
@@ -953,7 +1175,9 @@ export const getMatches = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const sql = await getSql();
     const profile = await requireProfile(sql, context.userId);
-    const wanted = await sql<Record<string, unknown>>`select * from room_wanted where user_id = ${context.userId} and status = 'ACTIVE' order by created_at desc limit 1`;
+    const wanted = await sql<
+      Record<string, unknown>
+    >`select * from room_wanted where user_id = ${context.userId} and status = 'ACTIVE' order by created_at desc limit 1`;
     const facts = seekerFrom(profile, wanted[0]);
     if (!facts.city && !facts.budget) {
       return { ready: false as const, matches: [] };
@@ -1003,9 +1227,12 @@ export const scoreFor = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const profile = await requireProfile(sql, context.userId);
-    const wanted = await sql<Record<string, unknown>>`select * from room_wanted where user_id = ${context.userId} and status = 'ACTIVE' order by created_at desc limit 1`;
+    const wanted = await sql<
+      Record<string, unknown>
+    >`select * from room_wanted where user_id = ${context.userId} and status = 'ACTIVE' order by created_at desc limit 1`;
     const listing = await sql<Record<string, unknown>>`select * from listings where id = ${data}`;
-    if (!listing[0] || str(listing[0].owner_id) === context.userId) return { score: null, reasons: [] };
+    if (!listing[0] || str(listing[0].owner_id) === context.userId)
+      return { score: null, reasons: [] };
     const facts = seekerFrom(profile, wanted[0]);
     if (!facts.city && !facts.budget) return { score: null, reasons: [] };
     return scoreMatch(
@@ -1042,7 +1269,8 @@ export const getListingAddress = createServerFn({ method: "POST" })
         select id from applications
         where listing_id = ${data} and seeker_id = ${context.userId} and status = 'ACCEPTED'
         limit 1`;
-      if (!accepted.length) throw new Error("The street address is shared after the host accepts you.");
+      if (!accepted.length)
+        throw new Error("The street address is shared after the host accepts you.");
     }
     return { address: row.address, pincode: row.pincode };
   });
@@ -1066,14 +1294,20 @@ export const startCheckout = createServerFn({ method: "POST" })
     if (!payee.ready) return { ok: false as const, message: "UPI payments are not set up yet." };
     const sql = await getSql();
     await requireProfile(sql, context.userId);
-    const plan = await sql<{ id: string; price_inr: number; name: string }>`select id, price_inr, name from subscription_plans where code = ${data} and active = true`;
+    const plan = await sql<{
+      id: string;
+      price_inr: number;
+      name: string;
+    }>`select id, price_inr, name from subscription_plans where code = ${data} and active = true`;
     if (!plan[0] || num(plan[0].price_inr) <= 0) throw new Error("That plan is not available.");
     const amount = num(plan[0].price_inr);
     // Idempotent: reuse the open checkout for this user + plan (unique partial index backs this up).
-    let row = (await sql<{ ref: string; status: string; amount_inr: number }>`
+    let row = (
+      await sql<{ ref: string; status: string; amount_inr: number }>`
       select ref, status, amount_inr from payments
       where user_id = ${context.userId} and plan_id = ${plan[0].id} and provider = 'UPI' and status in ('PENDING','SUBMITTED')
-      limit 1`)[0];
+      limit 1`
+    )[0];
     if (!row) {
       const ref = makeRef();
       const inserted = await sql<{ ref: string; status: string; amount_inr: number }>`
@@ -1081,14 +1315,33 @@ export const startCheckout = createServerFn({ method: "POST" })
         values (${crypto.randomUUID()}, ${context.userId}, ${plan[0].name}, ${amount}, 'PENDING', 'UPI', ${ref}, ${plan[0].id})
         on conflict do nothing
         returning ref, status, amount_inr`;
-      row = inserted[0] ?? (await sql<{ ref: string; status: string; amount_inr: number }>`
+      row =
+        inserted[0] ??
+        (
+          await sql<{ ref: string; status: string; amount_inr: number }>`
         select ref, status, amount_inr from payments
         where user_id = ${context.userId} and plan_id = ${plan[0].id} and provider = 'UPI' and status in ('PENDING','SUBMITTED')
-        limit 1`)[0];
+        limit 1`
+        )[0];
     }
-    const link = buildUpiLink({ vpa: payee.vpa, name: payee.name, amountInr: num(row.amount_inr), ref: str(row.ref) });
+    const link = buildUpiLink({
+      vpa: payee.vpa,
+      name: payee.name,
+      amountInr: num(row.amount_inr),
+      ref: str(row.ref),
+    });
     const qr = await QRCode.toDataURL(link, { margin: 1, width: 320, errorCorrectionLevel: "M" });
-    return { ok: true as const, ref: str(row.ref), status: str(row.status), amount: num(row.amount_inr), plan: plan[0].name, payee: payee.name, vpa: payee.vpa, link, qr };
+    return {
+      ok: true as const,
+      ref: str(row.ref),
+      status: str(row.status),
+      amount: num(row.amount_inr),
+      plan: plan[0].name,
+      payee: payee.name,
+      vpa: payee.vpa,
+      link,
+      qr,
+    };
   });
 
 export const submitUtr = createServerFn({ method: "POST" })
@@ -1103,17 +1356,23 @@ export const submitUtr = createServerFn({ method: "POST" })
       update payments set utr = ${data.utr}, status = 'SUBMITTED', submitted_at = now()
       where ref = ${data.ref} and user_id = ${context.userId} and provider = 'UPI' and status = 'PENDING'
       returning id`.catch((e: unknown) => {
-      if (String(e).includes("payments_utr_key")) throw new Error("That UTR has already been submitted.");
+      if (String(e).includes("payments_utr_key"))
+        throw new Error("That UTR has already been submitted.");
       throw e;
     });
     if (!updated.length) throw new Error("This payment is not waiting for a UTR.");
     logEvent("payment.utr_submitted", {});
-    return { ok: true, message: "Thanks. We'll confirm once the ₹ lands in our account, usually within a few hours." };
+    return {
+      ok: true,
+      message: "Thanks. We'll confirm once the ₹ lands in our account, usually within a few hours.",
+    };
   });
 
 export const listPlans = createServerFn({ method: "GET" }).handler(async () => {
   const sql = await getSql();
-  const rows = await sql<Record<string, unknown>>`select code, name, audience, price_inr, perks from subscription_plans where active = true order by price_inr`;
+  const rows = await sql<
+    Record<string, unknown>
+  >`select code, name, audience, price_inr, perks from subscription_plans where active = true order by price_inr`;
   return rows.map((p) => ({
     code: str(p.code),
     name: str(p.name),
@@ -1126,7 +1385,9 @@ export const listPlans = createServerFn({ method: "GET" }).handler(async () => {
 function readLayoutJson(raw: string): Record<string, unknown> {
   try {
     const parsed = JSON.parse(raw) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
   } catch {
     return {};
   }
@@ -1160,7 +1421,9 @@ export const saveLayout = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await requireProfile(sql, context.userId);
-    const current = await sql<{ layout: string }>`select layout from dashboard_layouts where user_id = ${context.userId}`;
+    const current = await sql<{
+      layout: string;
+    }>`select layout from dashboard_layouts where user_id = ${context.userId}`;
     const parsed = current[0] ? readLayoutJson(current[0].layout) : {};
     parsed[data.surface] = data.widgets;
     const layout = JSON.stringify(parsed);
@@ -1181,7 +1444,9 @@ export const readLayout = createServerFn({ method: "POST" })
   })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
-    const current = await sql<{ layout: string }>`select layout from dashboard_layouts where user_id = ${context.userId}`;
+    const current = await sql<{
+      layout: string;
+    }>`select layout from dashboard_layouts where user_id = ${context.userId}`;
     if (!current[0]) return { widgets: [] as { id: string; position: number; visible: boolean }[] };
     const parsed = readLayoutJson(current[0].layout);
     return { widgets: layoutWidgets(parsed[data.surface]) };
