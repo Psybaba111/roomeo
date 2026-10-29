@@ -2,10 +2,13 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 /**
  * MappStore WhatsApp Business (BSP) REST client.
- * Verified: base https://mapp.mappstore.in/api/v1, `Authorization: Bearer <api_key>` (the API's own 401 says so),
- * POST /messages for session + template sends, webhooks signed HMAC-SHA256 in `X-Mappstore-Signature`
- * (https://mappstore.in/rest-api.html). The JSON body follows the Meta Cloud API shape, which MappStore says it mirrors;
- * its OpenAPI spec is behind auth, so confirm field names against it before go-live.
+ * Base https://mapp.mappstore.in/api/v1, `Authorization: Bearer <api_key>`, webhooks signed HMAC-SHA256 in
+ * `X-Mappstore-Signature` (https://mappstore.in/rest-api.html).
+ * Sends go to POST /messages/send (POST /messages is 404). The template body is MappStore's own flat shape, taken from
+ * Athiti's production backend (WhatsAppService.php) which sends `otp_verification` this way:
+ *   { to, type: "template", templateName, templateLanguage, templateParams: string[],
+ *     buttonParams?: [{ index: 0, subType: "url", param: <otp> }] }
+ * The API confirms `templateName` ("templateName is required for template messages").
  */
 export type MappstoreConfig = { apiKey: string; baseUrl: string; sender: string; language: string };
 
@@ -29,43 +32,47 @@ export function waNumber(phoneE164: string): string {
 
 export type TemplateOptions = { bodyParams?: string[]; otpCode?: string };
 
-export function templatePayload(cfg: MappstoreConfig, toE164: string, name: string, opts: TemplateOptions = {}) {
-  const components: Array<Record<string, unknown>> = [];
-  const body = opts.otpCode ? [opts.otpCode] : (opts.bodyParams ?? []);
-  if (body.length) components.push({ type: "body", parameters: body.map((text) => ({ type: "text", text: String(text).slice(0, 1024) })) });
-  // Meta authentication templates carry the code again in the copy-code / one-tap URL button.
-  if (opts.otpCode) components.push({ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: opts.otpCode }] });
+export type MappstoreTemplateBody = {
+  to: string;
+  type: "template";
+  templateName: string;
+  templateLanguage: string;
+  templateParams: string[];
+  buttonParams?: Array<{ index: number; subType: "url"; param: string }>;
+};
+
+export function templatePayload(cfg: MappstoreConfig, toE164: string, name: string, opts: TemplateOptions = {}): MappstoreTemplateBody {
+  const params = (opts.otpCode ? [opts.otpCode] : (opts.bodyParams ?? [])).map((t) => String(t).slice(0, 1024));
   return {
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
     to: waNumber(toE164),
-    ...(cfg.sender ? { from: cfg.sender } : {}),
     type: "template",
-    template: { name, language: { code: cfg.language }, components },
+    templateName: name,
+    templateLanguage: cfg.language,
+    templateParams: params,
+    // Authentication templates repeat the code in the copy-code (URL) button.
+    ...(opts.otpCode ? { buttonParams: [{ index: 0, subType: "url" as const, param: String(opts.otpCode) }] } : {}),
   };
 }
 
-export function textPayload(cfg: MappstoreConfig, toE164: string, text: string) {
-  return {
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to: waNumber(toE164),
-    ...(cfg.sender ? { from: cfg.sender } : {}),
-    type: "text",
-    text: { body: text.slice(0, 4096), preview_url: false },
-  };
+/**
+ * Free-form session text (only valid inside the 24 h window). UNVERIFIED field name: no production example exists;
+ * mirrors the flat template shape. Not used by any live flow yet.
+ */
+export function textPayload(_cfg: MappstoreConfig, toE164: string, text: string) {
+  return { to: waNumber(toE164), type: "text" as const, text: text.slice(0, 4096) };
 }
 
 export async function mappstoreSend(cfg: MappstoreConfig, payload: unknown, fetcher: typeof fetch = fetch): Promise<{ id: string }> {
-  const res = await fetcher(`${cfg.baseUrl}/messages`, {
+  const res = await fetcher(`${cfg.baseUrl}/messages/send`, {
     method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${cfg.apiKey}` },
+    headers: { "content-type": "application/json", accept: "application/json", authorization: `Bearer ${cfg.apiKey}` },
     body: JSON.stringify(payload),
   });
-  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  const json = (await res.json().catch(() => ({}))) as Record<string, any>;
   if (!res.ok) throw new Error(`MappStore send failed (${res.status}).`);
-  const messages = json.messages as Array<{ id?: string }> | undefined;
-  return { id: String(json.id ?? messages?.[0]?.id ?? "") };
+  const d = json.data && typeof json.data === "object" ? json.data : {};
+  const id = json.id ?? json.messageId ?? d.id ?? d.messageId ?? json.messages?.[0]?.id ?? d.messages?.[0]?.id ?? "";
+  return { id: String(id) };
 }
 
 /** Verifies `X-Mappstore-Signature` (hex HMAC-SHA256 of the raw body; an optional `sha256=` prefix is tolerated). */
