@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { authClient, authEnabled } from "./client";
 
 /** Normalized user shape used across the app, auth on or off. */
@@ -54,23 +55,29 @@ export type CurrentUserState = {
  * `authEnabled` is a module-level constant fixed at load, so the guarded hook
  * call keeps a stable hook order across every render of a given component.
  */
-export function useCurrentUserState(): CurrentUserState {
-  if (!authEnabled) return { user: DEV_USER, isPending: false };
+function useSessionUserState(): CurrentUserState {
   const { data, isPending } = authClient.useSession();
-  const user = data?.user;
-  return {
-    user: user
-      ? {
-          id: user.id,
-          displayName: user.name ?? null,
-          primaryEmail: user.email ?? null,
-          profileImageUrl: user.image ?? null,
-          isDevFallback: false,
-        }
-      : null,
-    isPending,
-  };
+  const u = data?.user;
+  // Memoize on the user's fields: `useSession()` hands back a fresh object on
+  // every render/refetch, and effects keyed on `[user]` would otherwise re-run
+  // on every keystroke (that wiped the profile form while typing).
+  const user = useMemo(
+    () => (u ? toAppUser(u) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [u?.id, u?.name, u?.email, u?.image],
+  );
+  return { user, isPending };
 }
+
+const devUserState: CurrentUserState = { user: DEV_USER, isPending: false };
+function useDevUserState(): CurrentUserState {
+  return devUserState;
+}
+
+/** Chosen once at module load, so hook order is stable. */
+export const useCurrentUserState: () => CurrentUserState = authEnabled
+  ? useSessionUserState
+  : useDevUserState;
 
 /**
  * Convenience view of `useCurrentUserState().user` for display (e.g.
@@ -79,4 +86,20 @@ export function useCurrentUserState(): CurrentUserState {
  */
 export function useCurrentUser(): AppUser | null {
   return useCurrentUserState().user;
+}
+
+/** Map a Better Auth session user to the app's shape (pure; tested). */
+export function toAppUser(u: {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+}): AppUser {
+  return {
+    id: u.id,
+    displayName: u.name ?? null,
+    primaryEmail: u.email ?? null,
+    profileImageUrl: u.image ?? null,
+    isDevFallback: false,
+  };
 }
