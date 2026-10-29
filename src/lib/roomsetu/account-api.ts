@@ -1,3 +1,5 @@
+import { trustOf, type TrustFields } from "@/lib/roomsetu/trust";
+import { writeTrust } from "@/lib/roomsetu/trust-db";
 import { createServerFn } from "@tanstack/react-start";
 import { legacyPlanRejection } from "@/lib/roomsetu/legacy-plans";
 import QRCode from "qrcode";
@@ -408,6 +410,7 @@ type Draft = {
   bedrooms: number;
   description: string;
   photos: { url: string; category: string }[];
+  trust: TrustFields;
 };
 
 function draftOf(input: unknown): Draft {
@@ -488,6 +491,7 @@ function draftOf(input: unknown): Draft {
     bedrooms,
     description: text(o.description, 800, "Description"),
     photos,
+    trust: trustOf(o, num(o.monthlyRent)),
   };
 }
 
@@ -620,6 +624,7 @@ export const createListing = createServerFn({ method: "POST" })
       await sql`insert into listing_images (id, listing_id, url, category, sort_order) values (${crypto.randomUUID()}, ${listingId}, ${data.photos[i].url}, ${data.photos[i].category}, ${i})`;
     }
     await attachAmenities(sql, listingId, data);
+    await writeTrust(sql, listingId, data.trust);
     await sql`insert into profile_roles (user_id, role) values (${userId}, 'HOST') on conflict do nothing`;
     logEvent("listing.created", { city: data.city, photos: data.photos.length });
     return { id: listingId };

@@ -3,8 +3,8 @@ export type DashboardPass =
   | { code: "WEEKLY" | "MONTHLY"; name: string; price: number; perks: string; action: "pay" }
   | { code: "SQUAD"; name: string; price: number; perks: string; action: "squad" };
 
-export function dashboardPasses(p: { weekly: number; monthly: number; squadPerMember: number; squadDays: number; model: string }): DashboardPass[] {
-  if (p.model !== "FREE_THEN_PASS") return [];
+export function dashboardPasses(p: { weekly: number; monthly: number; squadPerMember: number; squadDays: number; model: string; paidChatEnabled?: boolean }): DashboardPass[] {
+  if (p.model !== "FREE_THEN_PASS" || p.paidChatEnabled === false) return [];
   return [
     { code: "WEEKLY", name: "Weekly pass", price: p.weekly, perks: "Message any owner for 7 days.", action: "pay" },
     { code: "MONTHLY", name: "Monthly pass", price: p.monthly, perks: "Message any owner for 30 days.", action: "pay" },

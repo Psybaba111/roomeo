@@ -35,7 +35,8 @@ test("launch config: free contacts and passes on, success fee off", () => {
   const c = pricingConfig({});
   assert.equal(c.contactModel, "FREE_THEN_PASS");
   assert.equal(c.freeContacts, 3);
-  assert.equal(c.passesEnabled, true);
+  assert.equal(c.passesEnabled, false);
+  assert.equal(pricingConfig({ ROOMEO_PAID_CHAT_ENABLED: "true" }).passesEnabled, true);
   assert.equal(c.passes.WEEKLY.priceInr, 149);
   assert.equal(c.passes.MONTHLY.priceInr, 299);
   assert.equal(c.passes.MONTHLY.days, 30);
@@ -43,7 +44,7 @@ test("launch config: free contacts and passes on, success fee off", () => {
   assert.equal(c.boostInr, 199);
   assert.equal(c.fastTrackInr, 149);
   assert.equal(c.successFeeEnabled, false);
-  assert.equal(pricingConfig({ ROOMEO_SUCCESS_FEE_ENABLED: "true" }).successFeeEnabled, true);
+  assert.equal(pricingConfig({ ROOMEO_SUCCESS_FEE_ENABLED: "true" }).successFeeEnabled, false);
   assert.equal(pricingConfig({ ROOMEO_FREE_CONTACTS: "abc" }).freeContacts, 3);
 });
 
@@ -53,14 +54,14 @@ test("squad pass is ₹99 per member, full or split", () => {
   assert.deepEqual(contactQuote(c, { squadMembers: 3, mode: "SPLIT" }), { amountInr: 99, splitParts: 3 });
 });
 
-test("contact access: pass first, then free quota, then pass needed", () => {
-  const c = pricingConfig({});
+test("contact access (paid chat flag on): pass first, then free quota, then pass needed", () => {
+  const c = pricingConfig({ ROOMEO_PAID_CHAT_ENABLED: "true" });
   assert.deepEqual(contactAccess(c, { phoneVerified: true, freeUsed: 0, activePassId: null }), { kind: "OPEN", source: "FREE", freeLeftAfter: 2 });
   assert.deepEqual(contactAccess(c, { phoneVerified: true, freeUsed: 2, activePassId: null }), { kind: "OPEN", source: "FREE", freeLeftAfter: 0 });
   assert.deepEqual(contactAccess(c, { phoneVerified: true, freeUsed: 3, activePassId: null }), { kind: "NEED_PASS" });
   assert.deepEqual(contactAccess(c, { phoneVerified: false, freeUsed: 0, activePassId: null }), { kind: "NEED_PHONE" });
   assert.deepEqual(contactAccess(c, { phoneVerified: true, freeUsed: 1, activePassId: "p1" }), { kind: "OPEN", source: "PASS", passId: "p1" });
-  assert.deepEqual(contactAccess(pricingConfig({ ROOMEO_CONTACT_MODEL: "PER_LISTING_FEE" }), { phoneVerified: true, freeUsed: 0, activePassId: null }), { kind: "NEED_FEE" });
+  assert.deepEqual(contactAccess(pricingConfig({ ROOMEO_PAID_CHAT_ENABLED: "true", ROOMEO_CONTACT_MODEL: "PER_LISTING_FEE" }), { phoneVerified: true, freeUsed: 0, activePassId: null }), { kind: "NEED_FEE" });
 });
 
 test("pass refund only when every contact failed", () => {

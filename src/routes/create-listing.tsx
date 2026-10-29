@@ -5,6 +5,7 @@ import { NeedAccount } from "@/components/need-account";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
 import { control } from "@/components/cards";
+import { EMPTY_TRUST, TrustFields, trustPayload, type TrustForm } from "@/components/trust-fields";
 import {
   CATALOG_PHOTOS,
   FURNISHED,
@@ -34,6 +35,7 @@ function CreateListing() {
   const [busy, setBusy] = useState(false);
   const [photos, setPhotos] = useState<number[]>([]);
   const [uploads, setUploads] = useState<{ url: string; category: string }[]>([]);
+  const [trust, setTrust] = useState<TrustForm>(EMPTY_TRUST);
   const [form, setForm] = useState({
     title: "",
     propertyType: "Apartment",
@@ -124,6 +126,7 @@ function CreateListing() {
           void createListing({
             data: {
               ...form,
+              ...trustPayload(trust),
               monthlyRent: Number(form.monthlyRent),
               deposit: Number(form.deposit),
               minStay: Number(form.minStay),
@@ -283,6 +286,7 @@ function CreateListing() {
             onChange={(e) => set("deposit", e.target.value.replace(/[^\d]/g, ""))}
           />
         </label>
+        <TrustFields value={trust} onChange={(k, v) => setTrust((t) => ({ ...t, [k]: v }))} />
         <label>
           <span className="mb-1 block text-sm text-muted">Available from</span>
           <input

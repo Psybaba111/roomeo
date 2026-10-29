@@ -1,3 +1,4 @@
+import { readPhotoDates, readTrust } from "@/lib/roomsetu/trust-db";
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { notFound } from "@tanstack/react-router";
 import { getSql } from "@/lib/db";
@@ -276,6 +277,7 @@ export const getListing = createServerFn({ method: "POST" })
       [id],
     );
     const card = listingCard({ ...row, photo: images[0] ? str(images[0].url) : null });
+    const [trust, photoDates] = await Promise.all([readTrust(sql, id), readPhotoDates(sql, id)]);
     return {
       held: false as const,
       onlyYou: !visible,
@@ -307,7 +309,8 @@ export const getListing = createServerFn({ method: "POST" })
       ownerId: str(row.owner_id),
       lat: num(row.lat),
       lng: num(row.lng),
-      images: images.map((img) => ({ url: str(img.url), category: str(img.category) })),
+      images: images.map((img) => ({ url: str(img.url), category: str(img.category), uploadedAt: photoDates.get(str(img.url)) ?? "" })),
+      trust: { allInInr: trust.allInInr, allInIncludes: trust.allInIncludes, videoTourUrl: trust.videoTourUrl, depositRefundDays: trust.depositRefundDays },
       amenities: amenities.map((a) => str(a.name)),
       host: {
         name: str(row.host_name),

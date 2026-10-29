@@ -19,6 +19,7 @@ import {
 import { REPORT_CATEGORIES } from "@/lib/roomsetu/constants";
 import { genderLabel, inr, cardPhoto, whenLabel } from "@/lib/roomsetu/map";
 import { ShareButtons } from "@/components/share-buttons";
+import { REVIEWS_NOTE, depositTerms, headlinePrice, photoDateLabel } from "@/lib/roomsetu/trust";
 import { SITE_URL } from "@/lib/seo";
 
 export const Route = createFileRoute("/listing/$id")({
@@ -155,6 +156,16 @@ function ListingBody({ room }: { room: LoadedRoom }) {
               <div className="aspect-[4/3]" />
             )}
           </div>
+          {img ? (
+            <p className="mt-2 text-xs text-muted" data-testid="photo-date">
+              {photoDateLabel(img.uploadedAt) || "Older photo, upload date not recorded. Ask the owner for a fresh one."}
+            </p>
+          ) : null}
+          {room.trust.videoTourUrl ? (
+            <a href={room.trust.videoTourUrl} target="_blank" rel="noopener noreferrer nofollow" className="mt-2 inline-flex h-10 items-center rounded-full border border-line px-4 text-sm font-semibold" data-testid="video-tour-link">
+              ▶ Watch the video tour
+            </a>
+          ) : null}
           <div className="mt-3 flex gap-2 overflow-x-auto">
             {room.images.map((image, i) => (
               <button
@@ -216,18 +227,27 @@ function ListingBody({ room }: { room: LoadedRoom }) {
           <div className="mt-3">
             <ShareButtons room={room} url={`${SITE_URL}/listing/${room.id}`} />
           </div>
-          <p className="mt-4 text-4xl font-semibold tabular-nums text-trust">
-            {inr(room.rent)} <span className="text-lg font-medium text-muted">/ month</span>
+          <p className="mt-4 text-4xl font-semibold tabular-nums text-trust" data-testid="headline-price">
+            {inr(headlinePrice(room.rent, room.trust.allInInr).amount)}{" "}
+            <span className="text-lg font-medium text-muted">/ month{room.trust.allInInr ? " all-in" : ""}</span>
           </p>
+          {room.trust.allInInr ? (
+            <p className="mt-1 text-sm text-muted" data-testid="all-in-includes">
+              Includes {room.trust.allInIncludes}. Rent alone {inr(room.rent)}.
+            </p>
+          ) : null}
           <div className="mt-4 rounded-3xl bg-ink p-4 text-card">
             <p className="text-sm font-semibold text-brand">To move in</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">
               {inr(room.rent)} rent + {inr(room.deposit)} deposit
             </p>
             <p className="mt-1 text-sm text-brand-soft">
-              Rent and deposit go to the owner. Roomeo takes no cut of your rent. Message 3 owners
-              free, then a pass from ₹149 a week if you need more.
+              Rent and deposit go to the owner. Roomeo takes no cut. Chatting the owner is free.
             </p>
+            <p className="mt-2 text-sm font-semibold" data-testid="deposit-terms">
+              {depositTerms(room.deposit, room.trust.depositRefundDays)}
+            </p>
+            <p className="mt-1 text-xs text-brand-soft">{REVIEWS_NOTE}</p>
           </div>
           <div className="mt-4 flex flex-col gap-2">
             {user ? (

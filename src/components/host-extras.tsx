@@ -25,7 +25,7 @@ export function FastTrackOffer() {
   const [checkout, setCheckout] = useState<UpiCheckoutData | null>(null);
   const [busy, setBusy] = useState(false);
   if (!data) return error ? <p className={`mt-4 ${errorBox}`}>{error}</p> : <div className={`mt-4 h-24 ${skeleton}`} aria-busy="true" />;
-  if (data.verified) return null;
+  if (data.verified || !data.fastTrackEnabled) return null;
   return (
     <div className={`mt-4 ${card}`} data-testid="fast-track">
       <p className="flex items-center gap-2 text-base font-semibold">
@@ -67,7 +67,7 @@ export function BoostPanel() {
   const [busy, setBusy] = useState("");
   if (!data) return error ? null : <div className={`mt-8 h-32 ${skeleton}`} aria-busy="true" />;
   const live = data.listings.filter((l) => l.status === "ACTIVE");
-  if (!live.length) return null;
+  if (!live.length || !data.boostsEnabled) return null;
   return (
     <section className={`mt-8 ${card}`} aria-labelledby="boost-h" data-testid="boost-panel">
       <h2 id="boost-h" className="flex items-center gap-2 text-2xl font-semibold">

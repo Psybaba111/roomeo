@@ -202,7 +202,8 @@ export const getContactStatus = createServerFn({ method: "POST" })
       where user_id = ${context.userId} and kind = 'PASS' and status in ('PENDING','SUBMITTED') order by created_at desc limit 1`;
     return {
       fee: contactFeeInr(),
-      model: cfg.contactModel,
+      model: cfg.paidChatEnabled ? cfg.contactModel : ("FREE_THEN_PASS" as const),
+      free: !cfg.paidChatEnabled,
       summary,
       passes: { weekly: cfg.passes.WEEKLY.priceInr, monthly: cfg.passes.MONTHLY.priceInr, enabled: cfg.passesEnabled },
       pendingPass: pendingPass[0] ? { ref: str(pendingPass[0].ref), status: str(pendingPass[0].status), code: str(pendingPass[0].pass_code) } : null,
@@ -232,6 +233,7 @@ export const startContactCheckout = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ context, data }) => {
+    if (!pricingConfig().paidChatEnabled) throw new Error("Chatting owners is free now. No payment needed.");
     const payee = upiPayee();
     if (!payee.ready) throw new Error("UPI payments are not set up yet.");
     const sql = await getSql();

@@ -35,6 +35,7 @@ export async function contactSummary(sql: Sql, userId: string) {
   const [used, pass, phone] = await Promise.all([freeUsed(sql, userId), activePass(sql, userId), phoneVerified(sql, userId)]);
   return {
     model: cfg.contactModel,
+    unlimited: !cfg.paidChatEnabled,
     freeTotal: cfg.freeContacts,
     freeLeft: Math.max(0, cfg.freeContacts - used),
     phoneVerified: phone,
@@ -51,7 +52,7 @@ export async function grantContact(sql: Sql, listingId: string, seekerId: string
   const cfg = pricingConfig();
   const pass = await activePass(sql, seekerId);
   const access = contactAccess(cfg, { phoneVerified: await phoneVerified(sql, seekerId), freeUsed: await freeUsed(sql, seekerId), activePassId: pass?.id ?? null });
-  if (access.kind === "NEED_PHONE") throw new Error("Verify your phone number to use your free owner contacts.");
+  if (access.kind === "NEED_PHONE") throw new Error("Verify your phone number to message owners. It's free.");
   if (access.kind === "NEED_PASS")
     throw new Error(`You have used your ${cfg.freeContacts} free contacts. Get a weekly pass for ₹${cfg.passes.WEEKLY.priceInr} to keep messaging owners.`);
   if (access.kind !== "OPEN") throw new Error("Contact is locked.");

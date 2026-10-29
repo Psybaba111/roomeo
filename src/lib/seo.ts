@@ -94,7 +94,7 @@ export function listingHead(room: (ListingSeo & { held?: false }) | { held: true
   if (!room) return pageHead("Bed not available", { noindex: true });
   if (room.held === true) return pageHead("Bed not public yet", { noindex: true });
   const title = `${room.roomType} in ${room.locality} · ₹${room.rent.toLocaleString("en-IN")}/mo`;
-  const description = `${room.title}. ${room.roomType} in ${room.locality}, ${room.city} for ₹${room.rent.toLocaleString("en-IN")} a month. Message 3 owners free, no broker's month.`;
+  const description = `${room.title}. ${room.roomType} in ${room.locality}, ${room.city} for ₹${room.rent.toLocaleString("en-IN")} a month. Chat the owner free, no broker's month.`;
   const head = pageHead(title, { description, noindex: room.isDemo });
   const image = room.images[0]?.url;
   head.meta.push(
