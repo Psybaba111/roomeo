@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { mappstoreConfig, mappstoreSend, mappstoreSignatureValid, notifyWhatsApp, templatePayload, textPayload, waNumber } from "./mappstore.ts";
+import { mappstoreConfig, mappstoreSend, mappstoreSignatureValid, notifyWhatsApp, parseMappstoreEvents, whatsappNotifyEnabled, templatePayload, textPayload, waNumber } from "./mappstore.ts";
 import { MappstoreWhatsappOtpProvider, otpProviderFromEnv } from "./otp.ts";
 
-const ENV = { MAPPSTORE_API_KEY: "test-key", MAPPSTORE_SENDER: "919000000000" };
+const ENV = { MAPPSTORE_API_KEY: "test-key", MAPPSTORE_SENDER: "919000000000", MAPPSTORE_NOTIFY_ENABLED: "true" };
 const cfg = mappstoreConfig(ENV)!;
 
 function mockFetch(status = 200, body: unknown = { id: "msg_1" }) {
@@ -82,4 +82,23 @@ test("webhook signature check", () => {
   assert.equal(mappstoreSignatureValid("s3cret", body + " ", sig), false);
   assert.equal(mappstoreSignatureValid("", body, sig), false);
   assert.equal(mappstoreSignatureValid("s3cret", body, null), false);
+});
+
+test("WhatsApp notifications are OFF unless MAPPSTORE_NOTIFY_ENABLED=true", async () => {
+  assert.equal(whatsappNotifyEnabled({}), false);
+  assert.equal(whatsappNotifyEnabled({ MAPPSTORE_NOTIFY_ENABLED: "1" }), false);
+  const m = mockFetch(200, { id: "x" });
+  const off = { MAPPSTORE_API_KEY: "k", MAPPSTORE_TPL_PAYMENT_APPROVED: "t" };
+  assert.equal(await notifyWhatsApp("paymentApproved", "+919876543210", ["a"], off, m.fn), "skipped");
+});
+
+test("parseMappstoreEvents handles Meta-shaped and flat bodies", () => {
+  const meta = { entry: [{ changes: [{ value: { statuses: [{ id: "wamid.1", status: "delivered" }], messages: [{ from: "919876543210", text: { body: "STOP" } }] } }] }] };
+  assert.deepEqual(parseMappstoreEvents(meta), [
+    { kind: "status", messageId: "wamid.1", status: "delivered" },
+    { kind: "inbound", from: "919876543210", text: "STOP", optOut: true },
+  ]);
+  assert.deepEqual(parseMappstoreEvents({ type: "message.status", data: { messageId: "m2", status: "read" } }), [{ kind: "status", messageId: "m2", status: "read" }]);
+  assert.deepEqual(parseMappstoreEvents({ event: "message.inbound", from: "91", text: "hi" }), [{ kind: "inbound", from: "91", text: "hi", optOut: false }]);
+  assert.deepEqual(parseMappstoreEvents("x"), [{ kind: "unknown" }]);
 });

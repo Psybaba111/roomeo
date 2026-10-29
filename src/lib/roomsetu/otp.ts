@@ -109,6 +109,11 @@ export function otpMatches(expectedHash: string, userId: string, phoneE164: stri
 }
 
 export const OTP_TTL_MINUTES = 10;
+/** The approved MappStore AUTHENTICATION template's copy-code button says "Expires in 5 minutes", so match it. */
+export const WHATSAPP_OTP_TTL_MINUTES = 5;
+export function otpTtlMinutes(provider: Pick<OtpProvider, "name">): number {
+  return provider.name === "mappstore-whatsapp" ? WHATSAPP_OTP_TTL_MINUTES : OTP_TTL_MINUTES;
+}
 export const OTP_MAX_ATTEMPTS = 5;
 
 /** Listing publish gate: both phone and ID must be verified. */

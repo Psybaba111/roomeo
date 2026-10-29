@@ -48,3 +48,9 @@ test("publish needs both phone and ID verified", () => {
   assert.equal(canPublish({ identityStatus: "VERIFIED", phoneVerified: false }), false);
   assert.equal(canPublish({ identityStatus: "PENDING", phoneVerified: true }), false);
 });
+
+test("WhatsApp OTP TTL matches the template's 5-minute copy-code button", async () => {
+  const { otpTtlMinutes } = await import("./otp.ts");
+  assert.equal(otpTtlMinutes({ name: "mappstore-whatsapp" }), 5);
+  assert.equal(otpTtlMinutes({ name: "console" }), 10);
+});

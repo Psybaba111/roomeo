@@ -96,6 +96,7 @@ export async function notifyWhatsApp(
   env: Record<string, string | undefined> = process.env,
   fetcher: typeof fetch = fetch,
 ): Promise<"sent" | "skipped" | "failed"> {
+  if (!whatsappNotifyEnabled(env)) return "skipped";
   const cfg = mappstoreConfig(env);
   const template = env[NOTIFY_EVENTS[event]]?.trim();
   if (!cfg || !template || !phoneE164) return "skipped";
@@ -106,4 +107,42 @@ export async function notifyWhatsApp(
     console.warn(`[whatsapp] ${event} failed: ${e instanceof Error ? e.message : "error"}`);
     return "failed";
   }
+}
+
+/** Master switch for WhatsApp notifications. OFF unless MAPPSTORE_NOTIFY_ENABLED is exactly "true". */
+export function whatsappNotifyEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.MAPPSTORE_NOTIFY_ENABLED?.trim() === "true";
+}
+
+export type MappstoreEvent =
+  | { kind: "status"; messageId: string; status: string }
+  | { kind: "inbound"; from: string; text: string; optOut: boolean }
+  | { kind: "unknown" };
+
+const OPT_OUT = /^\s*(stop|unsubscribe|cancel|opt\s*out)\s*$/i;
+
+/** Normalises MappStore webhook bodies (flat shape, or the Meta `entry[].changes[].value` shape it mirrors). */
+export function parseMappstoreEvents(body: unknown): MappstoreEvent[] {
+  if (!body || typeof body !== "object") return [{ kind: "unknown" }];
+  const b = body as Record<string, any>;
+  const values: Array<Record<string, any>> = Array.isArray(b.entry)
+    ? b.entry.flatMap((e: any) => (Array.isArray(e?.changes) ? e.changes.map((c: any) => c?.value ?? {}) : []))
+    : [b.data && typeof b.data === "object" ? { ...b.data, _type: b.type ?? b.event } : { ...b, _type: b.type ?? b.event }];
+  const out: MappstoreEvent[] = [];
+  for (const v of values) {
+    for (const st of Array.isArray(v.statuses) ? v.statuses : []) out.push({ kind: "status", messageId: String(st?.id ?? ""), status: String(st?.status ?? "") });
+    for (const m of Array.isArray(v.messages) ? v.messages : []) {
+      const text = String(m?.text?.body ?? m?.button?.text ?? "");
+      out.push({ kind: "inbound", from: String(m?.from ?? ""), text, optOut: OPT_OUT.test(text) });
+    }
+    if (!v.statuses && !v.messages) {
+      const t = String(v._type ?? "");
+      if (/status/i.test(t) || v.status) out.push({ kind: "status", messageId: String(v.messageId ?? v.id ?? ""), status: String(v.status ?? "") });
+      else if (/message|inbound/i.test(t) && (v.from || v.text)) {
+        const text = String(typeof v.text === "object" ? v.text?.body ?? "" : v.text ?? v.body ?? "");
+        out.push({ kind: "inbound", from: String(v.from ?? ""), text, optOut: OPT_OUT.test(text) });
+      }
+    }
+  }
+  return out.length ? out : [{ kind: "unknown" }];
 }
