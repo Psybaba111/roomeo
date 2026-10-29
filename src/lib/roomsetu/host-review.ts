@@ -46,8 +46,13 @@ export function decisionBlocker(p: {
   identitySource: string;
   reviewStatus: string;
   decision: "APPROVE" | "REJECT";
+  actorRoles?: readonly string[];
+  reason?: string;
 }): string | null {
-  if (p.actorId === p.targetId) return "You cannot decide your own ID.";
+  if (p.actorId === p.targetId) {
+    if (!(p.actorRoles ?? []).includes("SUPER_ADMIN")) return "You cannot decide your own ID.";
+    if ((p.reason ?? "").trim().length < 5) return "Self-decision needs a reason (at least 5 characters).";
+  }
   if (p.identitySource === "DIGILOCKER") return "DigiLocker already verified this host.";
   if (p.decision === "APPROVE" && p.reviewStatus !== "PENDING")
     return "This host has not submitted ID details yet.";
@@ -126,3 +131,18 @@ export function formatIst(iso: string): string {
   if (Number.isNaN(d.getTime())) return "";
   return `${d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST`;
 }
+
+/** A self-decision on your own ID: only SUPER_ADMIN may do this, and it is always audited as such. */
+export function isSelfDecision(actorId: string, targetId: string): boolean {
+  return actorId === targetId;
+}
+
+export function selfDecisionAudit(decision: "APPROVE" | "REJECT", reason: string): { action: string; detail: string } {
+  return {
+    action: decision === "APPROVE" ? "HOST_ID_SELF_APPROVED" : "HOST_ID_SELF_REJECTED",
+    detail: `SELF-DECISION by SUPER_ADMIN (actor = subject). Reason: ${reason.trim()}`,
+  };
+}
+
+export const SELF_DECISION_WARNING =
+  "Heads up: this is YOUR OWN ID. Self-approval skips a second pair of eyes and is logged as a self-decision. Continue?";

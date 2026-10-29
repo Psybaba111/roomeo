@@ -6,6 +6,7 @@ import { NeedAccount } from "@/components/need-account";
 import { AdminFrame } from "@/components/admin-frame";
 import { errText } from "@/lib/ui-text";
 import { adminDecideHost, adminHostQueue } from "@/lib/roomsetu/host-review-api";
+import { SELF_DECISION_WARNING } from "@/lib/roomsetu/host-review";
 import { ID_DOC_TYPES } from "@/lib/roomsetu/host-review";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
@@ -50,6 +51,13 @@ function Hosts() {
   }, [user]);
   function decide(userId: string, decision: "APPROVE" | "REJECT") {
     setError("");
+    if (user && userId === user.id) {
+      if ((reasons[userId] ?? "").trim().length < 5) {
+        setError("Self-decision needs a reason (at least 5 characters).");
+        return;
+      }
+      if (!window.confirm(SELF_DECISION_WARNING)) return;
+    }
     setBusy(userId);
     void adminDecideHost({ data: { userId, decision, reason: reasons[userId] ?? "" } })
       .then(load)
@@ -78,6 +86,11 @@ function Hosts() {
           >
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-semibold">{row.name || "Unnamed host"}</p>
+              {user && row.userId === user.id ? (
+                <span className="rounded-full border border-danger px-2 py-0.5 text-xs font-semibold text-danger" data-testid="self-row">
+                  You · self-decision is logged
+                </span>
+              ) : null}
               <span
                 className={`rounded-full px-2 py-0.5 text-xs font-semibold ${BADGE[row.reviewStatus] ?? BADGE[""]}`}
               >
@@ -130,7 +143,7 @@ function Hosts() {
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <input
                   className="h-10 min-w-0 flex-1 rounded-full border border-line bg-transparent px-4 text-sm"
-                  placeholder="Reason (required to reject)"
+                  placeholder={user && row.userId === user.id ? "Reason (required for a self-decision)" : "Reason (required to reject)"}
                   aria-label={`Reason for ${row.name}`}
                   value={reasons[row.userId] ?? ""}
                   onChange={(e) => setReasons({ ...reasons, [row.userId]: e.target.value })}

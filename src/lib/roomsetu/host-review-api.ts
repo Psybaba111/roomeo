@@ -5,6 +5,8 @@ import { bool, str } from "@/lib/roomsetu/map";
 import { assertAdmin, audit } from "@/lib/roomsetu/admin-api";
 import {
   decisionBlocker,
+  isSelfDecision,
+  selfDecisionAudit,
   hostReviewMessage,
   parseHostDecision,
   parseIdSubmission,
@@ -118,6 +120,8 @@ export const adminDecideHost = createServerFn({ method: "POST" })
       identitySource: t.identity_source,
       reviewStatus: t.id_review_status,
       decision: data.decision,
+      actorRoles,
+      reason: data.reason,
     });
     if (blocker) throw new Error(blocker);
     const targetRoles = (
@@ -149,6 +153,10 @@ export const adminDecideHost = createServerFn({ method: "POST" })
       await sql`insert into trust_checks (id, user_id, kind, status, note) values (${crypto.randomUUID()}, ${data.userId}, 'IDENTITY', 'REJECTED', ${`Manual ID review rejected: ${data.reason}`})
         on conflict (user_id, kind) do update set status = 'REJECTED', note = excluded.note, updated_at = now()`;
       await audit(sql, context.userId, "HOST_ID_REJECTED", "profile", data.userId, data.reason);
+    }
+    if (isSelfDecision(context.userId, data.userId)) {
+      const a = selfDecisionAudit(data.decision, data.reason);
+      await audit(sql, context.userId, a.action, "profile", data.userId, a.detail);
     }
     return { ok: true };
   });
