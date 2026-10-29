@@ -3,6 +3,7 @@ import { getHostReview, submitHostId } from "@/lib/roomsetu/host-review-api";
 import { ID_DOC_TYPES } from "@/lib/roomsetu/host-review";
 import { errText } from "@/lib/ui-text";
 import { btnDark, errorBox, input } from "@/components/ui-tokens";
+import { idReviewHeading } from "@/lib/roomsetu/verification-copy";
 import { FastTrackOffer } from "@/components/host-extras";
 
 const TONE = {
@@ -13,7 +14,7 @@ const TONE = {
 } as const;
 
 /** Host-facing manual ID review: status line plus a submit form. */
-export function HostIdReview() {
+export function HostIdReview({ digilockerReady }: { digilockerReady?: boolean } = {}) {
   const [data, setData] = useState<Awaited<ReturnType<typeof getHostReview>> | null>(null);
   const [docType, setDocType] = useState("AADHAAR");
   const [last4, setLast4] = useState("");
@@ -29,9 +30,9 @@ export function HostIdReview() {
   if (!data) return null;
   const canSubmit = data.identityStatus !== "VERIFIED" && data.reviewStatus !== "PENDING";
   return (
-    <section className="mt-10 max-w-xl" aria-labelledby="id-review-h">
-      <h2 id="id-review-h" className="text-2xl font-semibold">
-        No DigiLocker? Get approved by the roomeo team
+    <section className="mt-6 max-w-xl" aria-labelledby="id-review-h">
+      <h2 id="id-review-h" className="text-xl font-semibold">
+        {idReviewHeading(digilockerReady)}
       </h2>
       <p
         className={`mt-3 rounded-lg px-4 py-3 text-sm font-semibold ${TONE[data.message.tone]}`}
@@ -69,7 +70,7 @@ export function HostIdReview() {
           </label>
           <label className="block">
             <span className="mb-2 block text-sm text-muted">
-              Last 4 characters of the ID (we never store the full number)
+              Last 4 characters (we never store the full ID)
             </span>
             <input
               className={input}
@@ -100,7 +101,7 @@ export function HostIdReview() {
             Submit for review
           </button>
           <p className="text-xs text-muted">
-            The team may message you on roomeo to confirm the ID before approving.
+            We might ping you on roomeo to double-check. Usually approved within a day.
           </p>
         </form>
       ) : null}

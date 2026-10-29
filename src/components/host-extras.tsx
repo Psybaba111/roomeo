@@ -29,16 +29,16 @@ export function FastTrackOffer() {
   return (
     <div className={`mt-4 ${card}`} data-testid="fast-track">
       <p className="flex items-center gap-2 text-base font-semibold">
-        <Lightning size={18} aria-hidden="true" /> Fast track your ID review · ₹{data.fastTrackInr}
+        <Lightning size={18} aria-hidden="true" /> Faster verification · ₹{data.fastTrackInr}
       </p>
       <p className="mt-2 text-sm text-muted [text-wrap:pretty]">
-        Optional. Your review jumps to the front of the queue, usually the same day. Listing your bed stays free either way.
+        Optional. Skip the queue, usually approved same day. Listing stays free either way.
       </p>
       {error ? <p className={`mt-2 ${errorBox}`} role="alert">{error}</p> : null}
       {data.fastTrack ? (
-        <p className={`mt-4 text-sm font-semibold ${inner}`}>Fast track is on. You are at the front of the queue.</p>
+        <p className={`mt-4 text-sm font-semibold ${inner}`}>Fast track is on. You're first in line ✓</p>
       ) : data.fastTrackPending === "SUBMITTED" && !checkout ? (
-        <p className={`mt-4 text-sm font-semibold ${inner}`}>Payment received. Roomeo is confirming it.</p>
+        <p className={`mt-4 text-sm font-semibold ${inner}`}>Payment received. Confirming it now.</p>
       ) : checkout ? (
         <UpiCheckout data={checkout} onClose={() => { setCheckout(null); load(); }} />
       ) : (
