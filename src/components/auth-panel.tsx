@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { authClient, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
+import { authClient, signIn } from "@/lib/auth/client";
+import { useSignInProviders } from "@/lib/auth/use-sign-in-providers";
 import { listCities } from "@/lib/roomsetu/public-api";
 import { control } from "@/components/cards";
 import { errText, safeNext } from "@/lib/ui-text";
@@ -14,6 +15,7 @@ async function remember(token?: string | null) {
 }
 
 export function AuthPanel({ mode }: { mode: "login" | "register" }) {
+  const providers = useSignInProviders();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -94,15 +96,15 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
           {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
         </button>
       </form>
-      <div className="my-4 text-center text-sm text-muted">or</div>
+      {providers.length ? <div className="my-4 text-center text-sm text-muted">or</div> : null}
       <div className="space-y-2">
-        {GROK_PROVIDERS.map((p) => (
+        {providers.map((p) => (
           <button
-            key={p.providerId}
+            key={p.id}
             type="button"
             className="h-12 w-full rounded-full border border-line bg-card font-semibold"
             onClick={() => {
-              void signIn(p.providerId, { callbackURL: "/dashboard" }).catch((err) => setError(errText(err)));
+              void signIn(p.id, { callbackURL: "/dashboard", errorCallbackURL: "/login" }).catch((err) => setError(errText(err)));
             }}
           >
             Continue with {p.label}
