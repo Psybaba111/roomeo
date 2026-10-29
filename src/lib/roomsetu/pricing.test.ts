@@ -90,3 +90,32 @@ test("squad move in needs every member and the owner; fee split per member", () 
   assert.equal(squadSuccessShareInr(499, 2), 250);
   assert.equal(squadSuccessShareInr(499, 3), 167);
 });
+
+test("success fee: ₹999 per side by default, still OFF unless the flag is set", async () => {
+  const { SUCCESS_FEE_INR } = await import("./pricing.ts");
+  const c = pricingConfig({});
+  assert.equal(SUCCESS_FEE_INR, 999);
+  assert.equal(c.successFeeTenantInr, 999);
+  assert.equal(c.successFeeOwnerInr, 999);
+  assert.equal(c.successFeeEnabled, false);
+  assert.equal(pricingConfig({ ROOMEO_SUCCESS_FEE_TENANT_INR: "0" }).successFeeTenantInr, 0);
+});
+
+test("success fee copy is shown up front and says one-time", async () => {
+  const { successFeeHeadsUp } = await import("./pricing.ts");
+  for (const r of ["tenant", "owner"] as const) {
+    const t = successFeeHeadsUp(999, r);
+    assert.match(t, /₹999/);
+    assert.match(t, /one-time/);
+    assert.match(t, /18% GST \(₹1179\)/);
+    assert.match(t, /7 days/);
+    assert.match(t, /no cut of/i);
+  }
+});
+
+test("success fee is once per deal: an older paid fee doesn't cover a new deal", async () => {
+  const { feeBelongsToDeal } = await import("./pricing.ts");
+  assert.equal(feeBelongsToDeal("2026-10-29T10:00:00Z", "2026-10-29T09:00:00Z"), true);
+  assert.equal(feeBelongsToDeal("2026-01-01T10:00:00Z", "2026-10-29T09:00:00Z"), false);
+  assert.equal(feeBelongsToDeal(null, "2026-10-29T09:00:00Z"), false);
+});

@@ -58,7 +58,7 @@ export function SquadMoveIn({ requestId }: { requestId: string }) {
               void startSquadSuccessFee({ data: { requestId } }).then(setCheckout).catch((e) => setError(errText(e))).finally(() => setBusy(false));
             }}
           >
-            Pay ₹{s.myFee} {s.isOwner ? "move in fee" : "move in share"}
+            Pay ₹{s.myFee} one-time fee (incl. GST)
           </button>
         )
       ) : null}

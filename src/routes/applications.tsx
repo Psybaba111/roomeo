@@ -8,8 +8,8 @@ import { listApplications, openConversation, setApplication } from "@/lib/roomse
 import { agreeRent, confirmRentPayment, startRentPayment } from "@/lib/roomsetu/trust-api";
 import { inr } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { confirmMoveIn, myMoveIns, startSuccessFeeCheckout } from "@/lib/roomsetu/pricing-api";
-import { UpiCheckout, type UpiCheckoutData } from "@/components/upi-checkout";
+import { confirmMoveIn, myMoveIns } from "@/lib/roomsetu/pricing-api";
+import { DealAgreement } from "@/components/deal-agreement";
 import { btnSmallPrimary, errorBox, inner } from "@/components/ui-tokens";
 
 type MoveInfo = Awaited<ReturnType<typeof myMoveIns>>;
@@ -18,10 +18,8 @@ type MoveInfo = Awaited<ReturnType<typeof myMoveIns>>;
 function MoveIn({ applicationId, mine, info, reload }: { applicationId: string; mine: boolean; info: MoveInfo | null; reload: () => void }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [checkout, setCheckout] = useState<UpiCheckoutData | null>(null);
   const m = info?.items.find((i) => i.applicationId === applicationId);
   const meDone = mine ? m?.seekerConfirmed : m?.ownerConfirmed;
-  const fee = mine ? info?.tenantFee ?? 0 : info?.ownerFee ?? 0;
   return (
     <div className={`mt-4 text-sm ${inner}`} data-testid="move-in">
       {m?.confirmed ? (
@@ -43,31 +41,6 @@ function MoveIn({ applicationId, mine, info, reload }: { applicationId: string; 
           Confirm move in
         </button>
       )}
-      {m?.confirmed && info?.successFeeEnabled && fee > 0 ? (
-        m.feeStatus === "PAID" ? (
-          <p className="mt-2 text-muted">Move in fee paid. Thanks.</p>
-        ) : m.feeStatus === "SUBMITTED" && !checkout ? (
-          <p className="mt-2 text-muted">Move in fee received. Roomeo is confirming it.</p>
-        ) : checkout ? (
-          <UpiCheckout data={checkout} onClose={() => { setCheckout(null); reload(); }} />
-        ) : (
-          <div className="mt-2">
-            <p className="text-muted [text-wrap:pretty]">A flat ₹{fee} move in fee, never a cut of the rent.</p>
-            <button
-              type="button"
-              disabled={busy}
-              className={`mt-2 ${btnSmallPrimary}`}
-              data-testid="pay-success-fee"
-              onClick={() => {
-                setBusy(true);
-                void startSuccessFeeCheckout({ data: { applicationId } }).then(setCheckout).catch((e) => setError(errText(e))).finally(() => setBusy(false));
-              }}
-            >
-              Pay ₹{fee} move in fee
-            </button>
-          </div>
-        )
-      ) : null}
       {error ? <p className={`mt-2 ${errorBox}`} role="alert">{error}</p> : null}
     </div>
   );
@@ -146,7 +119,10 @@ function Apps() {
                   </p>
                 ) : null}
                 {row.status === "ACCEPTED" && !row.demo ? (
-                  <MoveIn applicationId={row.id} mine={row.mine} info={moves} reload={loadMoves} />
+                  <>
+                    <DealAgreement applicationId={row.id} />
+                    <MoveIn applicationId={row.id} mine={row.mine} info={moves} reload={loadMoves} />
+                  </>
                 ) : null}
                 {row.demo ? <p className="mt-2 text-sm text-muted">Sample room. Rent is not collected here.</p> : null}
               </div>

@@ -147,7 +147,7 @@ export const myMoveIns = createServerFn({ method: "GET" })
     const cfg = pricingConfig();
     const rows = await sql<Record<string, unknown>>`select m.application_id, m.listing_id, m.seeker_id, m.owner_id, m.seeker_confirmed_at is not null as s_ok,
         m.owner_confirmed_at is not null as o_ok, m.confirmed_at is not null as done,
-        (select status from payments p where p.kind = 'SUCCESS_FEE' and p.listing_id = m.listing_id and p.user_id = ${context.userId} order by created_at desc limit 1) as fee_status
+        (select status from payments p where p.kind = 'SUCCESS_FEE' and p.listing_id = m.listing_id and p.user_id = ${context.userId} and m.confirmed_at is not null and p.created_at >= m.confirmed_at order by created_at desc limit 1) as fee_status
       from move_ins m where m.seeker_id = ${context.userId} or m.owner_id = ${context.userId}`;
     return {
       successFeeEnabled: cfg.successFeeEnabled,
@@ -193,6 +193,8 @@ export const startSuccessFeeCheckout = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const cfg = pricingConfig();
     if (!cfg.successFeeEnabled) throw new Error("There is no move in fee right now.");
+    // The fee is now triggered by the signed deal agreement (agreement-api startAgreementFee).
+    if (cfg.successFeeEnabled) throw new Error("Sign the Roomeo agreement first. The fee is paid from there.");
     const sql = await getSql();
     const m = await sql<{ listing_id: string; seeker_id: string; owner_id: string; confirmed_at: string | null }>`select listing_id, seeker_id, owner_id, confirmed_at::text as confirmed_at from move_ins where application_id = ${data.applicationId}`;
     if (!m[0] || (m[0].seeker_id !== context.userId && m[0].owner_id !== context.userId)) throw new Error("Move in not found.");
@@ -200,9 +202,10 @@ export const startSuccessFeeCheckout = createServerFn({ method: "POST" })
     const tenant = m[0].seeker_id === context.userId;
     const amount = tenant ? cfg.successFeeTenantInr : cfg.successFeeOwnerInr;
     if (amount <= 0) throw new Error("There is no move in fee for you.");
-    const paid = await sql`select 1 from payments where kind = 'SUCCESS_FEE' and listing_id = ${m[0].listing_id} and user_id = ${context.userId} and status = 'PAID'`;
+    // Once per deal per person: only a fee paid after THIS move in was confirmed counts.
+    const paid = await sql`select 1 from payments where kind = 'SUCCESS_FEE' and listing_id = ${m[0].listing_id} and user_id = ${context.userId} and status = 'PAID' and created_at >= ${m[0].confirmed_at}::timestamptz`;
     if (paid.length) throw new Error("Already paid. Thanks.");
-    return upiCheckout(sql, context.userId, { kind: "SUCCESS_FEE", listingId: m[0].listing_id, amount, purpose: `Move in fee (${tenant ? "tenant" : "owner"})`, label: "the move in fee" });
+    return upiCheckout(sql, context.userId, { kind: "SUCCESS_FEE", listingId: m[0].listing_id, amount, purpose: `Success fee, one time (${tenant ? "tenant" : "owner"})`, label: "the one-time success fee" });
   });
 
 // ---------------------------------------------------------------- admin
