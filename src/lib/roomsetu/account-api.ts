@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { legacyPlanRejection } from "@/lib/roomsetu/legacy-plans";
 import QRCode from "qrcode";
 import { hitLimit } from "@/lib/roomsetu/rate-limit";
 import { notifyWhatsApp } from "@/lib/roomsetu/mappstore";
@@ -1300,6 +1301,14 @@ export const startCheckout = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: unknown) => planCodeSchema.parse(asRecord(input).code))
   .handler(async ({ context, data }) => {
+    // Pre-v2 subscription plans (₹199/₹299/₹499) are retired: refuse before any
+    // payment row is written. Current passes go through startPassCheckout.
+    const retired = legacyPlanRejection(data);
+    if (retired) {
+      const { setResponseStatus } = await import("@tanstack/react-start/server");
+      setResponseStatus(retired.status);
+      return { ok: false as const, message: retired.message };
+    }
     const payee = upiPayee();
     if (!payee.ready) return { ok: false as const, message: "UPI payments are not set up yet." };
     const sql = await getSql();
