@@ -69,12 +69,24 @@ function Verify() {
       <h1 className="font-display text-4xl">Verification</h1>
       <p className="mt-2 max-w-xl text-muted">
         {VERIFICATION_INTRO}
-        {data?.canPublish ? " You're all set ✓" : ""}
+        
       </p>
-      <section className="mt-6 max-w-xl rounded-2xl border border-line bg-card p-4">
+      {error ? (
+        <p className="mt-3 max-w-xl rounded-lg border border-danger p-3 text-sm text-danger" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {data?.canPublish ? (
+        <p className="mt-3 inline-flex rounded-full bg-pop-soft px-3 py-1 text-sm font-semibold text-pop" data-testid="verified-badge">
+          Verified ✓ you're all set
+        </p>
+      ) : null}
+      <section className="mt-6 w-full max-w-xl rounded-2xl border border-line bg-card p-4">
         <h2 className="font-display text-2xl">Phone</h2>
-        {data?.phoneVerified ? (
-          <p className="mt-2 text-sm">Verified: {data.phone}</p>
+        {!data ? (
+          <div className="mt-2 h-11 animate-pulse rounded-lg bg-paper motion-reduce:animate-none" aria-busy="true" aria-label="Loading phone status" />
+        ) : data.phoneVerified ? (
+          <p className="mt-2 text-sm font-semibold text-pop" data-testid="phone-verified">Phone verified ✓ {data.phone}</p>
         ) : data?.otpReady === false ? (
           <p className="mt-2 text-sm text-muted">
             Phone verification is coming soon.
@@ -105,7 +117,7 @@ function Verify() {
                 aria-label="Mobile number"
                 inputMode="tel"
                 autoComplete="tel"
-                className="h-11 rounded-lg border border-line px-3"
+                className="h-11 min-w-0 flex-1 rounded-lg border border-line px-3 sm:flex-none"
                 placeholder="98765 43210"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -159,7 +171,6 @@ function Verify() {
       </section>
       <h2 className="mt-8 font-display text-2xl">ID</h2>
       {dlLine ? <p className="mt-2 max-w-xl text-muted">{dlLine}</p> : null}
-      {error ? <p className="mt-3 text-danger">{error}</p> : null}
       {data && showDigilockerButton(data) ? (
         <button
           type="button"
@@ -176,7 +187,7 @@ function Verify() {
           Continue with DigiLocker
         </button>
       ) : null}
-      <HostIdReview digilockerReady={data?.digilockerReady} />
+      <HostIdReview digilockerReady={data?.digilockerReady} phoneVerified={Boolean(data?.phoneVerified)} onChange={load} />
     </Shell>
   );
 }
