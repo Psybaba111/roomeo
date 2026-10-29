@@ -4,7 +4,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { bool, num, str } from "@/lib/roomsetu/map";
 import { callbackUrlFrom, digilockerAuthorizeUrl, judgeDigilockerUser, nextIdentityAttempt } from "@/lib/roomsetu/identity";
 import { FEE_INR, rentQuote } from "@/lib/roomsetu/money";
-import { canPublish, generateOtp, hashOtp, normalizeIndianMobile, OTP_MAX_ATTEMPTS, OTP_TTL_MINUTES, otpMatches, otpProviderFromEnv } from "@/lib/roomsetu/otp";
+import { canPublish, generateOtp, hashOtp, normalizeIndianMobile, OTP_MAX_ATTEMPTS, otpMatches, otpTtlMinutes, otpProviderFromEnv } from "@/lib/roomsetu/otp";
 import { hitLimit } from "@/lib/roomsetu/rate-limit";
 
 function asRecord(input: unknown): Record<string, unknown> {
@@ -322,10 +322,11 @@ export const startPhoneOtp = createServerFn({ method: "POST" })
     if (taken.length) throw new Error("That number is already verified on another account.");
     await hitLimit(sql, context.userId, "otp_send");
     const code = generateOtp();
+    const ttl = otpTtlMinutes(provider);
     await sql`insert into phone_otps (user_id, phone_e164, code_hash, attempts, expires_at)
-      values (${context.userId}, ${data}, ${hashOtp(context.userId, data, code)}, 0, now() + make_interval(mins => ${OTP_TTL_MINUTES}::int))
+      values (${context.userId}, ${data}, ${hashOtp(context.userId, data, code)}, 0, now() + make_interval(mins => ${ttl}::int))
       on conflict (user_id) do update set phone_e164 = excluded.phone_e164, code_hash = excluded.code_hash, attempts = 0, expires_at = excluded.expires_at, created_at = now()`;
-    await provider.send(data, `${code} is your roomeo code. It expires in ${OTP_TTL_MINUTES} minutes. Don't share it.`, code);
+    await provider.send(data, `${code} is your roomeo code. It expires in ${ttl} minutes. Don't share it.`, code);
     return { ok: true, phone: data };
   });
 

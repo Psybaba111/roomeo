@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { mappstoreSignatureValid } from "@/lib/roomsetu/mappstore";
+import { mappstoreSignatureValid, parseMappstoreEvents } from "@/lib/roomsetu/mappstore";
 
 /**
- * MappStore delivery-status webhook (stub). Register https://<site>/api/webhooks/mappstore in MappStore
+ * MappStore webhook: delivery statuses + inbound WhatsApp replies. Register https://<site>/api/webhooks/mappstore in MappStore
  * with MAPPSTORE_WEBHOOK_SECRET as the HMAC secret. Verifies X-Mappstore-Signature, then logs status events.
  * TODO: persist statuses (sent/delivered/read/failed) once message ids are stored with notifications.
  */
@@ -16,14 +16,18 @@ export const Route = createFileRoute("/api/webhooks/mappstore")({
         if (!mappstoreSignatureValid(secret, raw, request.headers.get("x-mappstore-signature"))) {
           return new Response("bad signature", { status: 401 });
         }
-        let event: Record<string, unknown> = {};
+        let body: unknown;
         try {
-          event = JSON.parse(raw) as Record<string, unknown>;
+          body = JSON.parse(raw);
         } catch {
           return new Response("bad json", { status: 400 });
         }
-        // Log the type and status only, never phone numbers or message bodies.
-        console.info("[mappstore:webhook]", String(event.type ?? event.event ?? "unknown"), String(event.status ?? ""));
+        // Log kinds/statuses only, never phone numbers or message bodies.
+        for (const e of parseMappstoreEvents(body)) {
+          if (e.kind === "status") console.info("[mappstore:webhook] status", e.status);
+          else if (e.kind === "inbound") console.info("[mappstore:webhook] inbound", e.optOut ? "opt-out" : "message");
+          else console.info("[mappstore:webhook] unknown");
+        }
         return new Response("ok", { status: 200 });
       },
     },
