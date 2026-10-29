@@ -15,7 +15,7 @@ test("age/budget round-trip between form and API", () => {
 test("regression: profile load effect is keyed on user id, not the user object", () => {
   const src = readFileSync(new URL("../../routes/profile.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(src, /\}, \[user\]\)/);
-  assert.match(src, /\}, \[userId\]\)/);
+  assert.match(src, /\}, \[userId(, loadAttempt)?\]\)/);
   assert.doesNotMatch(src, /setForm\(\{ \.\.\.form,/);
 });
 

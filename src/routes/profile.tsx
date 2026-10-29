@@ -12,6 +12,7 @@ import { ensureProfile, getDesk, updateProfile } from "@/lib/roomsetu/account-ap
 import { FURNISHED, ROOM_TYPES } from "@/lib/roomsetu/constants";
 import { numField, digitsOnly, toNumberOrNull } from "@/lib/roomsetu/profile-form";
 import { listCities } from "@/lib/roomsetu/public-api";
+import { canSave, formLocked, loadErrorMessage, saveButtonLabelFor, type LoadState } from "@/lib/roomsetu/profile-load";
 import { clearSaved, initialSaveStatus, isSaving, markSaved, saveButtonLabel, savedRemainingMs, saveStatusText, type SaveStatus } from "@/lib/roomsetu/save-status";
 
 export const Route = createFileRoute("/profile")({
@@ -67,11 +68,16 @@ function ProfilePage() {
   }, []);
 
   const userId = user?.id;
+  const [load, setLoad] = useState<LoadState>({ kind: "loading" });
+  const [loadAttempt, setLoadAttempt] = useState(0);
   useEffect(() => {
     if (!userId) return;
+    let live = true;
+    setLoad({ kind: "loading" });
     void ensureProfile({ data: { intent: "BOTH" } })
       .then(() => getDesk())
       .then((desk) => {
+        if (!live) return;
         const p = desk.profile;
         setForm({
           name: p.name,
@@ -97,10 +103,16 @@ function ProfilePage() {
           allowMessages: p.allowMessages,
           verification: p.verification,
         });
+        setLoad({ kind: "loaded" });
       })
-      .catch((e) => setError(errText(e)));
-    // Keyed on the id only: re-running on every render reset what was typed.
-  }, [userId]);
+      .catch((e) => {
+        if (live) setLoad({ kind: "failed", reason: errText(e) });
+      });
+    return () => {
+      live = false;
+    };
+    // Keyed on the id (and retry) only: re-running on every render reset what was typed.
+  }, [userId, loadAttempt]);
 
   return (
     <Shell>
@@ -110,7 +122,8 @@ function ProfilePage() {
         className="mt-6 grid gap-3 md:grid-cols-2"
         onSubmit={(e) => {
           e.preventDefault();
-          if (isSaving(status)) return;
+          // Never save before the stored profile has loaded: the form still holds empty defaults.
+          if (!canSave(load) || isSaving(status)) return;
           setError("");
           clearSaved();
           setStatus({ kind: "saving" });
@@ -129,6 +142,14 @@ function ProfilePage() {
             .catch((err) => setStatus({ kind: "error", reason: errText(err) }));
         }}
       >
+        {load.kind === "loading" ? <p role="status" className="animate-pulse text-sm text-muted md:col-span-2">Loading your profile…</p> : null}
+        {load.kind === "failed" ? (
+          <div role="alert" className="flex flex-wrap items-center gap-3 rounded-2xl bg-danger/10 px-4 py-3 text-sm text-danger md:col-span-2">
+            <span>{loadErrorMessage(load.reason)}</span>
+            <button type="button" className="rounded-full border border-danger px-3 py-1 font-semibold" onClick={() => setLoadAttempt((n) => n + 1)}>Retry</button>
+          </div>
+        ) : null}
+        <fieldset disabled={formLocked(load)} aria-busy={load.kind === "loading"} className={`contents ${formLocked(load) ? "[&_input]:opacity-60 [&_select]:opacity-60 [&_textarea]:opacity-60" : ""}`}>
         <label><span className="mb-1 block text-sm text-muted">Name</span><input className={control} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></label>
         <label><span className="mb-1 block text-sm text-muted">Mobile (never shown on listings)</span><input className={control} value={form.mobile} onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))} /></label>
         <label><span className="mb-1 block text-sm text-muted">Age</span><input className={control} inputMode="numeric" value={form.age} onChange={(e) => setForm((f) => ({ ...f, age: digitsOnly(e.target.value) }))} /></label>
@@ -180,6 +201,7 @@ function ProfilePage() {
           <label className="flex items-center gap-2"><input type="checkbox" checked={form.showCity} onChange={(e) => setForm((f) => ({ ...f, showCity: e.target.checked }))} /> Show city</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={form.allowMessages === "EVERYONE"} onChange={(e) => setForm((f) => ({ ...f, allowMessages: e.target.checked ? "EVERYONE" : "NONE" }))} /> Allow messages</label>
         </div>
+        </fieldset>
         {error ? <p className="text-sm text-danger md:col-span-2">{error}</p> : null}
         <p
           role="status"
@@ -191,10 +213,10 @@ function ProfilePage() {
         <button
           className="h-12 rounded-full bg-brand font-semibold text-card transition disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2"
           type="submit"
-          disabled={isSaving(status)}
-          aria-busy={isSaving(status)}
+          disabled={!canSave(load) || isSaving(status)}
+          aria-busy={isSaving(status) || load.kind === "loading"}
         >
-          {saveButtonLabel(status)}
+          {saveButtonLabelFor(load, saveButtonLabel(status))}
         </button>
       </form>
       <ChangePassword />
