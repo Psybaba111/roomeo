@@ -68,7 +68,15 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 pb-28 pt-0 md:pb-16">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 pb-6 pt-0 md:pb-6">{children}</main>
+      <footer className="mx-auto max-w-6xl px-4 pb-28 pt-4 text-xs text-muted md:pb-10" data-testid="site-footer">
+        <p className="flex flex-wrap gap-x-4 gap-y-1">
+          <Link to="/privacy" className="hover:underline">Privacy</Link>
+          <Link to="/terms" className="hover:underline">Terms</Link>
+          <Link to="/pricing" className="hover:underline">Pricing</Link>
+          <span>© 2026 Athiti Hospitality Services Pvt Ltd</span>
+        </p>
+      </footer>
       <nav
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 backdrop-blur md:hidden"

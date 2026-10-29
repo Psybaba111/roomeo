@@ -127,6 +127,9 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
           </>
         )}
       </p>
+      <p className="mt-4 text-xs text-muted" data-testid="auth-legal">
+        By continuing you agree to our <Link to="/terms" className="underline">Terms</Link> and <Link to="/privacy" className="underline">Privacy policy</Link>.
+      </p>
     </div>
   );
 }

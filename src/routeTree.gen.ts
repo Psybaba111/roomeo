@@ -18,6 +18,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as MatchesRouteImport } from './routes/matches'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
@@ -25,6 +26,7 @@ import { Route as RoomWantedRouteImport } from './routes/room-wanted'
 import { Route as SavedRouteImport } from './routes/saved'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
@@ -91,6 +93,11 @@ const PricingRoute = PricingRouteImport.update({
   path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -124,6 +131,11 @@ const SearchRoute = SearchRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VerificationRoute = VerificationRouteImport.update({
@@ -237,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -244,6 +257,7 @@ export interface FileRoutesByFullPath {
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/hosts': typeof AdminHostsRoute
@@ -275,6 +289,7 @@ export interface FileRoutesByTo {
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -282,6 +297,7 @@ export interface FileRoutesByTo {
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/hosts': typeof AdminHostsRoute
@@ -314,6 +330,7 @@ export interface FileRoutesById {
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -321,6 +338,7 @@ export interface FileRoutesById {
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/hosts': typeof AdminHostsRoute
@@ -354,6 +372,7 @@ export interface FileRouteTypes {
     | '/matches'
     | '/messages'
     | '/pricing'
+    | '/privacy'
     | '/profile'
     | '/register'
     | '/robots.txt'
@@ -361,6 +380,7 @@ export interface FileRouteTypes {
     | '/saved'
     | '/search'
     | '/sitemap.xml'
+    | '/terms'
     | '/verification'
     | '/admin/analytics'
     | '/admin/hosts'
@@ -392,6 +412,7 @@ export interface FileRouteTypes {
     | '/matches'
     | '/messages'
     | '/pricing'
+    | '/privacy'
     | '/profile'
     | '/register'
     | '/robots.txt'
@@ -399,6 +420,7 @@ export interface FileRouteTypes {
     | '/saved'
     | '/search'
     | '/sitemap.xml'
+    | '/terms'
     | '/verification'
     | '/admin/analytics'
     | '/admin/hosts'
@@ -430,6 +452,7 @@ export interface FileRouteTypes {
     | '/matches'
     | '/messages'
     | '/pricing'
+    | '/privacy'
     | '/profile'
     | '/register'
     | '/robots.txt'
@@ -437,6 +460,7 @@ export interface FileRouteTypes {
     | '/saved'
     | '/search'
     | '/sitemap.xml'
+    | '/terms'
     | '/verification'
     | '/admin/analytics'
     | '/admin/hosts'
@@ -469,6 +493,7 @@ export interface RootRouteChildren {
   MatchesRoute: typeof MatchesRoute
   MessagesRoute: typeof MessagesRoute
   PricingRoute: typeof PricingRoute
+  PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
@@ -476,6 +501,7 @@ export interface RootRouteChildren {
   SavedRoute: typeof SavedRoute
   SearchRoute: typeof SearchRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TermsRoute: typeof TermsRoute
   VerificationRoute: typeof VerificationRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminHostsRoute: typeof AdminHostsRoute
@@ -563,6 +589,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -610,6 +643,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/verification': {
@@ -765,6 +805,7 @@ const rootRouteChildren: RootRouteChildren = {
   MatchesRoute: MatchesRoute,
   MessagesRoute: MessagesRoute,
   PricingRoute: PricingRoute,
+  PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
@@ -772,6 +813,7 @@ const rootRouteChildren: RootRouteChildren = {
   SavedRoute: SavedRoute,
   SearchRoute: SearchRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TermsRoute: TermsRoute,
   VerificationRoute: VerificationRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminHostsRoute: AdminHostsRoute,
