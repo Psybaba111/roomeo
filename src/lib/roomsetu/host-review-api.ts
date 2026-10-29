@@ -46,11 +46,13 @@ export const submitHostId = createServerFn({ method: "POST" })
     const rows = await sql<{
       identity_status: string;
       account_status: string;
-    }>`select identity_status, account_status from profiles where user_id = ${context.userId}`;
+      id_review_status: string;
+    }>`select identity_status, account_status, id_review_status from profiles where user_id = ${context.userId}`;
     const p = rows[0];
     if (!p) throw new Error("Finish your profile to continue.");
     if (p.account_status === "SUSPENDED") throw new Error("This account is suspended.");
     if (p.identity_status === "VERIFIED") throw new Error("Your ID is already verified.");
+    if (p.id_review_status === "PENDING") throw new Error("Already submitted. The team is reviewing it.");
     await sql`update profiles set id_review_status = 'PENDING', id_doc_type = ${data.docType}, id_doc_last4 = ${data.last4}, id_name = ${data.nameOnId},
       id_submitted_at = now(), id_review_note = '', updated_at = now() where user_id = ${context.userId}`;
     await sql`insert into trust_checks (id, user_id, kind, status, note) values (${crypto.randomUUID()}, ${context.userId}, 'IDENTITY', 'PENDING', 'Submitted for manual ID review.')
@@ -127,7 +129,7 @@ export const adminDecideHost = createServerFn({ method: "POST" })
     )
       throw new Error("Only a super admin can change an operator.");
     if (data.decision === "APPROVE") {
-      await sql`update profiles set identity_status = 'VERIFIED', identity_source = 'STAFF', verification_status = 'VERIFIED', id_review_status = 'APPROVED', id_review_note = ${data.reason},
+      await sql`update profiles set identity_status = 'VERIFIED', identity_source = 'STAFF', verification_status = case when phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end, id_review_status = 'APPROVED', id_review_note = ${data.reason},
         approved_by = ${context.userId}, approved_at = now(), rejected_by = null, rejected_at = null, updated_at = now() where user_id = ${data.userId}`;
       await sql`insert into trust_checks (id, user_id, kind, status, note) values (${crypto.randomUUID()}, ${data.userId}, 'IDENTITY', 'VERIFIED', 'Approved by the roomeo team. Not a DigiLocker check.')
         on conflict (user_id, kind) do update set status = 'VERIFIED', note = excluded.note, updated_at = now()`;
@@ -142,7 +144,8 @@ export const adminDecideHost = createServerFn({ method: "POST" })
     } else {
       await sql`update profiles set id_review_status = 'REJECTED', id_review_note = ${data.reason}, rejected_by = ${context.userId}, rejected_at = now(),
         identity_status = case when identity_source = 'STAFF' then 'UNVERIFIED' else identity_status end,
-        identity_source = case when identity_source = 'STAFF' then '' else identity_source end, updated_at = now() where user_id = ${data.userId}`;
+        identity_source = case when identity_source = 'STAFF' then '' else identity_source end,
+        verification_status = case when identity_source = 'STAFF' then 'UNVERIFIED' else verification_status end, updated_at = now() where user_id = ${data.userId}`;
       await sql`insert into trust_checks (id, user_id, kind, status, note) values (${crypto.randomUUID()}, ${data.userId}, 'IDENTITY', 'REJECTED', ${`Manual ID review rejected: ${data.reason}`})
         on conflict (user_id, kind) do update set status = 'REJECTED', note = excluded.note, updated_at = now()`;
       await audit(sql, context.userId, "HOST_ID_REJECTED", "profile", data.userId, data.reason);

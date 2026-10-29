@@ -22,6 +22,15 @@ function Checks() {
   const { user } = useCurrentUserState();
   const [rows, setRows] = useState<Awaited<ReturnType<typeof adminVerifications>>>([]);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState("");
+  function decide(id: string, status: "VERIFIED" | "REJECTED") {
+    setError("");
+    setBusy(id);
+    void adminSetCheck({ data: { id, status } })
+      .then(load)
+      .catch((e) => setError(errText(e)))
+      .finally(() => setBusy(""));
+  }
   function load() {
     void adminVerifications().then(setRows).catch((e) => setError(errText(e)));
   }
@@ -38,9 +47,14 @@ function Checks() {
           <li key={row.id} className="rounded-2xl border border-line bg-card p-4">
             <p className="font-semibold">{row.name} · {row.kind} {row.isDemo ? "· Sample" : ""}</p>
             <p className="text-sm text-muted">{row.note}</p>
-            <div className="mt-2 flex gap-2">
-              <button type="button" className="h-9 rounded-full bg-brand px-3 text-sm text-card" onClick={() => void adminSetCheck({ data: { id: row.id, status: "VERIFIED" } }).then(load)}>{row.kind === "IDENTITY" ? "Desk pass" : "Approve"}</button>
-              <button type="button" className="h-9 rounded-full border border-line px-3 text-sm" onClick={() => void adminSetCheck({ data: { id: row.id, status: "REJECTED" } }).then(load)}>Reject</button>
+            {row.kind === "IDENTITY" ? (
+              <a href="/admin/hosts" className="mt-2 inline-block text-sm font-semibold text-brand underline-offset-4 hover:underline">
+                Review ID details in Host ID review →
+              </a>
+            ) : null}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" className="h-10 rounded-full bg-brand px-4 text-sm text-card disabled:opacity-40" disabled={busy === row.id} onClick={() => decide(row.id, "VERIFIED")}>{row.kind === "IDENTITY" ? "Desk pass" : "Approve"}</button>
+              <button type="button" className="h-10 rounded-full border border-line px-4 text-sm disabled:opacity-40" disabled={busy === row.id} onClick={() => decide(row.id, "REJECTED")}>Reject</button>
             </div>
           </li>
         ))}

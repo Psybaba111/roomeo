@@ -358,7 +358,8 @@ export const verifyPhoneOtp = createServerFn({ method: "POST" })
     }
     await sql.query(
       `with done as (delete from phone_otps where user_id = $1 returning user_id),
-       prof as (update profiles set phone_e164 = $2, mobile = $2, phone_verified_at = now(), updated_at = now() where user_id = $1 and exists (select 1 from done) returning user_id)
+       prof as (update profiles set phone_e164 = $2, mobile = $2, phone_verified_at = now(),
+         verification_status = case when identity_status = 'VERIFIED' then 'VERIFIED' else verification_status end, updated_at = now() where user_id = $1 and exists (select 1 from done) returning user_id)
        insert into trust_checks (id, user_id, kind, status, note)
        select $3, user_id, 'PHONE', 'VERIFIED', 'Phone confirmed by one-time code.' from prof
        on conflict (user_id, kind) do update set status = 'VERIFIED', note = excluded.note, updated_at = now()`,

@@ -333,8 +333,9 @@ export const adminSetCheck = createServerFn({ method: "POST" })
       kind: string;
       identity_attempts: number;
       identity_source: string;
+      id_review_status: string;
     }>`
-      select t.user_id, t.kind, p.identity_attempts, p.identity_source
+      select t.user_id, t.kind, p.identity_attempts, p.identity_source, p.id_review_status
       from trust_checks t join profiles p on p.user_id = t.user_id
       where t.id = ${data.id}`;
     const subject = target[0];
@@ -352,9 +353,11 @@ export const adminSetCheck = createServerFn({ method: "POST" })
     if (subject.kind === "IDENTITY" && data.status === "VERIFIED") {
       if (subject.identity_source === "DIGILOCKER")
         throw new Error("DigiLocker already passed this. A desk pass is not a government check.");
-      if (num(subject.identity_attempts) < 1)
-        throw new Error("DigiLocker has to be tried before the desk can pass it.");
-      await sql`update profiles set identity_status = 'VERIFIED', identity_source = 'STAFF', updated_at = now() where user_id = ${subject.user_id}`;
+      if (num(subject.identity_attempts) < 1 && subject.id_review_status !== "PENDING")
+        throw new Error("No ID details or DigiLocker attempt yet, so there is nothing to pass.");
+      await sql`update profiles set identity_status = 'VERIFIED', identity_source = 'STAFF', id_review_status = 'APPROVED',
+        verification_status = case when phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end,
+        approved_by = ${context.userId}, approved_at = now(), updated_at = now() where user_id = ${subject.user_id}`;
       await sql`update trust_checks set status = 'VERIFIED', note = 'Desk decision. Not a DigiLocker check.', updated_at = now() where id = ${data.id}`;
       await audit(
         sql,
@@ -367,7 +370,9 @@ export const adminSetCheck = createServerFn({ method: "POST" })
       return { ok: true };
     }
     if (subject.kind === "IDENTITY" && data.status === "REJECTED") {
-      await sql`update profiles set identity_status = 'FAILED', updated_at = now() where user_id = ${subject.user_id}`;
+      await sql`update profiles set identity_status = 'FAILED', id_review_status = case when id_review_status = 'PENDING' then 'REJECTED' else id_review_status end,
+        id_review_note = case when id_review_status = 'PENDING' then 'The roomeo team could not match your details. Check them and submit again.' else id_review_note end,
+        verification_status = 'UNVERIFIED', rejected_by = ${context.userId}, rejected_at = now(), updated_at = now() where user_id = ${subject.user_id}`;
       await sql`update trust_checks set status = 'REJECTED', note = 'Desk rejected the identity check. Not recorded as a government result.', updated_at = now() where id = ${data.id}`;
       await closeIdentityThreads(sql, subject.user_id);
       await audit(

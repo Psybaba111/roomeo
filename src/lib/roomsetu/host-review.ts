@@ -81,3 +81,48 @@ export function hostReviewMessage(p: {
     text: "Submit your ID details so the roomeo team can approve you to publish.",
   };
 }
+
+export type IdReviewView =
+  | { kind: "approved"; showForm: false; verifiedBadge: boolean; via: "DIGILOCKER" | "STAFF" }
+  | { kind: "pending"; showForm: false; docLabel: string; last4: string; nameOnId: string; submittedAt: string }
+  | { kind: "rejected"; showForm: true; reason: string }
+  | { kind: "none"; showForm: true };
+
+export function idDocLabel(v: string): string {
+  return ID_DOC_TYPES.find((d) => d.value === v)?.label ?? (v || "ID");
+}
+
+/** What the host sees in the ID card on /verification. Pure so it can be unit tested. */
+export function idReviewView(p: {
+  identityStatus: string;
+  identitySource: string;
+  reviewStatus: string;
+  note: string;
+  docType: string;
+  last4: string;
+  nameOnId: string;
+  submittedAt: string;
+  phoneVerified: boolean;
+}): IdReviewView {
+  if (p.identityStatus === "VERIFIED")
+    return { kind: "approved", showForm: false, verifiedBadge: p.phoneVerified, via: p.identitySource === "DIGILOCKER" ? "DIGILOCKER" : "STAFF" };
+  if (p.reviewStatus === "PENDING")
+    return { kind: "pending", showForm: false, docLabel: idDocLabel(p.docType), last4: p.last4, nameOnId: p.nameOnId, submittedAt: p.submittedAt };
+  if (p.reviewStatus === "REJECTED") return { kind: "rejected", showForm: true, reason: p.note };
+  return { kind: "none", showForm: true };
+}
+
+/** Profile-level verification_status: the Verified badge needs both ID and phone. */
+export function badgeStatus(identityVerified: boolean, phoneVerified: boolean): "VERIFIED" | "UNVERIFIED" {
+  return identityVerified && phoneVerified ? "VERIFIED" : "UNVERIFIED";
+}
+
+export function formatIst(iso: string): string {
+  if (!iso) return "";
+  // Postgres ::text gives "2026-10-29 16:53:43.386+00"; normalise to strict ISO so Safari parses it too.
+  let norm = iso.trim().replace(" ", "T").replace(/([+-]\d{2})$/, "$1:00");
+  if (!/(Z|[+-]\d{2}:\d{2})$/.test(norm)) norm += "Z";
+  const d = new Date(norm);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST`;
+}
