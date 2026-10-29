@@ -12,6 +12,7 @@ import { ensureProfile, getDesk, updateProfile } from "@/lib/roomsetu/account-ap
 import { FURNISHED, ROOM_TYPES } from "@/lib/roomsetu/constants";
 import { numField, digitsOnly, toNumberOrNull } from "@/lib/roomsetu/profile-form";
 import { listCities } from "@/lib/roomsetu/public-api";
+import { SAVED_HIDE_MS, isSaving, saveButtonLabel, saveStatusText, type SaveStatus } from "@/lib/roomsetu/save-status";
 
 export const Route = createFileRoute("/profile")({
   head: () => pageHead("Your profile", { noindex: true }),
@@ -26,7 +27,13 @@ function ProfilePage() {
   const { user } = useCurrentUserState();
   const [cities, setCities] = useState<string[]>([]);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState("");
+  const [status, setStatus] = useState<SaveStatus>({ kind: "idle" });
+
+  useEffect(() => {
+    if (status.kind !== "saved") return;
+    const t = setTimeout(() => setStatus({ kind: "idle" }), SAVED_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [status]);
   const [form, setForm] = useState({
     name: "",
     mobile: "",
@@ -100,7 +107,9 @@ function ProfilePage() {
         className="mt-6 grid gap-3 md:grid-cols-2"
         onSubmit={(e) => {
           e.preventDefault();
-          setSaved("");
+          if (isSaving(status)) return;
+          setError("");
+          setStatus({ kind: "saving" });
           const { verification: _verification, ...rest } = form;
           void updateProfile({
             data: {
@@ -109,8 +118,8 @@ function ProfilePage() {
               budget: toNumberOrNull(form.budget),
             },
           })
-            .then(() => setSaved("Saved."))
-            .catch((err) => setError(errText(err)));
+            .then(() => setStatus({ kind: "saved" }))
+            .catch((err) => setStatus({ kind: "error", reason: errText(err) }));
         }}
       >
         <label><span className="mb-1 block text-sm text-muted">Name</span><input className={control} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></label>
@@ -165,8 +174,21 @@ function ProfilePage() {
           <label className="flex items-center gap-2"><input type="checkbox" checked={form.allowMessages === "EVERYONE"} onChange={(e) => setForm((f) => ({ ...f, allowMessages: e.target.checked ? "EVERYONE" : "NONE" }))} /> Allow messages</label>
         </div>
         {error ? <p className="text-sm text-danger md:col-span-2">{error}</p> : null}
-        {saved ? <p className="text-sm text-brand md:col-span-2">{saved}</p> : null}
-        <button className="h-12 rounded-full bg-brand font-semibold text-card" type="submit">Save profile</button>
+        <p
+          role="status"
+          aria-live="polite"
+          className={`text-sm font-medium md:col-span-2 ${status.kind === "error" ? "rounded-2xl bg-danger/10 px-4 py-3 text-danger" : status.kind === "saved" ? "rounded-2xl bg-brand/10 px-4 py-3 text-brand" : "sr-only"}`}
+        >
+          {saveStatusText(status)}
+        </p>
+        <button
+          className="h-12 rounded-full bg-brand font-semibold text-card transition disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2"
+          type="submit"
+          disabled={isSaving(status)}
+          aria-busy={isSaving(status)}
+        >
+          {saveButtonLabel(status)}
+        </button>
       </form>
       <ChangePassword />
       <button type="button" className="mt-6 text-sm text-muted underline" onClick={() => void signOut("/").catch(() => setError("Could not sign out. Try again."))}>
