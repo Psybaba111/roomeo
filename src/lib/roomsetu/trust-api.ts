@@ -4,6 +4,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { bool, num, str } from "@/lib/roomsetu/map";
 import { callbackUrlFrom, digilockerAuthorizeUrl, judgeDigilockerUser, nextIdentityAttempt } from "@/lib/roomsetu/identity";
 import { FEE_INR, rentQuote } from "@/lib/roomsetu/money";
+import { classifyOtpFailure, RESEND_COOLDOWN_SECONDS, type VerifyOtpResult } from "@/lib/roomsetu/otp-result";
 import { canPublish, generateOtp, hashOtp, normalizeIndianMobile, OTP_MAX_ATTEMPTS, otpMatches, otpTtlMinutes, otpProviderFromEnv } from "@/lib/roomsetu/otp";
 import { hitLimit } from "@/lib/roomsetu/rate-limit";
 
@@ -320,6 +321,10 @@ export const startPhoneOtp = createServerFn({ method: "POST" })
     const sql = await getSql();
     const taken = await sql`select 1 from profiles where phone_e164 = ${data} and phone_verified_at is not null and user_id <> ${context.userId} limit 1`;
     if (taken.length) throw new Error("That number is already verified on another account.");
+    const recent = await sql<{ wait: number }>`
+      select ceil(extract(epoch from (created_at + make_interval(secs => ${RESEND_COOLDOWN_SECONDS}::int) - now())))::int as wait
+      from phone_otps where user_id = ${context.userId} and created_at > now() - make_interval(secs => ${RESEND_COOLDOWN_SECONDS}::int)`;
+    if (recent[0]) throw new Error(`Wait ${Math.max(1, recent[0].wait)}s before resending.`);
     await hitLimit(sql, context.userId, "otp_send");
     const code = generateOtp();
     const ttl = otpTtlMinutes(provider);
@@ -327,7 +332,7 @@ export const startPhoneOtp = createServerFn({ method: "POST" })
       values (${context.userId}, ${data}, ${hashOtp(context.userId, data, code)}, 0, now() + make_interval(mins => ${ttl}::int))
       on conflict (user_id) do update set phone_e164 = excluded.phone_e164, code_hash = excluded.code_hash, attempts = 0, expires_at = excluded.expires_at, created_at = now()`;
     await provider.send(data, `${code} is your roomeo code. It expires in ${ttl} minutes. Don't share it.`, code);
-    return { ok: true, phone: data };
+    return { ok: true, phone: data, ttlMinutes: ttl };
   });
 
 export const verifyPhoneOtp = createServerFn({ method: "POST" })
@@ -346,8 +351,11 @@ export const verifyPhoneOtp = createServerFn({ method: "POST" })
       where user_id = ${context.userId} and expires_at > now() and attempts < ${OTP_MAX_ATTEMPTS}
       returning phone_e164, code_hash`;
     const otp = rows[0];
-    if (!otp) throw new Error("That code has expired. Send a new one.");
-    if (!otpMatches(otp.code_hash, context.userId, otp.phone_e164, data)) throw new Error("That code is not right.");
+    if (!otp || !otpMatches(otp.code_hash, context.userId, otp.phone_e164, data)) {
+      const state = await sql<{ expired: boolean; attempts: number }>`
+        select expires_at <= now() as expired, attempts from phone_otps where user_id = ${context.userId}`;
+      return classifyOtpFailure(state[0] ?? null, false, OTP_MAX_ATTEMPTS);
+    }
     await sql.query(
       `with done as (delete from phone_otps where user_id = $1 returning user_id),
        prof as (update profiles set phone_e164 = $2, mobile = $2, phone_verified_at = now(), updated_at = now() where user_id = $1 and exists (select 1 from done) returning user_id)
@@ -356,5 +364,5 @@ export const verifyPhoneOtp = createServerFn({ method: "POST" })
        on conflict (user_id, kind) do update set status = 'VERIFIED', note = excluded.note, updated_at = now()`,
       [context.userId, otp.phone_e164, crypto.randomUUID()],
     );
-    return { ok: true };
+    return { ok: true } as VerifyOtpResult;
   });

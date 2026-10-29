@@ -13,6 +13,7 @@ import {
 } from "@/lib/roomsetu/trust-api";
 import { digilockerLine, showDigilockerButton, VERIFICATION_INTRO } from "@/lib/roomsetu/verification-copy";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { resendSecondsLeft, verifyOtpMessage, type VerifyMessage } from "@/lib/roomsetu/otp-result";
 
 export const Route = createFileRoute("/verification")({
   head: () => pageHead("Verification", { noindex: true }),
@@ -30,7 +31,30 @@ function Verify() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
-  const [phoneMsg, setPhoneMsg] = useState("");
+  const [phoneMsg, setPhoneMsg] = useState<VerifyMessage | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [lastSentAt, setLastSentAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const cooldown = resendSecondsLeft(lastSentAt, now);
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [cooldown > 0]);
+  function sendCode() {
+    setBusy(true);
+    setPhoneMsg(null);
+    void startPhoneOtp({ data: { phone } })
+      .then((r) => {
+        setSent(true);
+        setCode("");
+        setLastSentAt(Date.now());
+        setNow(Date.now());
+        setPhoneMsg({ text: `Code sent to ${r.phone}. It expires in ${r.ttlMinutes} minutes.`, tone: "success" });
+      })
+      .catch((err) => setPhoneMsg({ text: errText(err), tone: "error" }))
+      .finally(() => setBusy(false));
+  }
   function load() {
     void getVerification()
       .then(setData)
@@ -60,21 +84,19 @@ function Verify() {
             className="mt-2 flex flex-wrap items-end gap-2"
             onSubmit={(e) => {
               e.preventDefault();
-              setError("");
-              if (!sent) {
-                void startPhoneOtp({ data: { phone } })
-                  .then((r) => {
-                    setSent(true);
-                    setPhoneMsg(`Code sent to ${r.phone}. Enter it above.`);
-                  })
-                  .catch((err) => setError(errText(err)));
-              } else {
+              if (busy) return;
+              if (!sent) sendCode();
+              else {
+                setBusy(true);
+                setPhoneMsg(null);
                 void verifyPhoneOtp({ data: { code } })
-                  .then(() => {
-                    setPhoneMsg("Phone verified ✓");
-                    load();
+                  .then((r) => {
+                    const msg = verifyOtpMessage(r);
+                    setPhoneMsg(msg);
+                    if (r.ok) load();
                   })
-                  .catch((err) => setError(errText(err)));
+                  .catch((err) => setPhoneMsg({ text: errText(err), tone: "error" }))
+                  .finally(() => setBusy(false));
               }
             }}
           >
@@ -87,6 +109,7 @@ function Verify() {
                 placeholder="98765 43210"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                disabled={busy}
                 required
               />
             ) : (
@@ -99,23 +122,40 @@ function Verify() {
                 placeholder="123456"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
+                disabled={busy}
                 required
               />
             )}
             <button
               type="submit"
-              className="h-11 rounded-full bg-ink px-4 text-sm font-semibold text-card"
+              disabled={busy}
+              aria-busy={busy}
+              className="h-11 rounded-full bg-ink px-4 text-sm font-semibold text-card disabled:opacity-50"
             >
-              {sent ? "Verify code" : "Send code"}
+              {busy ? (sent ? "Checking…" : "Sending…") : sent ? "Verify code" : "Send code"}
             </button>
             {sent ? (
-              <button type="button" className="text-sm underline" onClick={() => { setSent(false); setCode(""); setPhoneMsg(""); }}>
-                Change number
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="h-11 text-sm underline disabled:no-underline disabled:opacity-50"
+                  disabled={busy || cooldown > 0}
+                  onClick={sendCode}
+                >
+                  {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
+                </button>
+                <button type="button" className="h-11 text-sm underline" disabled={busy} onClick={() => { setSent(false); setCode(""); setPhoneMsg(null); }}>
+                  Change number
+                </button>
+              </>
             ) : null}
           </form>
         )}
-        {phoneMsg ? <p className="mt-2 text-sm">{phoneMsg}</p> : null}
+        {phoneMsg ? (
+          <p role="status" aria-live="polite" className={`mt-2 text-sm ${phoneMsg.tone === "error" ? "text-danger" : ""}`}>
+            {phoneMsg.text}
+          </p>
+        ) : null}
       </section>
       <h2 className="mt-8 font-display text-2xl">ID</h2>
       {dlLine ? <p className="mt-2 max-w-xl text-muted">{dlLine}</p> : null}
