@@ -1,3 +1,4 @@
+import { adminBeforeLoad } from "@/lib/roomsetu/admin-gate-api";
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -14,6 +15,7 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { btnSmallPrimary, card, input } from "@/components/ui-tokens";
 
 export const Route = createFileRoute("/admin/payments")({
+  beforeLoad: adminBeforeLoad,
   head: () => pageHead("Payments · Operator", { noindex: true }),
   component: () => (
     <NeedAccount next="/admin/payments">

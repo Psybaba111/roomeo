@@ -7,7 +7,7 @@ import { RoomCard } from "@/components/cards";
 import { EmptyBeds } from "@/components/empty-beds";
 import { getHome, listCities } from "@/lib/roomsetu/public-api";
 import { CityPicker } from "@/components/city-picker";
-import { DEFAULT_CITY, cityInfo } from "@/lib/roomsetu/cities";
+import { DEFAULT_CITY, budgetHints, cityInfo } from "@/lib/roomsetu/cities";
 
 export const Route = createFileRoute("/")({
   head: () =>
@@ -136,7 +136,7 @@ function Home() {
                 aria-label="Budget per month"
                 className="bg-transparent text-base font-semibold outline-none placeholder:text-[#5b5670]"
                 inputMode="numeric"
-                placeholder="₹ up to 15,000"
+                placeholder={budgetHints(city).placeholder}
                 value={budget}
                 onChange={(e) => setBudget(e.target.value.replace(/[^\d]/g, ""))}
               />
@@ -149,11 +149,7 @@ function Home() {
             </button>
           </form>
           <div className="mt-4 flex flex-wrap gap-2 text-sm">
-            {[
-              ["Under ₹10k", "10000"],
-              ["Under ₹15k", "15000"],
-              ["Under ₹20k", "20000"],
-            ].map(([label, v]) => (
+            {budgetHints(city).chips.map(([label, v]) => (
               <Link
                 key={v}
                 to="/search"

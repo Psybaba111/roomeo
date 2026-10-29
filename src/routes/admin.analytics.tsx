@@ -1,3 +1,4 @@
+import { adminBeforeLoad } from "@/lib/roomsetu/admin-gate-api";
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -10,6 +11,7 @@ import { inr } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/admin/analytics")({
+  beforeLoad: adminBeforeLoad,
   head: () => pageHead("Charts · Operator", { noindex: true }),
   component: () => (
     <NeedAccount next="/admin/analytics">

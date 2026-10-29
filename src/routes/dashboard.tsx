@@ -6,8 +6,10 @@ import { BoostPanel } from "@/components/host-extras";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
 import { RoomCard } from "@/components/cards";
+import { getPublicPricing, startPassCheckout } from "@/lib/roomsetu/pricing-api";
+import { dashboardPasses, type DashboardPass } from "@/lib/roomsetu/dashboard-passes";
 import { UpiCheckout, type UpiCheckoutData } from "@/components/upi-checkout";
-import { ensureProfile, getDesk, listApplications, listPlans, openConversation, setApplication, setListingStatus, startCheckout, updateProfile } from "@/lib/roomsetu/account-api";
+import { ensureProfile, getDesk, listApplications, openConversation, setApplication, setListingStatus, updateProfile } from "@/lib/roomsetu/account-api";
 import { COMING_SOON, HOST_WIDGETS, defaultLayout } from "@/lib/roomsetu/constants";
 import { inr } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -28,7 +30,7 @@ function Desk() {
   const navigate = useNavigate();
   const [data, setData] = useState<DeskData | null>(null);
   const [apps, setApps] = useState<Awaited<ReturnType<typeof listApplications>>>([]);
-  const [plans, setPlans] = useState<Awaited<ReturnType<typeof listPlans>>>([]);
+  const [plans, setPlans] = useState<DashboardPass[]>([]);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [checkout, setCheckout] = useState<UpiCheckoutData | null>(null);
@@ -70,7 +72,7 @@ function Desk() {
           });
         }
         const desk = await getDesk();
-        const priced = await listPlans();
+        const priced = dashboardPasses(await getPublicPricing());
         const requests = await listApplications();
         if (!live) return;
         setData(desk);
@@ -256,23 +258,29 @@ function Desk() {
       <section className="mt-8">
         <h2 className="font-display text-2xl">Plans</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          {plans.filter((p) => p.price > 0).slice(0, 4).map((plan) => (
+          {plans.map((plan) => (
             <div key={plan.code} className="rounded-2xl border border-line bg-card p-4">
               <p className="font-semibold">{plan.name}</p>
               <p className="text-sm text-muted">{plan.perks}</p>
               <p className="mt-2 tabular-nums">{inr(plan.price)}</p>
-              <button
-                type="button"
-                className="mt-3 h-10 rounded-full border border-line px-3 text-sm"
-                onClick={() => {
-                  setNote("");
-                  void startCheckout({ data: { code: plan.code } })
-                    .then((res) => (res.ok ? setCheckout(res) : setNote(res.message)))
-                    .catch((e) => setNote(errText(e)));
-                }}
-              >
-                Pay by UPI
-              </button>
+              {plan.action === "squad" ? (
+                <Link to="/squads" className="mt-3 inline-flex h-10 items-center rounded-full border border-line px-3 text-sm">
+                  Start a squad
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="mt-3 h-10 rounded-full border border-line px-3 text-sm"
+                  onClick={() => {
+                    setNote("");
+                    void startPassCheckout({ data: { code: plan.code } })
+                      .then(setCheckout)
+                      .catch((e) => setNote(errText(e)));
+                  }}
+                >
+                  Pay by UPI
+                </button>
+              )}
             </div>
           ))}
         </div>
