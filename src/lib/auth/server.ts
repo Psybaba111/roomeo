@@ -150,6 +150,15 @@ export const SESSION_TOKEN_COOKIE = "__Host-grok-auth.session_token";
 
 // Built separately so the `betterAuth({...})` call stays easy to edit without
 // breaking brackets (models often trip on the conditional plugin spread).
+/** True when no per-app broker client is injected: the shared preview client only works on *.grok-sandbox.com. */
+export const brokerClientIsPreview = grokClientId === PREVIEW_CLIENT_ID;
+
+// Native Google OAuth (Rohith's own Google Cloud client). Redirect URI to register:
+//   https://roomeo-eosin.vercel.app/api/auth/callback/google
+const googleClientId = env("GOOGLE_CLIENT_ID");
+const googleClientSecret = env("GOOGLE_CLIENT_SECRET");
+export const googleConfigured = !authDisabled && Boolean(googleClientId && googleClientSecret);
+
 const grokOAuthPlugin = authConfigured
   ? genericOAuth({
       config: GROK_PROVIDERS.map(({ providerId, idp }) => ({
@@ -184,6 +193,10 @@ export const auth = betterAuth({
   // local loopback variants, or clients get "Invalid origin".
   trustedOrigins,
 
+  ...(googleConfigured
+    ? { socialProviders: { google: { clientId: googleClientId as string, clientSecret: googleClientSecret as string, prompt: "select_account" as const } } }
+    : {}),
+
   // Encrypt broker-issued OAuth tokens at rest, and treat the broker's upstreams
   // as trusted first-party identities. The broker owns identity and X emails are
   // synthetic/unverified, so WITHOUT this a login can fail with
@@ -196,6 +209,7 @@ export const auth = betterAuth({
       enabled: true,
       trustedProviders: [
         ...GROK_PROVIDERS.map((p) => p.providerId),
+        "google",
         GATE_PROVIDER_ID,
       ],
       // X's synthetic email is never "verified", so don't gate linking on the
