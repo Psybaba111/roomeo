@@ -1,6 +1,7 @@
+import { feeWithGst } from "@/lib/roomsetu/deal-agreement";
 import { contactQuote, pricingConfig, squadFeeInr, squadUnlockReady, type SquadPayMode } from "@/lib/roomsetu/pricing";
 import { contactSummary, grantContact, grantSquadContactFromMember, recordDecline, squadActivePass, startSquadPass } from "@/lib/roomsetu/pricing-db";
-import { squadMoveInConfirmed, squadSuccessShareInr } from "@/lib/roomsetu/pricing";
+import { squadMoveInConfirmed } from "@/lib/roomsetu/pricing";
 import { createServerFn } from "@tanstack/react-start";
 import QRCode from "qrcode";
 import { getSql, type Sql } from "@/lib/db";
@@ -847,7 +848,7 @@ export const squadMoveInStatus = createServerFn({ method: "POST" })
       meConfirmed: st.isOwner ? Boolean(st.m?.owner_confirmed_at) : st.confirmedIds.includes(context.userId),
       isOwner: st.isOwner,
       feeEnabled: cfg.successFeeEnabled,
-      myFee: st.isOwner ? cfg.successFeeOwnerInr : squadSuccessShareInr(cfg.successFeeTenantInr, st.members.length),
+      myFee: feeWithGst(st.isOwner ? cfg.successFeeOwnerInr : cfg.successFeeTenantInr).total,
       feeStatus: str(fee[0]?.status),
     };
   });
@@ -884,7 +885,8 @@ export const startSquadSuccessFee = createServerFn({ method: "POST" })
     const sql = await getSql();
     const st = await squadMoveInState(sql, data, context.userId);
     if (!st.m?.confirmed_at) throw new Error("Everyone confirms the move in first.");
-    const amount = st.isOwner ? cfg.successFeeOwnerInr : squadSuccessShareInr(cfg.successFeeTenantInr, st.members.length);
+    // Every squad member pays the full one-time fee + GST (no split); the owner pays once.
+    const amount = feeWithGst(st.isOwner ? cfg.successFeeOwnerInr : cfg.successFeeTenantInr).total;
     if (amount <= 0) throw new Error("There is no move in fee for you.");
     const find = () => sql<{ ref: string; status: string; amount_inr: number }>`select ref, status, amount_inr from payments
       where kind = 'SUCCESS_FEE' and squad_id = ${st.req.squad_id} and listing_id = ${st.req.listing_id} and user_id = ${context.userId} and status in ('PENDING','SUBMITTED','PAID') order by created_at desc limit 1`;
@@ -892,7 +894,7 @@ export const startSquadSuccessFee = createServerFn({ method: "POST" })
     if (row?.status === "PAID") throw new Error("Already paid. Thanks.");
     if (!row) {
       await sql`insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, kind, listing_id, squad_id)
-        values (${crypto.randomUUID()}, ${context.userId}, ${st.isOwner ? "Move in fee (owner, squad)" : "Move in fee (squad share)"}, ${amount}, 'PENDING', 'UPI', ${makeRef()}, 'SUCCESS_FEE', ${st.req.listing_id}, ${st.req.squad_id})`;
+        values (${crypto.randomUUID()}, ${context.userId}, ${st.isOwner ? "Success fee incl. GST (owner, squad)" : "Success fee incl. GST (squad member)"}, ${amount}, 'PENDING', 'UPI', ${makeRef()}, 'SUCCESS_FEE', ${st.req.listing_id}, ${st.req.squad_id})`;
       row = (await find())[0];
     }
     const link = buildUpiLink({ vpa: payee.vpa, name: payee.name, amountInr: num(row.amount_inr), ref: str(row.ref) });

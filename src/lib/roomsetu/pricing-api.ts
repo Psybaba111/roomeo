@@ -193,6 +193,8 @@ export const startSuccessFeeCheckout = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const cfg = pricingConfig();
     if (!cfg.successFeeEnabled) throw new Error("There is no move in fee right now.");
+    // The fee is now triggered by the signed deal agreement (agreement-api startAgreementFee).
+    if (cfg.successFeeEnabled) throw new Error("Sign the Roomeo agreement first. The fee is paid from there.");
     const sql = await getSql();
     const m = await sql<{ listing_id: string; seeker_id: string; owner_id: string; confirmed_at: string | null }>`select listing_id, seeker_id, owner_id, confirmed_at::text as confirmed_at from move_ins where application_id = ${data.applicationId}`;
     if (!m[0] || (m[0].seeker_id !== context.userId && m[0].owner_id !== context.userId)) throw new Error("Move in not found.");

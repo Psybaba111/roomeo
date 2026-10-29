@@ -163,11 +163,11 @@ export const REFUND_PROMISE =
 /** One-time success fee per side per deal (Rohith, 2026-10-29). */
 export const SUCCESS_FEE_INR = 999;
 
-/** Shown before anyone confirms or pays, so nobody is surprised. */
+/** Shown before anyone signs or pays, so nobody is surprised. */
 export function successFeeHeadsUp(feeInr: number, role: "tenant" | "owner"): string {
-  return role === "tenant"
-    ? `Heads up: once you and the owner both confirm the move in, there's a one-time ₹${feeInr} success fee. That's it, no cut of your rent, ever.`
-    : `Heads up: once you and the tenant both confirm the move in, there's a one-time ₹${feeInr} success fee for you too. One time, no cut of the rent.`;
+  const total = Math.round(feeInr * 1.18);
+  const other = role === "tenant" ? "the owner" : "the tenant";
+  return `Heads up: once you and ${other} both sign, it's a one-time ₹${feeInr} + 18% GST (₹${total}) success fee, paid before move in. Cancel within 7 days and you get it back. No cut of the rent, ever.`;
 }
 
 /** A fee payment counts for this deal only if it was made after this deal was confirmed. */

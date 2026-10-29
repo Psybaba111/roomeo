@@ -107,6 +107,8 @@ test("success fee copy is shown up front and says one-time", async () => {
     const t = successFeeHeadsUp(999, r);
     assert.match(t, /₹999/);
     assert.match(t, /one-time/);
+    assert.match(t, /18% GST \(₹1179\)/);
+    assert.match(t, /7 days/);
     assert.match(t, /no cut of/i);
   }
 });
