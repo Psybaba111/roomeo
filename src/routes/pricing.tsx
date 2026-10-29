@@ -29,7 +29,7 @@ function Pricing() {
     ["When is there no refund?", "If any owner you contacted with the pass replies or accepts. A pass you never use to contact an owner is not refunded, so buy one when you are ready to message."],
     ["How do squads pay?", `Any member can use one of their free chats or their own active pass to open the squad chat with an owner. Or buy a squad pass: ₹${p.squadPerMember} per person for ${p.squadDays} days of chats with every flat your squad requests, paid by one person or split.`],
     ["Do hosts pay to list?", `Never. Listing is free. Hosts can choose a ₹${p.boost} boost for ${p.boostDays} days or ₹${p.fastTrack} fast track ID review.`],
-    ["Is there a fee when I move in?", p.successFeeEnabled ? `Yes, a flat ₹${p.successFeeTenant} for the tenant and ₹${p.successFeeOwner} for the owner after both confirm the move in. Never a cut of the rent.` : "Not right now. Roomeo never takes a cut of your rent or deposit."],
+    ["Is there a fee when I move in?", p.successFeeEnabled ? `Yep, a one-time ₹${p.successFeeTenant} for the tenant and ₹${p.successFeeOwner} for the owner, only after you both confirm the move in. Once per deal, never a cut of the rent.` : "Not right now. Roomeo never takes a cut of your rent or deposit."],
     ["How do I pay?", "Direct UPI to Roomeo by QR code. Enter the 12 digit UTR and we confirm it, usually within a few hours. No gateway, no card details."],
   ];
   return (

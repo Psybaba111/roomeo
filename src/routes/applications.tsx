@@ -9,6 +9,7 @@ import { agreeRent, confirmRentPayment, startRentPayment } from "@/lib/roomsetu/
 import { inr } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { confirmMoveIn, myMoveIns, startSuccessFeeCheckout } from "@/lib/roomsetu/pricing-api";
+import { successFeeHeadsUp } from "@/lib/roomsetu/pricing";
 import { UpiCheckout, type UpiCheckoutData } from "@/components/upi-checkout";
 import { btnSmallPrimary, errorBox, inner } from "@/components/ui-tokens";
 
@@ -43,6 +44,9 @@ function MoveIn({ applicationId, mine, info, reload }: { applicationId: string; 
           Confirm move in
         </button>
       )}
+      {!m?.confirmed && info?.successFeeEnabled && fee > 0 ? (
+        <p className="mt-2 text-muted [text-wrap:pretty]" data-testid="success-fee-heads-up">{successFeeHeadsUp(fee, mine ? "tenant" : "owner")}</p>
+      ) : null}
       {m?.confirmed && info?.successFeeEnabled && fee > 0 ? (
         m.feeStatus === "PAID" ? (
           <p className="mt-2 text-muted">Move in fee paid. Thanks.</p>
@@ -52,7 +56,7 @@ function MoveIn({ applicationId, mine, info, reload }: { applicationId: string; 
           <UpiCheckout data={checkout} onClose={() => { setCheckout(null); reload(); }} />
         ) : (
           <div className="mt-2">
-            <p className="text-muted [text-wrap:pretty]">A flat ₹{fee} move in fee, never a cut of the rent.</p>
+            <p className="text-muted [text-wrap:pretty]">You did it 🎉 One-time ₹{fee} success fee and you're all set. No cut of the rent, ever.</p>
             <button
               type="button"
               disabled={busy}
@@ -63,7 +67,7 @@ function MoveIn({ applicationId, mine, info, reload }: { applicationId: string; 
                 void startSuccessFeeCheckout({ data: { applicationId } }).then(setCheckout).catch((e) => setError(errText(e))).finally(() => setBusy(false));
               }}
             >
-              Pay ₹{fee} move in fee
+              Pay ₹{fee} one-time fee
             </button>
           </div>
         )

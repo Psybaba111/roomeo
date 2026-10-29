@@ -60,8 +60,8 @@ export function pricingConfig(env: Env = procEnv()): PricingConfig {
     boostDays: int(env, "ROOMEO_BOOST_DAYS", 7, 1, 90),
     fastTrackInr: int(env, "ROOMEO_FAST_TRACK_INR", 149, 1, 100000),
     successFeeEnabled: flag(env, "ROOMEO_SUCCESS_FEE_ENABLED", false),
-    successFeeTenantInr: int(env, "ROOMEO_SUCCESS_FEE_TENANT_INR", 499, 0, 100000),
-    successFeeOwnerInr: int(env, "ROOMEO_SUCCESS_FEE_OWNER_INR", 499, 0, 100000),
+    successFeeTenantInr: int(env, "ROOMEO_SUCCESS_FEE_TENANT_INR", SUCCESS_FEE_INR, 0, 100000),
+    successFeeOwnerInr: int(env, "ROOMEO_SUCCESS_FEE_OWNER_INR", SUCCESS_FEE_INR, 0, 100000),
   };
 }
 
@@ -159,3 +159,19 @@ export function squadSuccessShareInr(tenantFeeInr: number, members: number): num
 
 export const REFUND_PROMISE =
   "If every owner you contact with a pass declines or does not reply within 48 hours, the full pass price goes back to your UPI ID.";
+
+/** One-time success fee per side per deal (Rohith, 2026-10-29). */
+export const SUCCESS_FEE_INR = 999;
+
+/** Shown before anyone confirms or pays, so nobody is surprised. */
+export function successFeeHeadsUp(feeInr: number, role: "tenant" | "owner"): string {
+  return role === "tenant"
+    ? `Heads up: once you and the owner both confirm the move in, there's a one-time ₹${feeInr} success fee. That's it, no cut of your rent, ever.`
+    : `Heads up: once you and the tenant both confirm the move in, there's a one-time ₹${feeInr} success fee for you too. One time, no cut of the rent.`;
+}
+
+/** A fee payment counts for this deal only if it was made after this deal was confirmed. */
+export function feeBelongsToDeal(paymentCreatedAt: string | null | undefined, dealConfirmedAt: string | null | undefined): boolean {
+  if (!paymentCreatedAt || !dealConfirmedAt) return false;
+  return Date.parse(paymentCreatedAt) >= Date.parse(dealConfirmedAt);
+}
