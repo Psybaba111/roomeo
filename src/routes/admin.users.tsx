@@ -1,3 +1,4 @@
+import { adminBeforeLoad } from "@/lib/roomsetu/admin-gate-api";
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -8,6 +9,7 @@ import { adminSetUser, adminUsers } from "@/lib/roomsetu/admin-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/admin/users")({
+  beforeLoad: adminBeforeLoad,
   head: () => pageHead("People · Operator", { noindex: true }),
   component: () => (
     <NeedAccount next="/admin/users">

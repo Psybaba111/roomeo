@@ -65,7 +65,9 @@ export async function getSessionUser(
     headers = new Headers(request.headers);
     headers.set("Authorization", `Bearer ${bearerToken}`);
   }
-  const session = await auth.api.getSession({ headers });
+  // Skip the signed cookie cache so a revoked session (password change,
+  // "sign me out on other devices") stops working on the very next request.
+  const session = await auth.api.getSession({ headers, query: { disableCookieCache: true } });
   if (!session?.user) return null;
   return { id: session.user.id, email: session.user.email ?? null };
 }

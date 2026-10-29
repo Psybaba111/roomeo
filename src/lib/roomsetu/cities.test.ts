@@ -28,3 +28,11 @@ test("SEO copy and sitemap paths cover each city", () => {
   assert.match(citySeoDescription("Mangaluru"), /Bunder/);
   assert.deepEqual(citySearchPaths(), ["/search?city=Bengaluru", "/search?city=Mangaluru"]);
 });
+
+test("budget hints match each city's bed prices", async () => {
+  const { budgetHints } = await import("./cities.ts");
+  assert.equal(budgetHints("Mangaluru").placeholder, "₹ up to 9,000");
+  assert.equal(budgetHints("mangalore").chips[0][1], "6000");
+  assert.ok(!budgetHints("Mangaluru").placeholder.includes("15,000"));
+  assert.equal(budgetHints("Bengaluru").placeholder, "₹ up to 15,000");
+});

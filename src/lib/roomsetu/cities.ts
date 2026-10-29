@@ -89,3 +89,17 @@ export function citySeoDescription(name: string): string {
 export function citySearchPaths(): string[] {
   return SEARCH_CITIES.map((c) => `/search?city=${encodeURIComponent(c.name)}`);
 }
+
+/** Budget box hint + quick chips, sized to what beds actually cost in each city. */
+export function budgetHints(city: string): { placeholder: string; chips: [string, string][] } {
+  if (searchCity(city) === "Mangaluru") {
+    return {
+      placeholder: "₹ up to 9,000",
+      chips: [["Under ₹6k", "6000"], ["Under ₹8k", "8000"], ["Under ₹10k", "10000"]],
+    };
+  }
+  return {
+    placeholder: "₹ up to 15,000",
+    chips: [["Under ₹10k", "10000"], ["Under ₹15k", "15000"], ["Under ₹20k", "20000"]],
+  };
+}
