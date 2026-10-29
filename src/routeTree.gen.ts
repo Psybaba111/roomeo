@@ -36,6 +36,7 @@ import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminVerificationsRouteImport } from './routes/admin.verifications'
 import { Route as EditListingIdRouteImport } from './routes/edit-listing.$id'
+import { Route as InvoicePaymentIdRouteImport } from './routes/invoice.$paymentId'
 import { Route as ListingIdRouteImport } from './routes/listing.$id'
 import { Route as SquadsIndexRouteImport } from './routes/squads.index'
 import { Route as SquadsIdRouteImport } from './routes/squads.$id'
@@ -180,6 +181,11 @@ const EditListingIdRoute = EditListingIdRouteImport.update({
   path: '/edit-listing/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InvoicePaymentIdRoute = InvoicePaymentIdRouteImport.update({
+  id: '/invoice/$paymentId',
+  path: '/invoice/$paymentId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ListingIdRoute = ListingIdRouteImport.update({
   id: '/listing/$id',
   path: '/listing/$id',
@@ -248,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/edit-listing/$id': typeof EditListingIdRoute
+  '/invoice/$paymentId': typeof InvoicePaymentIdRoute
   '/listing/$id': typeof ListingIdRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
@@ -285,6 +292,7 @@ export interface FileRoutesByTo {
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/edit-listing/$id': typeof EditListingIdRoute
+  '/invoice/$paymentId': typeof InvoicePaymentIdRoute
   '/listing/$id': typeof ListingIdRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
@@ -323,6 +331,7 @@ export interface FileRoutesById {
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
   '/edit-listing/$id': typeof EditListingIdRoute
+  '/invoice/$paymentId': typeof InvoicePaymentIdRoute
   '/listing/$id': typeof ListingIdRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
@@ -362,6 +371,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/verifications'
     | '/edit-listing/$id'
+    | '/invoice/$paymentId'
     | '/listing/$id'
     | '/squads/$id'
     | '/verify/digilocker'
@@ -399,6 +409,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/verifications'
     | '/edit-listing/$id'
+    | '/invoice/$paymentId'
     | '/listing/$id'
     | '/squads/$id'
     | '/verify/digilocker'
@@ -436,6 +447,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/verifications'
     | '/edit-listing/$id'
+    | '/invoice/$paymentId'
     | '/listing/$id'
     | '/squads/$id'
     | '/verify/digilocker'
@@ -474,6 +486,7 @@ export interface RootRouteChildren {
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVerificationsRoute: typeof AdminVerificationsRoute
   EditListingIdRoute: typeof EditListingIdRoute
+  InvoicePaymentIdRoute: typeof InvoicePaymentIdRoute
   ListingIdRoute: typeof ListingIdRoute
   SquadsIdRoute: typeof SquadsIdRoute
   VerifyDigilockerRoute: typeof VerifyDigilockerRoute
@@ -676,6 +689,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EditListingIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/invoice/$paymentId': {
+      id: '/invoice/$paymentId'
+      path: '/invoice/$paymentId'
+      fullPath: '/invoice/$paymentId'
+      preLoaderRoute: typeof InvoicePaymentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/listing/$id': {
       id: '/listing/$id'
       path: '/listing/$id'
@@ -762,6 +782,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminUsersRoute: AdminUsersRoute,
   AdminVerificationsRoute: AdminVerificationsRoute,
   EditListingIdRoute: EditListingIdRoute,
+  InvoicePaymentIdRoute: InvoicePaymentIdRoute,
   ListingIdRoute: ListingIdRoute,
   SquadsIdRoute: SquadsIdRoute,
   VerifyDigilockerRoute: VerifyDigilockerRoute,

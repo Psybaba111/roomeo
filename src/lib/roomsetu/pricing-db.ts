@@ -117,7 +117,10 @@ export async function applyPaidPayment(sql: Sql, paymentId: string) {
     await sql`update profiles set fast_track_at = coalesce(fast_track_at, now()) where user_id = ${p.user_id}`;
     await notify(sql, p.user_id, "Fast track is on", "Your ID review moved to the front of the queue.", "/verification");
   } else if (p.kind === "SUCCESS_FEE") {
-    await notify(sql, p.user_id, "Move in fee confirmed", "Thanks. Your move in is all set.", "/applications");
+    const { createFeeInvoice } = await import("@/lib/roomsetu/agreement-db");
+    const amt = await sql<{ amount_inr: number }>`select amount_inr from payments where id = ${paymentId}`;
+    const inv = await createFeeInvoice(sql, paymentId, Math.round(Number(amt[0]?.amount_inr ?? 0) / 1.18));
+    await notify(sql, p.user_id, "Success fee paid ✅", inv ? `Thanks! Your GST invoice ${String(inv.number)} is ready.` : "Thanks. You're all set.", inv ? `/invoice/${paymentId}` : "/applications");
   }
 }
 
