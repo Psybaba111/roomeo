@@ -5,7 +5,6 @@ import { NeedAccount } from "@/components/need-account";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
 import { listApplications, openConversation, setApplication } from "@/lib/roomsetu/account-api";
-import { agreeRent, confirmRentPayment, startRentPayment } from "@/lib/roomsetu/trust-api";
 import { inr } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { confirmMoveIn, myMoveIns } from "@/lib/roomsetu/pricing-api";
@@ -55,32 +54,6 @@ export const Route = createFileRoute("/applications")({
   ),
 });
 
-type Checkout = { keyId: string; orderId: string; amount: number };
-
-function openCheckout(data: Checkout, onPaid: (response: { razorpay_order_id?: string; razorpay_payment_id?: string; razorpay_signature?: string }) => void) {
-  const start = () => {
-    const RazorpayCtor = (window as unknown as { Razorpay?: new (opts: Record<string, unknown>) => { open: () => void } }).Razorpay;
-    if (!RazorpayCtor) return;
-    new RazorpayCtor({
-      key: data.keyId,
-      amount: data.amount,
-      currency: "INR",
-      name: "roomeo.com",
-      description: "Your bed",
-      order_id: data.orderId,
-      handler: onPaid,
-    }).open();
-  };
-  if ((window as unknown as { Razorpay?: unknown }).Razorpay) {
-    start();
-    return;
-  }
-  const script = document.createElement("script");
-  script.src = "https://checkout.razorpay.com/v1/checkout.js";
-  script.onload = start;
-  document.body.appendChild(script);
-}
-
 function Apps() {
   const { user } = useCurrentUserState();
   const navigate = useNavigate();
@@ -100,7 +73,7 @@ function Apps() {
   return (
     <Shell>
       <h1 className="text-4xl font-semibold tracking-tight">Room requests</h1>
-      <p className="mt-2 text-muted [text-wrap:pretty]">Requests are free. Once the owner accepts and you move in, both of you tap Confirm move in.</p>
+      <p className="mt-2 text-muted [text-wrap:pretty]">Requests are free. The flow: owner accepts → you both sign the Roomeo agreement → each side pays the one-time fee (when it’s on) → move in. Every step shows right on the request 👇</p>
       {error ? <p className="mt-3 text-danger">{error}</p> : null}
       <ul className="mt-6 space-y-3">
         {rows.map((row) => (
@@ -112,15 +85,11 @@ function Apps() {
                 <p className="mt-2 text-sm">{row.note}</p>
                 <p className="mt-1 text-sm">{row.mine ? "You asked" : row.seekerName} · {row.status}</p>
                 {row.status === "ACCEPTED" && !row.demo ? (
-                  <p className="mt-2 text-sm">
-                    Rent {inr(row.rent)} a month and {inr(row.deposit)} deposit, paid to the owner. Roomeo takes no cut of the rent.
-                    {" "}{row.seekerAgreed ? "Seeker agreed." : "Seeker has not agreed."} {row.hostAgreed ? "Host agreed." : "Host has not agreed."}
-                    {row.agreement === "PAID" ? " Paid." : ""}
-                  </p>
+                  <p className="mt-2 text-sm">Rent {inr(row.rent)}/month + {inr(row.deposit)} deposit, paid straight to the owner. Roomeo never takes a cut of the rent.</p>
                 ) : null}
                 {row.status === "ACCEPTED" && !row.demo ? (
                   <>
-                    <DealAgreement applicationId={row.id} />
+                    <DealAgreement dealRef={{ kind: "app", id: row.id }} />
                     <MoveIn applicationId={row.id} mine={row.mine} info={moves} reload={loadMoves} />
                   </>
                 ) : null}
@@ -135,35 +104,6 @@ function Apps() {
                     <button type="button" className="h-10 rounded-full bg-brand px-3 text-sm text-card" onClick={() => void setApplication({ data: { id: row.id, status: "ACCEPTED" } }).then(load)}>Accept</button>
                     <button type="button" className="h-10 rounded-full border border-line px-3 text-sm" onClick={() => void setApplication({ data: { id: row.id, status: "DECLINED" } }).then(load)}>Decline</button>
                   </>
-                ) : null}
-                {row.status === "ACCEPTED" && !row.demo && row.agreement !== "PAID" && ((row.mine && !row.seekerAgreed) || (!row.mine && !row.hostAgreed)) ? (
-                  <button type="button" className="h-10 rounded-full bg-brand px-3 text-sm text-card" onClick={() => void agreeRent({ data: row.id }).then(load).catch((e) => setError(errText(e)))}>Agree this rent</button>
-                ) : null}
-                {row.mine && row.status === "ACCEPTED" && !row.demo && row.seekerAgreed && row.hostAgreed && row.agreement !== "PAID" ? (
-                  <button
-                    type="button"
-                    className="h-10 rounded-full bg-ink px-3 text-sm font-semibold text-card"
-                    onClick={() => {
-                      setError("");
-                      void startRentPayment({ data: row.id })
-                        .then((order) => {
-                          openCheckout(order, (response) => {
-                            void confirmRentPayment({
-                              data: {
-                                orderId: response.razorpay_order_id ?? order.orderId,
-                                paymentId: response.razorpay_payment_id ?? "",
-                                signature: response.razorpay_signature ?? "",
-                              },
-                            })
-                              .then(load)
-                              .catch((e) => setError(errText(e)));
-                          });
-                        })
-                        .catch((e) => setError(errText(e)));
-                    }}
-                  >
-                    Pay rent
-                  </button>
                 ) : null}
                 {!row.mine ? (
                   <button

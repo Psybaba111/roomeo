@@ -880,6 +880,8 @@ export const startSquadSuccessFee = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const cfg = pricingConfig();
     if (!cfg.successFeeEnabled) throw new Error("There is no move in fee right now.");
+    // The fee is now paid from the signed squad agreement (agreement-api startAgreementFee).
+    if (cfg.successFeeEnabled) throw new Error("Everyone signs the Roomeo agreement first. The fee is paid from there.");
     const payee = upiPayee();
     if (!payee.ready) throw new Error("UPI payments are not set up yet.");
     const sql = await getSql();
