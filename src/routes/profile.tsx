@@ -12,7 +12,7 @@ import { ensureProfile, getDesk, updateProfile } from "@/lib/roomsetu/account-ap
 import { FURNISHED, ROOM_TYPES } from "@/lib/roomsetu/constants";
 import { numField, digitsOnly, toNumberOrNull } from "@/lib/roomsetu/profile-form";
 import { listCities } from "@/lib/roomsetu/public-api";
-import { SAVED_HIDE_MS, isSaving, saveButtonLabel, saveStatusText, type SaveStatus } from "@/lib/roomsetu/save-status";
+import { clearSaved, initialSaveStatus, isSaving, markSaved, saveButtonLabel, savedRemainingMs, saveStatusText, type SaveStatus } from "@/lib/roomsetu/save-status";
 
 export const Route = createFileRoute("/profile")({
   head: () => pageHead("Your profile", { noindex: true }),
@@ -27,11 +27,14 @@ function ProfilePage() {
   const { user } = useCurrentUserState();
   const [cities, setCities] = useState<string[]>([]);
   const [error, setError] = useState("");
-  const [status, setStatus] = useState<SaveStatus>({ kind: "idle" });
+  const [status, setStatus] = useState<SaveStatus>(() => initialSaveStatus());
 
   useEffect(() => {
     if (status.kind !== "saved") return;
-    const t = setTimeout(() => setStatus({ kind: "idle" }), SAVED_HIDE_MS);
+    const t = setTimeout(() => {
+      clearSaved();
+      setStatus({ kind: "idle" });
+    }, savedRemainingMs() || 1);
     return () => clearTimeout(t);
   }, [status]);
   const [form, setForm] = useState({
@@ -109,6 +112,7 @@ function ProfilePage() {
           e.preventDefault();
           if (isSaving(status)) return;
           setError("");
+          clearSaved();
           setStatus({ kind: "saving" });
           const { verification: _verification, ...rest } = form;
           void updateProfile({
@@ -118,7 +122,10 @@ function ProfilePage() {
               budget: toNumberOrNull(form.budget),
             },
           })
-            .then(() => setStatus({ kind: "saved" }))
+            .then(() => {
+              markSaved();
+              setStatus({ kind: "saved" });
+            })
             .catch((err) => setStatus({ kind: "error", reason: errText(err) }));
         }}
       >
@@ -177,7 +184,7 @@ function ProfilePage() {
         <p
           role="status"
           aria-live="polite"
-          className={`text-sm font-medium md:col-span-2 ${status.kind === "error" ? "rounded-2xl bg-danger/10 px-4 py-3 text-danger" : status.kind === "saved" ? "rounded-2xl bg-brand/10 px-4 py-3 text-brand" : "sr-only"}`}
+          className={`text-sm font-medium md:col-span-2 ${status.kind === "error" ? "rounded-2xl bg-danger/10 px-4 py-3 text-danger" : status.kind === "saved" ? "fixed inset-x-4 bottom-6 z-50 mx-auto max-w-md rounded-2xl bg-brand px-4 py-3 text-center text-card shadow-lg md:inset-x-0" : "sr-only"}`}
         >
           {saveStatusText(status)}
         </p>

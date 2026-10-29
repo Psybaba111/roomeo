@@ -23,3 +23,24 @@ test("error message includes the reason, with a fallback", () => {
   assert.equal(saveStatusText({ kind: "idle" }), "");
   assert.equal(saveStatusText({ kind: "saving" }), "");
 });
+
+import { markSaved, clearSaved, savedRemainingMs, initialSaveStatus } from "./save-status.ts";
+
+test("regression: 'saved' survives the profile page remounting/refetching right after save", () => {
+  clearSaved();
+  const t0 = 1_000_000;
+  // save resolves
+  markSaved(t0);
+  // ~200ms later the session/profile refetch remounts the page: fresh state must still be 'saved'
+  const remounted = initialSaveStatus(t0 + 200);
+  assert.deepEqual(remounted, { kind: "saved" });
+  assert.equal(saveStatusText(remounted), SAVED_MESSAGE);
+  // still visible ~2s later (what the live screenshot checked)
+  assert.deepEqual(initialSaveStatus(t0 + 2000), { kind: "saved" });
+  assert.ok(savedRemainingMs(t0 + 2000) > 0);
+  // hides after the window
+  assert.deepEqual(initialSaveStatus(t0 + SAVED_HIDE_MS + 1), { kind: "idle" });
+  // a new save attempt clears it
+  markSaved(t0); clearSaved();
+  assert.deepEqual(initialSaveStatus(t0 + 10), { kind: "idle" });
+});
