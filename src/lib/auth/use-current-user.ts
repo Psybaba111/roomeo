@@ -55,8 +55,7 @@ export type CurrentUserState = {
  * `authEnabled` is a module-level constant fixed at load, so the guarded hook
  * call keeps a stable hook order across every render of a given component.
  */
-export function useCurrentUserState(): CurrentUserState {
-  if (!authEnabled) return { user: DEV_USER, isPending: false };
+function useSessionUserState(): CurrentUserState {
   const { data, isPending } = authClient.useSession();
   const u = data?.user;
   // Memoize on the user's fields: `useSession()` hands back a fresh object on
@@ -67,11 +66,18 @@ export function useCurrentUserState(): CurrentUserState {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [u?.id, u?.name, u?.email, u?.image],
   );
-  return {
-    user,
-    isPending,
-  };
+  return { user, isPending };
 }
+
+const devUserState: CurrentUserState = { user: DEV_USER, isPending: false };
+function useDevUserState(): CurrentUserState {
+  return devUserState;
+}
+
+/** Chosen once at module load, so hook order is stable. */
+export const useCurrentUserState: () => CurrentUserState = authEnabled
+  ? useSessionUserState
+  : useDevUserState;
 
 /**
  * Convenience view of `useCurrentUserState().user` for display (e.g.
