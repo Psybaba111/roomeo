@@ -220,7 +220,7 @@ function OwnerNotices({ data, reload }: { data: On; reload: () => void }) {
           </div>
           {n.body ? <p className="mt-1 text-sm">{n.body}</p> : null}
           <div className="mt-2 flex items-center justify-between text-xs text-muted">
-            <span>{n.pg} · {n.createdAt.slice(0, 16)}</span>
+            <span>{n.pg} · {n.createdAt}</span>
             <button className="font-semibold text-danger" onClick={() => run(() => noticeAction({ data: { id: n.id, action: "delete" } }))}>Delete</button>
           </div>
         </article>
@@ -246,7 +246,7 @@ function ResidentPanel({ data, reload }: { data: On; reload: () => void }) {
                 {n.read ? <span className="text-xs text-muted">read ✓</span> : <button className={btnSmall} disabled={busy} onClick={() => run(() => noticeAction({ data: { id: n.id, action: "read" } }))}>Got it 👍</button>}
               </div>
               {n.body ? <p className="mt-1 text-sm">{n.body}</p> : null}
-              <p className="mt-1 text-xs text-muted">{n.pg} · {n.createdAt.slice(0, 16)}</p>
+              <p className="mt-1 text-xs text-muted">{n.pg} · {n.createdAt}</p>
             </article>
           ))}
         </div>

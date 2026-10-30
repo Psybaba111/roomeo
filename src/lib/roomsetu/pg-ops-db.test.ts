@@ -73,6 +73,7 @@ test("notices: owner posts → resident sees, marks read → owner sees read cou
   await markNoticeRead(sql, "tenant", id);
   t = await noticesFor(sql, "tenant");
   assert.equal(t.resident[0].read, true);
+  assert.match(t.resident[0].createdAt, /^\d{2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2} [AP]M IST$/);
   assert.equal((await noticesFor(sql, "owner")).posted[0].reads, 1);
   assert.equal((await noticesFor(sql, "stranger")).resident.length, 0);
   await deleteNotice(sql, "owner", id);

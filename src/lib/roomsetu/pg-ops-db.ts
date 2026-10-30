@@ -121,12 +121,12 @@ export async function noticesFor(sql: Sql, userId: string) {
   const mine = await residencies(sql, userId);
   const ids = mine.map((r) => r.listing_id);
   const resident = ids.length
-    ? ((await sql.query(`select n.id, n.listing_id, n.title, n.body, n.pinned, n.created_at::text as created_at, l.title as pg, r.read_at::text as read_at
+    ? ((await sql.query(`select n.id, n.listing_id, n.title, n.body, n.pinned, (to_char(n.created_at at time zone 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') || ' IST') as created_at, l.title as pg, r.read_at::text as read_at
         from house_notices n join listings l on l.id = n.listing_id left join house_notice_reads r on r.notice_id = n.id and r.user_id = $1
         where n.listing_id = any($2) order by n.pinned desc, n.created_at desc limit 30`, [userId, ids])) as { id: string; listing_id: string; title: string; body: string; pinned: boolean; created_at: string; pg: string; read_at: string | null }[])
     : [];
   const posted = await sql<{ id: string; listing_id: string; title: string; body: string; pinned: boolean; created_at: string; pg: string; reads: number }>`
-    select n.id, n.listing_id, n.title, n.body, n.pinned, n.created_at::text as created_at, l.title as pg, (select count(*)::int from house_notice_reads r where r.notice_id = n.id) as reads
+    select n.id, n.listing_id, n.title, n.body, n.pinned, (to_char(n.created_at at time zone 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') || ' IST') as created_at, l.title as pg, (select count(*)::int from house_notice_reads r where r.notice_id = n.id) as reads
     from house_notices n join listings l on l.id = n.listing_id where n.owner_id = ${userId} order by n.created_at desc limit 30`;
   return {
     residencies: mine,
