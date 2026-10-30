@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { ReferralCard } from "@/components/referral-card";
+import { MoveInSection } from "@/components/move-in";
 import { BoostPanel } from "@/components/host-extras";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
@@ -191,6 +192,8 @@ function Desk() {
       </div>
 
       <ReferralCard />
+
+      <MoveInSection />
 
       {incoming.length ? (
         <section className="mt-6">

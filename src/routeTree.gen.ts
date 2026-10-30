@@ -40,6 +40,7 @@ import { Route as AdminVerificationsRouteImport } from './routes/admin.verificat
 import { Route as EditListingIdRouteImport } from './routes/edit-listing.$id'
 import { Route as InvoicePaymentIdRouteImport } from './routes/invoice.$paymentId'
 import { Route as ListingIdRouteImport } from './routes/listing.$id'
+import { Route as MoveInTokenRouteImport } from './routes/move-in.$token'
 import { Route as RCodeRouteImport } from './routes/r.$code'
 import { Route as SquadsIndexRouteImport } from './routes/squads.index'
 import { Route as SquadsIdRouteImport } from './routes/squads.$id'
@@ -205,6 +206,11 @@ const ListingIdRoute = ListingIdRouteImport.update({
   path: '/listing/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MoveInTokenRoute = MoveInTokenRouteImport.update({
+  id: '/move-in/$token',
+  path: '/move-in/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RCodeRoute = RCodeRouteImport.update({
   id: '/r/$code',
   path: '/r/$code',
@@ -282,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/edit-listing/$id': typeof EditListingIdRoute
   '/invoice/$paymentId': typeof InvoicePaymentIdRoute
   '/listing/$id': typeof ListingIdRoute
+  '/move-in/$token': typeof MoveInTokenRoute
   '/r/$code': typeof RCodeRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
@@ -324,6 +331,7 @@ export interface FileRoutesByTo {
   '/edit-listing/$id': typeof EditListingIdRoute
   '/invoice/$paymentId': typeof InvoicePaymentIdRoute
   '/listing/$id': typeof ListingIdRoute
+  '/move-in/$token': typeof MoveInTokenRoute
   '/r/$code': typeof RCodeRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
@@ -367,6 +375,7 @@ export interface FileRoutesById {
   '/edit-listing/$id': typeof EditListingIdRoute
   '/invoice/$paymentId': typeof InvoicePaymentIdRoute
   '/listing/$id': typeof ListingIdRoute
+  '/move-in/$token': typeof MoveInTokenRoute
   '/r/$code': typeof RCodeRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
@@ -411,6 +420,7 @@ export interface FileRouteTypes {
     | '/edit-listing/$id'
     | '/invoice/$paymentId'
     | '/listing/$id'
+    | '/move-in/$token'
     | '/r/$code'
     | '/squads/$id'
     | '/verify/digilocker'
@@ -453,6 +463,7 @@ export interface FileRouteTypes {
     | '/edit-listing/$id'
     | '/invoice/$paymentId'
     | '/listing/$id'
+    | '/move-in/$token'
     | '/r/$code'
     | '/squads/$id'
     | '/verify/digilocker'
@@ -495,6 +506,7 @@ export interface FileRouteTypes {
     | '/edit-listing/$id'
     | '/invoice/$paymentId'
     | '/listing/$id'
+    | '/move-in/$token'
     | '/r/$code'
     | '/squads/$id'
     | '/verify/digilocker'
@@ -538,6 +550,7 @@ export interface RootRouteChildren {
   EditListingIdRoute: typeof EditListingIdRoute
   InvoicePaymentIdRoute: typeof InvoicePaymentIdRoute
   ListingIdRoute: typeof ListingIdRoute
+  MoveInTokenRoute: typeof MoveInTokenRoute
   RCodeRoute: typeof RCodeRoute
   SquadsIdRoute: typeof SquadsIdRoute
   VerifyDigilockerRoute: typeof VerifyDigilockerRoute
@@ -769,6 +782,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ListingIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/move-in/$token': {
+      id: '/move-in/$token'
+      path: '/move-in/$token'
+      fullPath: '/move-in/$token'
+      preLoaderRoute: typeof MoveInTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/r/$code': {
       id: '/r/$code'
       path: '/r/$code'
@@ -866,6 +886,7 @@ const rootRouteChildren: RootRouteChildren = {
   EditListingIdRoute: EditListingIdRoute,
   InvoicePaymentIdRoute: InvoicePaymentIdRoute,
   ListingIdRoute: ListingIdRoute,
+  MoveInTokenRoute: MoveInTokenRoute,
   RCodeRoute: RCodeRoute,
   SquadsIdRoute: SquadsIdRoute,
   VerifyDigilockerRoute: VerifyDigilockerRoute,
