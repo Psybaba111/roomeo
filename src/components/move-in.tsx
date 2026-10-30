@@ -7,6 +7,7 @@ import { btnSmall, btnSmallPrimary, card, errorBox, inner, input } from "@/compo
 import { errText } from "@/lib/ui-text";
 import { whatsappShareUrl } from "@/lib/share";
 import { depositStatusLabel } from "@/lib/roomsetu/movein";
+import { readableDate } from "@/lib/roomsetu/dates";
 import {
   addDepositDeduction,
   createMoveInInvite,
@@ -171,7 +172,7 @@ function OwnerCard({ m, base, reload }: { m: Item; base: string; reload: () => v
         <span className="rounded-full bg-paper px-3 py-1 text-xs font-semibold">{STATUS[m.status] ?? m.status}</span>
       </div>
       <p className="mt-1 text-sm text-muted">
-        From {m.startDate} · {inr(m.rentInr)}/mo · deposit {inr(m.depositInr)}
+        From {readableDate(m.startDate)} · {inr(m.rentInr)}/mo · deposit {inr(m.depositInr)}
         {m.idMasked ? ` · ID ${m.idMasked}` : ""}
       </p>
       {m.outsideMangaluru ? (
@@ -190,7 +191,7 @@ function TenantCard({ m, reload }: { m: Item; reload: () => void }) {
   return (
     <article className={card}>
       <p className="font-semibold">Your stay at {m.title} 🏡</p>
-      <p className="mt-1 text-sm text-muted">{STATUS[m.status] ?? m.status} · from {m.startDate}</p>
+      <p className="mt-1 text-sm text-muted">{STATUS[m.status] ?? m.status} · from {readableDate(m.startDate)}</p>
       {m.status !== "SIGNED" ? (
         <Link to="/move-in/$token" params={{ token: m.token }} className={`mt-3 ${btnSmallPrimary}`}>
           Finish move-in →
@@ -232,7 +233,7 @@ function DepositPanel({ m, owner, reload }: { m: Item; owner: boolean; reload: (
     <div className={`mt-3 ${inner}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm font-semibold">
-          Deposit {inr(d.amountInr)} · received {d.receivedOn}
+          Deposit {inr(d.amountInr)} · received {readableDate(d.receivedOn)}
         </p>
         <span className="text-xs font-semibold">{depositStatusLabel({ status: d.status, refund_due_on: d.refundDueOn }, today())}</span>
       </div>
@@ -255,13 +256,13 @@ function DepositPanel({ m, owner, reload }: { m: Item; owner: boolean; reload: (
       <p className="mt-2 text-sm">
         {d.status === "REFUNDED" ? (
           <>
-            Refunded <b>{inr(d.refundedInr ?? 0)}</b> on {d.refundedOn}
+            Refunded <b>{inr(d.refundedInr ?? 0)}</b> on {readableDate(d.refundedOn)}
             {d.refundRef ? ` (ref ${d.refundRef})` : ""}
           </>
         ) : (
           <>
             Balance to refund: <b>{inr(d.balanceInr)}</b>
-            {d.refundDueOn ? ` by ${d.refundDueOn}` : ""}
+            {d.refundDueOn ? ` by ${readableDate(d.refundDueOn)}` : ""}
           </>
         )}
       </p>

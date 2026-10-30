@@ -1,3 +1,4 @@
+import { nextDueMonth } from "./dates.ts";
 import type { Sql } from "../db.ts";
 import { avgFixHours, canMove, normalizePan, receiptNo, type Category, type Receipt, type Status } from "./complaints.ts";
 
@@ -104,14 +105,19 @@ async function receiptRows(sql: Sql, userId: string): Promise<RcptRow[]> {
   return [...auto, ...manual.filter((r) => !seen.has(`${r.tenant_id}|${r.listing_id}|${r.month}`))].sort((a, b) => b.month.localeCompare(a.month));
 }
 
-export async function listReceipts(sql: Sql, userId: string) {
+export async function listReceipts(sql: Sql, userId: string, now: Date = new Date()) {
   const rows = await receiptRows(sql, userId);
-  const residents = await sql<{ id: string; title: string; tenant: string; rent: number }>`select mi.id, l.title, coalesce(p.full_name, 'Resident') as tenant, l.monthly_rent as rent
+  const residents = await sql<{ id: string; listing_id: string; seeker_id: string; title: string; tenant: string; rent: number; start_date: string }>`select mi.id, mi.listing_id, mi.seeker_id, l.title, coalesce(p.full_name, 'Resident') as tenant, l.monthly_rent as rent,
+      coalesce((select i.start_date::text from movein_invites i where i.listing_id = mi.listing_id and i.tenant_id = mi.seeker_id and i.status = 'SIGNED' order by i.updated_at desc limit 1),
+        (mi.confirmed_at at time zone 'Asia/Kolkata')::date::text) as start_date
     from move_ins mi join listings l on l.id = mi.listing_id left join profiles p on p.user_id = mi.seeker_id where mi.owner_id = ${userId} and mi.confirmed_at is not null order by mi.confirmed_at desc limit 50`;
   const profile = (await sql<{ landlord_name: string; pan: string; address: string }>`select landlord_name, pan, address from owner_receipt_profiles where owner_id = ${userId}`)[0] ?? null;
   return {
     receipts: rows.map((r) => ({ key: r.key, month: r.month, amountInr: Number(r.amount_inr), paidOn: r.paid_on, source: r.source, role: r.owner_id === userId ? "owner" : "tenant" })),
-    residents: residents.map((r) => ({ ...r, rent: Number(r.rent) })),
+    residents: residents.map((r) => {
+      const paid = rows.filter((x) => x.tenant_id === r.seeker_id && x.listing_id === r.listing_id).map((x) => x.month);
+      return { id: r.id, title: r.title, tenant: r.tenant, rent: Number(r.rent), startDate: r.start_date, nextDue: nextDueMonth(r.start_date, paid, now) };
+    }),
     profile: profile ? { landlordName: profile.landlord_name, pan: profile.pan, address: profile.address } : null,
   };
 }

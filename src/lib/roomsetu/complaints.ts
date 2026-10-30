@@ -1,3 +1,4 @@
+import { readableDate } from "./dates.ts";
 /** Complaints tracker + rent receipts: pure rules. */
 type Env = Record<string, string | undefined>;
 const procEnv = (): Env => (typeof process === "undefined" ? {} : process.env);
@@ -113,8 +114,8 @@ export function receiptLines(r: Receipt) {
   const amt = `₹${r.amountInr.toLocaleString("en-IN")}`;
   return [
     { text: "RENT RECEIPT", size: 16, bold: true },
-    { text: `Receipt no. ${r.receiptNo}    Date: ${r.paidOn}`, size: 9 },
-    { text: `Received with thanks from ${r.tenantName} the sum of ${amt} (${rupeesInWords(r.amountInr)}) towards rent / paying-guest charges for the period ${p.from} to ${p.to} (${p.label}).`, gap: 14 },
+    { text: `Receipt no. ${r.receiptNo}    Date: ${readableDate(r.paidOn)}`, size: 9 },
+    { text: `Received with thanks from ${r.tenantName} the sum of ${amt} (${rupeesInWords(r.amountInr)}) towards rent / paying-guest charges for the period ${readableDate(p.from)} to ${readableDate(p.to)} (${p.label}).`, gap: 14 },
     { text: `Property: ${r.propertyAddress}`, gap: 8 },
     { text: `Payment mode: ${r.method}${r.ref ? `  ·  Reference: ${r.ref}` : ""}${r.source === "autopay" ? "  ·  via UPI AutoPay" : ""}` },
     { text: "LANDLORD", bold: true, gap: 14 },

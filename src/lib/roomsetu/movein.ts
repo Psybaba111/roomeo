@@ -1,3 +1,4 @@
+import { readableDate } from "./dates.ts";
 /** Digital move-in + deposit records: pure rules (flag, validation, masking, documents). */
 type Env = Record<string, string | undefined>;
 const procEnv = (): Env => (typeof process === "undefined" ? {} : process.env);
@@ -141,6 +142,8 @@ export type AgreementInput = {
   rentInr: number;
   depositInr: number;
   startDate: string;
+  /** IST date the agreement is made (signing date; today while still unsigned). */
+  madeOn: string;
   minStayMonths: number;
   noticeDays: number;
   houseRules: string;
@@ -153,9 +156,9 @@ export function agreementText(a: AgreementInput): string[] {
   const rules = a.houseRules.split("\n").map((r) => r.trim()).filter(Boolean);
   return [
     "LEAVE AND LICENCE AGREEMENT (PAYING GUEST ACCOMMODATION)",
-    `This agreement is made on ${a.startDate} between ${a.ownerName} ("Licensor") and ${a.tenantName} ("Licensee").`,
+    `This agreement is made on ${readableDate(a.madeOn)} between ${a.ownerName} ("Licensor") and ${a.tenantName} ("Licensee").`,
     `1. Premises. The Licensor permits the Licensee to use ${a.bedLabel ? `bed ${a.bedLabel} at ` : "a bed at "}${a.propertyTitle}, ${a.propertyAddress} ("Premises") as a paying guest, on leave and licence basis only. This does not create any tenancy or lease, and no interest in the Premises passes to the Licensee.`,
-    `2. Term. The licence starts on ${a.startDate}. Minimum stay is ${a.minStayMonths} months. After that it continues month to month until ended under clause 6.`,
+    `2. Term. The licence starts on ${readableDate(a.startDate)}. Minimum stay is ${a.minStayMonths} months. After that it continues month to month until ended under clause 6.`,
     `3. Licence fee. ${inr(a.rentInr)} per month, payable in advance by the 5th of each month, by UPI or bank transfer.`,
     `4. Security deposit. ${inr(a.depositInr)}, interest free. Refunded within 7 days of checkout, less only deductions for unpaid dues or damage beyond normal wear, each recorded with a reason and photo.`,
     "5. Use. The Premises are for residence only. The Licensee will not sublet, share, or allow anyone else to stay, and will follow the house rules below.",
@@ -194,7 +197,7 @@ export function policeFormLines(f: PoliceFormInput) {
     { text: `From outside Mangaluru: ${f.outsideMangaluru ? "YES - home town police clearance required" : "No"}`, bold: f.outsideMangaluru },
     { text: "B. ACCOMMODATION", bold: true, gap: 10 },
     { text: `PG address: ${f.propertyAddress}` },
-    { text: `Date of occupation: ${f.startDate}` },
+    { text: `Date of occupation: ${readableDate(f.startDate)}` },
     { text: "C. OWNER / LICENSOR", bold: true, gap: 10 },
     { text: `Name: ${f.owner.name}    Mobile: ${f.owner.phone || "-"}` },
     { text: `Address: ${f.owner.address}` },

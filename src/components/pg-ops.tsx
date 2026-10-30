@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowClockwise, Megaphone, PushPin, Trash } from "@phosphor-icons/react";
 import { btnSmall, btnSmallPrimary, card, errorBox, inner, input } from "@/components/ui-tokens";
 import { errText } from "@/lib/ui-text";
+import { readableDate } from "@/lib/roomsetu/dates";
 import { BED_STATUS, MEAL_CUTOFF_HOUR_IST, type BedStatus } from "@/lib/roomsetu/pg-ops";
 import { deleteBed, getHeadcount, getPgOps, noticeAction, postNotice, relistBed, saveBed, setMealSkip } from "@/lib/roomsetu/pg-ops-api";
 
@@ -82,7 +83,7 @@ function ListingBeds({ l, reload }: { l: L; reload: () => void }) {
     <article className={card}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="font-semibold">{l.title}</p>
-        <span className="text-xs text-muted">listing {l.status.toLowerCase()} · free from {l.available_from}</span>
+        <span className="text-xs text-muted">listing {l.status.toLowerCase()} · free from {readableDate(l.available_from)}</span>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         {l.beds.map((b) => (
@@ -93,8 +94,8 @@ function ListingBeds({ l, reload }: { l: L; reload: () => void }) {
             </div>
             <p className="mt-1 text-sm text-muted">
               {b.tenantName || (b.status === "VACANT" ? "Up for grabs" : "-")}
-              {b.moveInDate ? ` · in ${b.moveInDate}` : ""}
-              {b.noticeEnd ? ` · leaves ${b.noticeEnd}` : ""}
+              {b.moveInDate ? ` · in ${readableDate(b.moveInDate)}` : ""}
+              {b.noticeEnd ? ` · leaves ${readableDate(b.noticeEnd)}` : ""}
             </p>
             {b.note ? <p className="text-xs text-muted">{b.note}</p> : null}
             <div className="mt-2 flex flex-wrap gap-2">

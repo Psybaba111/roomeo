@@ -51,6 +51,11 @@ test("receipts: manual owner mark → tenant downloads; AutoPay rent_entries win
   await assert.rejects(saveReceiptProfile(sql, "owner", { landlordName: "Athiti", pan: "bad", address: "" }));
   await saveReceiptProfile(sql, "owner", { landlordName: "Athiti Hospitality", pan: "abcde1234f", address: "Kadri, Mangaluru" });
   let list = await listReceipts(sql, "tenant");
+  // Owner's "mark paid" month: first unpaid month from the agreed start (Nov, Dec paid → Jan), not the current month.
+  await pg.query(`insert into movein_invites (id, token, listing_id, owner_id, tenant_id, rent_inr, start_date, status) values ('inv1','tok1','L1','owner','tenant',8999,'2026-11-01','SIGNED')`);
+  const own = await listReceipts(sql, "owner", new Date("2026-11-15T06:00:00Z"));
+  assert.equal(own.residents[0].startDate, "2026-11-01");
+  assert.equal(own.residents[0].nextDue, "2027-01");
   assert.deepEqual(list.receipts.map((r) => r.month), ["2026-12", "2026-11"]);
   const rc = await receiptFor(sql, list.receipts[1].key, "tenant");
   assert.equal(rc.tenantName, "Asha Tenant");

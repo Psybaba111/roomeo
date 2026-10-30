@@ -61,7 +61,9 @@ export async function bedBoard(sql: Sql, ownerId: string) {
   const listings = await sql<{ id: string; title: string; status: string; available_from: string }>`select id, title, status, available_from::text as available_from from listings where owner_id = ${ownerId} and status <> 'REMOVED' order by created_at desc limit 30`;
   const beds = await sql<{ id: string; listing_id: string; label: string; status: string; tenant_name: string; move_in_date: string | null; notice_end: string | null; note: string }>`
     select id, listing_id, label, status, tenant_name, move_in_date::text as move_in_date, notice_end::text as notice_end, note from pg_beds where owner_id = ${ownerId} order by label`;
-  const unplaced = await sql<{ listing_id: string; user_id: string; name: string; since: string }>`select mi.listing_id, mi.seeker_id as user_id, coalesce(p.full_name, 'Resident') as name, (mi.confirmed_at at time zone 'Asia/Kolkata')::date::text as since
+  const unplaced = await sql<{ listing_id: string; user_id: string; name: string; since: string }>`select mi.listing_id, mi.seeker_id as user_id, coalesce(p.full_name, 'Resident') as name, coalesce(
+      (select i.start_date::text from movein_invites i where i.listing_id = mi.listing_id and i.tenant_id = mi.seeker_id and i.status = 'SIGNED' order by i.updated_at desc limit 1),
+      (mi.confirmed_at at time zone 'Asia/Kolkata')::date::text) as since
     from move_ins mi left join profiles p on p.user_id = mi.seeker_id where mi.owner_id = ${ownerId} and mi.confirmed_at is not null
       and not exists (select 1 from pg_beds b where b.tenant_id = mi.seeker_id and b.listing_id = mi.listing_id)`;
   return {

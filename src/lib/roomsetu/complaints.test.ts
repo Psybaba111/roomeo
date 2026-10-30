@@ -41,7 +41,9 @@ test("periods, months, PAN, receipt no", () => {
 test("receipt lines carry HRA fields", () => {
   const t = receiptLines({ receiptNo: "RR-1", month: "2026-11", amountInr: 8999, paidOn: "2026-11-03", method: "CASH", ref: "", tenantName: "Asha", landlordName: "Athiti", landlordPan: "", landlordAddress: "Kadri", propertyAddress: "Mud Home, Kadri", source: "manual" }).map((l) => l.text).join("\n");
   assert.match(t, /Received with thanks from Asha/);
-  assert.match(t, /2026-11-01 to 2026-11-30/);
+  assert.match(t, /1 Nov 2026 to 30 Nov 2026/);
+  assert.match(t, /Date: 3 Nov 2026/);
+  assert.doesNotMatch(t, /\d{4}-\d{2}-\d{2}/);
   assert.match(t, /Landlord signature/);
   assert.match(t, /PAN: Not provided/);
   assert.match(t, /revenue stamp/);

@@ -4,6 +4,7 @@ import { compressPhoto } from "@/components/photo-upload";
 import { downloadBase64 } from "@/components/download";
 import { btnSmall, btnSmallPrimary, card, errorBox, inner, input } from "@/components/ui-tokens";
 import { errText } from "@/lib/ui-text";
+import { readableDate } from "@/lib/roomsetu/dates";
 import { CATEGORIES, STATUS_LABEL, fixTimeLabel, monthPeriod } from "@/lib/roomsetu/complaints";
 import { getComplaintPhoto, getComplaintsAndReceipts, getReceiptPdf, markRentPaid, raiseComplaint, saveReceiptProfile, updateComplaint } from "@/lib/roomsetu/complaints-api";
 
@@ -158,7 +159,8 @@ function Receipts({ data, reload }: { data: On; reload: () => void }) {
   const { busy, err, run } = useAct();
   const save = useAct(reload);
   const thisMonth = today().slice(0, 7);
-  const [m, setM] = useState({ moveInId: data.residents[0]?.id ?? "", month: thisMonth, amountInr: String(data.residents[0]?.rent ?? ""), paidOn: today(), method: "UPI", ref: "" });
+  const dueFor = (id: string) => data.residents.find((r) => r.id === id)?.nextDue ?? thisMonth;
+  const [m, setM] = useState({ moveInId: data.residents[0]?.id ?? "", month: dueFor(data.residents[0]?.id ?? ""), amountInr: String(data.residents[0]?.rent ?? ""), paidOn: today(), method: "UPI", ref: "" });
   const [p, setP] = useState({ landlordName: data.profile?.landlordName ?? "", pan: data.profile?.pan ?? "", address: data.profile?.address ?? "" });
   return (
     <section id="receipts" className="mt-6 space-y-3">
@@ -169,7 +171,7 @@ function Receipts({ data, reload }: { data: On; reload: () => void }) {
           {data.receipts.map((r) => (
             <li key={r.key} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span>
-                <Receipt className="inline" /> {monthPeriod(r.month).label} · {inr(r.amountInr)} <span className="text-xs text-muted">{r.source === "autopay" ? "AutoPay" : "marked paid"} {r.paidOn}</span>
+                <Receipt className="inline" /> {monthPeriod(r.month).label} · {inr(r.amountInr)} <span className="text-xs text-muted">{r.source === "autopay" ? "AutoPay" : "marked paid"} {readableDate(r.paidOn)}</span>
               </span>
               <button className={btnSmall} disabled={busy} onClick={() => run(async () => { const x = await getReceiptPdf({ data: { key: r.key } }); downloadBase64(x.base64, x.filename); })}>
                 <FilePdf /> PDF
@@ -186,7 +188,7 @@ function Receipts({ data, reload }: { data: On; reload: () => void }) {
           <form className={card} onSubmit={(e) => { e.preventDefault(); void save.run(() => markRentPaid({ data: m })); }}>
             <p className="font-semibold">Got rent outside AutoPay? Mark it paid</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-3">
-              <select className={input} value={m.moveInId} onChange={(e) => setM({ ...m, moveInId: e.target.value })} aria-label="Resident">
+              <select className={input} value={m.moveInId} onChange={(e) => { const r = data.residents.find((x) => x.id === e.target.value); setM({ ...m, moveInId: e.target.value, month: dueFor(e.target.value), amountInr: r ? String(r.rent) : m.amountInr }); }} aria-label="Resident">
                 {data.residents.map((r) => <option key={r.id} value={r.id}>{r.tenant} · {r.title}</option>)}
               </select>
               <input className={input} type="month" value={m.month} onChange={(e) => setM({ ...m, month: e.target.value })} aria-label="Rent month" />
