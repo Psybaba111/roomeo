@@ -34,6 +34,8 @@ test("complaint: raise → in progress → fixed → reopen → fixed → confir
   const l = await listComplaints(sql, "owner");
   assert.equal(l.owned[0].status, "CLOSED");
   assert.equal(l.owned[0].ownerNote, "Gas refilled");
+  assert.match(l.owned[0].createdAt, /^\d{2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2} [AP]M IST$/);
+  assert.match(l.owned[0].fixedAt ?? "", / IST$/);
   assert.deepEqual(l.ownerStats, { open: 0, avgFixHours: 5, avgRating: 4 });
   assert.equal((await listComplaints(sql, "tenant")).mine.length, 1);
   assert.equal((await listComplaints(sql, "stranger")).owned.length, 0);

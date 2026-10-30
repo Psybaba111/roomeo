@@ -121,7 +121,7 @@ function ComplaintCard({ c, owner, reload }: { c: C; owner: boolean; reload: () 
         <span className="rounded-full bg-paper px-3 py-1 text-xs font-semibold">{STATUS_LABEL[c.status]}</span>
       </div>
       <p className="mt-1 text-sm">{c.description}</p>
-      <p className="mt-1 text-xs text-muted">Raised {c.createdAt.slice(0, 16)}{c.fixedAt ? ` · fixed ${c.fixedAt.slice(0, 16)}` : ""}</p>
+      <p className="mt-1 text-xs text-muted">Raised {c.createdAt}{c.fixedAt ? ` · fixed ${c.fixedAt}` : ""}</p>
       {c.ownerNote ? <p className={`mt-2 ${inner} text-sm`}>Owner: {c.ownerNote}</p> : null}
       {c.hasPhoto ? <button className="mt-2 text-xs font-semibold text-brand underline" onClick={() => run(async () => setImg(img ? null : (await getComplaintPhoto({ data: { id: c.id } })).dataUrl))}>{img ? "hide photo" : "see photo"}</button> : null}
       {img ? <img src={img} alt="Complaint" className="mt-2 max-h-56 rounded-lg border border-line" /> : null}

@@ -1,9 +1,9 @@
 import type { Sql } from "../db.ts";
 import { avgFixHours, canMove, normalizePan, receiptNo, type Category, type Receipt, type Status } from "./complaints.ts";
 
-type Row = { id: string; listing_id: string; tenant_id: string; owner_id: string; category: Category; description: string; has_photo: boolean; status: Status; owner_note: string; created_at: string; started_at: string | null; fixed_at: string | null; confirmed_at: string | null; rating: number | null; rating_note: string; title: string; tenant_name: string };
+type Row = { id: string; listing_id: string; tenant_id: string; owner_id: string; category: Category; description: string; has_photo: boolean; status: Status; owner_note: string; created_at: string; started_at: string | null; fixed_at: string | null; confirmed_at: string | null; rating: number | null; rating_note: string; title: string; tenant_name: string; created_label: string; fixed_label: string | null };
 const COLS = `c.id, c.listing_id, c.tenant_id, c.owner_id, c.category, c.description, c.photo_base64 is not null as has_photo, c.status, c.owner_note,
-  c.created_at::text as created_at, c.started_at::text as started_at, c.fixed_at::text as fixed_at, c.confirmed_at::text as confirmed_at, c.rating, c.rating_note,
+  c.created_at::text as created_at, c.started_at::text as started_at, c.fixed_at::text as fixed_at, c.confirmed_at::text as confirmed_at, to_char(c.created_at at time zone 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') || ' IST' as created_label, to_char(c.fixed_at at time zone 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') || ' IST' as fixed_label, c.rating, c.rating_note,
   l.title, coalesce(p.full_name, 'Resident') as tenant_name`;
 const FROM = `from complaints c join listings l on l.id = c.listing_id left join profiles p on p.user_id = c.tenant_id`;
 
@@ -51,7 +51,7 @@ export async function complaintPhoto(sql: Sql, id: string, userId: string) {
 
 const shape = (r: Row) => ({
   id: r.id, title: r.title, tenantName: r.tenant_name, category: r.category, description: r.description, hasPhoto: Boolean(r.has_photo), status: r.status,
-  ownerNote: r.owner_note, createdAt: r.created_at, fixedAt: r.fixed_at, rating: r.rating == null ? null : Number(r.rating), ratingNote: r.rating_note,
+  ownerNote: r.owner_note, createdAt: r.created_label, fixedAt: r.fixed_label, rating: r.rating == null ? null : Number(r.rating), ratingNote: r.rating_note,
 });
 
 export async function listComplaints(sql: Sql, userId: string) {
