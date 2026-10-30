@@ -1,4 +1,7 @@
 {
   "installCommand": "npm install --omit=dev --no-audit --no-fund",
-  "crons": [{ "path": "/api/cron/pricing", "schedule": "30 21 * * *" }]
+  "crons": [
+    { "path": "/api/cron/pricing", "schedule": "30 21 * * *" },
+    { "path": "/api/cron/rent", "schedule": "0 3 * * *" }
+  ]
 }

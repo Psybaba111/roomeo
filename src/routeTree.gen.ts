@@ -46,6 +46,8 @@ import { Route as SquadsIdRouteImport } from './routes/squads.$id'
 import { Route as VerifyDigilockerRouteImport } from './routes/verify.digilocker'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronPricingRouteImport } from './routes/api/cron/pricing'
+import { Route as ApiCronRentRouteImport } from './routes/api/cron/rent'
+import { Route as ApiWebhooksCashfreeRouteImport } from './routes/api/webhooks/cashfree'
 import { Route as ApiWebhooksMappstoreRouteImport } from './routes/api/webhooks/mappstore'
 import { Route as SquadsJoinCodeRouteImport } from './routes/squads.join.$code'
 import { Route as ApiOgListingIdRouteImport } from './routes/api/og/listing.$id'
@@ -235,6 +237,16 @@ const ApiCronPricingRoute = ApiCronPricingRouteImport.update({
   path: '/api/cron/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronRentRoute = ApiCronRentRouteImport.update({
+  id: '/api/cron/rent',
+  path: '/api/cron/rent',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWebhooksCashfreeRoute = ApiWebhooksCashfreeRouteImport.update({
+  id: '/api/webhooks/cashfree',
+  path: '/api/webhooks/cashfree',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksMappstoreRoute = ApiWebhooksMappstoreRouteImport.update({
   id: '/api/webhooks/mappstore',
   path: '/api/webhooks/mappstore',
@@ -289,6 +301,8 @@ export interface FileRoutesByFullPath {
   '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/pricing': typeof ApiCronPricingRoute
+  '/api/cron/rent': typeof ApiCronRentRoute
+  '/api/webhooks/cashfree': typeof ApiWebhooksCashfreeRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
   '/squads/join/$code': typeof SquadsJoinCodeRoute
   '/api/og/listing/$id': typeof ApiOgListingIdRoute
@@ -331,6 +345,8 @@ export interface FileRoutesByTo {
   '/squads': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/pricing': typeof ApiCronPricingRoute
+  '/api/cron/rent': typeof ApiCronRentRoute
+  '/api/webhooks/cashfree': typeof ApiWebhooksCashfreeRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
   '/squads/join/$code': typeof SquadsJoinCodeRoute
   '/api/og/listing/$id': typeof ApiOgListingIdRoute
@@ -374,6 +390,8 @@ export interface FileRoutesById {
   '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/pricing': typeof ApiCronPricingRoute
+  '/api/cron/rent': typeof ApiCronRentRoute
+  '/api/webhooks/cashfree': typeof ApiWebhooksCashfreeRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
   '/squads/join/$code': typeof SquadsJoinCodeRoute
   '/api/og/listing/$id': typeof ApiOgListingIdRoute
@@ -418,6 +436,8 @@ export interface FileRouteTypes {
     | '/squads/'
     | '/api/auth/$'
     | '/api/cron/pricing'
+    | '/api/cron/rent'
+    | '/api/webhooks/cashfree'
     | '/api/webhooks/mappstore'
     | '/squads/join/$code'
     | '/api/og/listing/$id'
@@ -460,6 +480,8 @@ export interface FileRouteTypes {
     | '/squads'
     | '/api/auth/$'
     | '/api/cron/pricing'
+    | '/api/cron/rent'
+    | '/api/webhooks/cashfree'
     | '/api/webhooks/mappstore'
     | '/squads/join/$code'
     | '/api/og/listing/$id'
@@ -502,6 +524,8 @@ export interface FileRouteTypes {
     | '/squads/'
     | '/api/auth/$'
     | '/api/cron/pricing'
+    | '/api/cron/rent'
+    | '/api/webhooks/cashfree'
     | '/api/webhooks/mappstore'
     | '/squads/join/$code'
     | '/api/og/listing/$id'
@@ -545,6 +569,8 @@ export interface RootRouteChildren {
   SquadsIndexRoute: typeof SquadsIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCronPricingRoute: typeof ApiCronPricingRoute
+  ApiCronRentRoute: typeof ApiCronRentRoute
+  ApiWebhooksCashfreeRoute: typeof ApiWebhooksCashfreeRoute
   ApiWebhooksMappstoreRoute: typeof ApiWebhooksMappstoreRoute
   SquadsJoinCodeRoute: typeof SquadsJoinCodeRoute
   ApiOgListingIdRoute: typeof ApiOgListingIdRoute
@@ -811,6 +837,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronPricingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/rent': {
+      id: '/api/cron/rent'
+      path: '/api/cron/rent'
+      fullPath: '/api/cron/rent'
+      preLoaderRoute: typeof ApiCronRentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/cashfree': {
+      id: '/api/webhooks/cashfree'
+      path: '/api/webhooks/cashfree'
+      fullPath: '/api/webhooks/cashfree'
+      preLoaderRoute: typeof ApiWebhooksCashfreeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/mappstore': {
       id: '/api/webhooks/mappstore'
       path: '/api/webhooks/mappstore'
@@ -873,6 +913,8 @@ const rootRouteChildren: RootRouteChildren = {
   SquadsIndexRoute: SquadsIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCronPricingRoute: ApiCronPricingRoute,
+  ApiCronRentRoute: ApiCronRentRoute,
+  ApiWebhooksCashfreeRoute: ApiWebhooksCashfreeRoute,
   ApiWebhooksMappstoreRoute: ApiWebhooksMappstoreRoute,
   SquadsJoinCodeRoute: SquadsJoinCodeRoute,
   ApiOgListingIdRoute: ApiOgListingIdRoute,
