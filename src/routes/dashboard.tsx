@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { ReferralCard } from "@/components/referral-card";
-import { ComplaintsReceiptsSection } from "@/components/complaints-receipts";
 import { BoostPanel } from "@/components/host-extras";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
@@ -22,6 +21,7 @@ import {
 } from "@/lib/roomsetu/account-api";
 import { COMING_SOON, HOST_WIDGETS, defaultLayout } from "@/lib/roomsetu/constants";
 import { inr } from "@/lib/roomsetu/map";
+import { ComplaintsReceiptsSection } from "@/components/complaints-receipts";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/dashboard")({
