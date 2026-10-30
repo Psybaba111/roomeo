@@ -5,9 +5,9 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { assertAdmin, audit } from "@/lib/roomsetu/admin-api";
 import { num, str } from "@/lib/roomsetu/map";
 import { buildUpiLink, makeRef, upiPayee } from "@/lib/roomsetu/upi";
-import { pricingConfig, moveInConfirmed, REFUND_PROMISE } from "@/lib/roomsetu/pricing";
+import { pricingConfig, REFUND_PROMISE } from "@/lib/roomsetu/pricing";
 import { contactSummary, runPricingSweep } from "@/lib/roomsetu/pricing-db";
-import { completeReferralOnMoveIn } from "@/lib/roomsetu/referral-api";
+import { confirmMoveInRecord } from "@/lib/roomsetu/movein-confirm";
 
 function rec(input: unknown): Record<string, unknown> {
   return input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -181,18 +181,12 @@ export const confirmMoveIn = createServerFn({ method: "POST" })
     const app = a[0];
     if (!app || (app.seeker_id !== context.userId && app.host_id !== context.userId)) throw new Error("Request not found.");
     if (app.status !== "ACCEPTED") throw new Error("The owner has to accept the request first.");
-    await sql`insert into move_ins (id, application_id, listing_id, seeker_id, owner_id) values (${crypto.randomUUID()}, ${data.applicationId}, ${app.listing_id}, ${app.seeker_id}, ${app.host_id}) on conflict (application_id) do nothing`;
-    if (context.userId === app.seeker_id)
-      await sql`update move_ins set seeker_confirmed_at = coalesce(seeker_confirmed_at, now()) where application_id = ${data.applicationId}`;
-    else await sql`update move_ins set owner_confirmed_at = coalesce(owner_confirmed_at, now()) where application_id = ${data.applicationId}`;
-    const m = (await sql<{ s: string | null; o: string | null; c: string | null }>`select seeker_confirmed_at::text as s, owner_confirmed_at::text as o, confirmed_at::text as c from move_ins where application_id = ${data.applicationId}`)[0];
-    const both = moveInConfirmed({ seekerAt: m?.s, ownerAt: m?.o });
-    if (both && !m?.c) {
-      await sql`update move_ins set confirmed_at = now() where application_id = ${data.applicationId} and confirmed_at is null`;
-      const other = context.userId === app.seeker_id ? app.host_id : app.seeker_id;
-      await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${other}, 'application', 'Move in confirmed', 'Both of you confirmed the move in. Welcome home.', '/applications')`;
-      await completeReferralOnMoveIn(sql, app.seeker_id, data.applicationId);
-    }
+    const isSeeker = context.userId === app.seeker_id;
+    const r = await confirmMoveInRecord(sql, {
+      applicationId: data.applicationId, listingId: app.listing_id, seekerId: app.seeker_id, ownerId: app.host_id,
+      side: isSeeker ? "seeker" : "owner", notifyUserId: isSeeker ? app.host_id : app.seeker_id,
+    });
+    const both = r.confirmed;
     return { confirmed: both };
   });
 
