@@ -1,3 +1,4 @@
+import { audit } from "@/lib/roomsetu/admin-api";
 import { trustOf, type TrustFields } from "@/lib/roomsetu/trust";
 import { writeTrust } from "@/lib/roomsetu/trust-db";
 import { createServerFn } from "@tanstack/react-start";
@@ -646,6 +647,7 @@ export const setListingStatus = createServerFn({ method: "POST" })
     const updated =
       await sql`update listings set status = ${data.status}, updated_at = now() where id = ${data.id} and owner_id = ${context.userId} returning id`;
     if (!updated.length) throw new Error("You can only change your own listing.");
+    await audit(sql, context.userId, `owner.${data.status.toLowerCase()}`, "listing", data.id, "");
     return { ok: true };
   });
 
