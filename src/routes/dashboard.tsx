@@ -193,8 +193,6 @@ function Desk() {
 
       <ReferralCard />
 
-      <ComplaintsReceiptsSection />
-
       {incoming.length ? (
         <section className="mt-6">
           <h2 className="font-display text-3xl">Enquiries waiting</h2>
@@ -287,6 +285,8 @@ function Desk() {
           Finish your profile so matches can use your city, budget, and house rules.
         </Link>
       ) : null}
+
+      <ComplaintsReceiptsSection />
 
       <section className="mt-8">
         <h2 className="font-display text-3xl">Recommended for you</h2>
