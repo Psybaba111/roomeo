@@ -2,7 +2,9 @@ export function whatsappShareUrl(text: string, url: string): string {
   return `https://wa.me/?text=${encodeURIComponent(`${text} ${url}`.trim())}`;
 }
 
-export function shareText(room: { title: string; locality: string; rent: number }): string {
+export function shareText(room: { title: string; locality: string; rent: number; allInInr?: number | null }): string {
+  if (room.allInInr && room.allInInr > 0)
+    return `${room.title} in ${room.locality} for ₹${room.allInInr.toLocaleString("en-IN")}/mo all-in on roomeo 👀`;
   return `${room.title} in ${room.locality} for ₹${room.rent.toLocaleString("en-IN")}/mo on roomeo 👀`;
 }
 

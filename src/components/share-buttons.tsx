@@ -2,7 +2,7 @@ import { useState } from "react";
 import { InstagramLogo as Instagram, WhatsappLogo as MessageCircle } from "@phosphor-icons/react";
 import { shareNative, shareText, whatsappShareUrl } from "@/lib/share";
 
-export function ShareButtons({ room, url }: { room: { title: string; locality: string; rent: number }; url: string }) {
+export function ShareButtons({ room, url }: { room: { title: string; locality: string; rent: number; allInInr?: number | null }; url: string }) {
   const [note, setNote] = useState("");
   const text = shareText(room);
   return (
@@ -13,9 +13,10 @@ export function ShareButtons({ room, url }: { room: { title: string; locality: s
           href={whatsappShareUrl(text, url)}
           target="_blank"
           rel="noopener noreferrer"
+          data-testid="share-whatsapp"
           className="inline-flex h-10 items-center gap-2 rounded-full bg-[#14532d] px-4 text-sm font-semibold text-white"
         >
-          <MessageCircle className="h-4 w-4" /> WhatsApp
+          <MessageCircle className="h-4 w-4" /> Share on WhatsApp
         </a>
         <button
           type="button"

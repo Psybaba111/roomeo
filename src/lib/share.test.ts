@@ -15,3 +15,8 @@ test("native share falls back to copying the link", async () => {
   assert.equal(copied, "https://r.co");
   assert.equal(await shareNative(d, {}), "unavailable");
 });
+
+test("share text uses the all-in price when the owner set one", () => {
+  assert.equal(shareText({ title: "Room", locality: "HSR", rent: 12000, allInInr: 13500 }), "Room in HSR for ₹13,500/mo all-in on roomeo 👀");
+  assert.equal(shareText({ title: "Room", locality: "HSR", rent: 12000, allInInr: null }), "Room in HSR for ₹12,000/mo on roomeo 👀");
+});

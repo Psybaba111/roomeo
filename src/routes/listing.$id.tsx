@@ -225,7 +225,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
             ))}
           </ul>
           <div className="mt-3">
-            <ShareButtons room={room} url={`${SITE_URL}/listing/${room.id}`} />
+            <ShareButtons room={{ ...room, allInInr: room.trust.allInInr }} url={`${SITE_URL}/listing/${room.id}`} />
           </div>
           <p className="mt-4 text-4xl font-semibold tabular-nums text-trust" data-testid="headline-price">
             {inr(headlinePrice(room.rent, room.trust.allInInr).amount)}{" "}

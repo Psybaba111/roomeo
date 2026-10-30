@@ -40,6 +40,7 @@ import { Route as AdminVerificationsRouteImport } from './routes/admin.verificat
 import { Route as EditListingIdRouteImport } from './routes/edit-listing.$id'
 import { Route as InvoicePaymentIdRouteImport } from './routes/invoice.$paymentId'
 import { Route as ListingIdRouteImport } from './routes/listing.$id'
+import { Route as RCodeRouteImport } from './routes/r.$code'
 import { Route as SquadsIndexRouteImport } from './routes/squads.index'
 import { Route as SquadsIdRouteImport } from './routes/squads.$id'
 import { Route as VerifyDigilockerRouteImport } from './routes/verify.digilocker'
@@ -47,6 +48,7 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronPricingRouteImport } from './routes/api/cron/pricing'
 import { Route as ApiWebhooksMappstoreRouteImport } from './routes/api/webhooks/mappstore'
 import { Route as SquadsJoinCodeRouteImport } from './routes/squads.join.$code'
+import { Route as ApiOgListingIdRouteImport } from './routes/api/og/listing.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -203,6 +205,11 @@ const ListingIdRoute = ListingIdRouteImport.update({
   path: '/listing/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RCodeRoute = RCodeRouteImport.update({
+  id: '/r/$code',
+  path: '/r/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SquadsIndexRoute = SquadsIndexRouteImport.update({
   id: '/squads/',
   path: '/squads/',
@@ -238,6 +245,11 @@ const SquadsJoinCodeRoute = SquadsJoinCodeRouteImport.update({
   path: '/squads/join/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOgListingIdRoute = ApiOgListingIdRouteImport.update({
+  id: '/api/og/listing/$id',
+  path: '/api/og/listing/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -270,6 +282,7 @@ export interface FileRoutesByFullPath {
   '/edit-listing/$id': typeof EditListingIdRoute
   '/invoice/$paymentId': typeof InvoicePaymentIdRoute
   '/listing/$id': typeof ListingIdRoute
+  '/r/$code': typeof RCodeRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
   '/admin/': typeof AdminIndexRoute
@@ -278,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/api/cron/pricing': typeof ApiCronPricingRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
   '/squads/join/$code': typeof SquadsJoinCodeRoute
+  '/api/og/listing/$id': typeof ApiOgListingIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -310,6 +324,7 @@ export interface FileRoutesByTo {
   '/edit-listing/$id': typeof EditListingIdRoute
   '/invoice/$paymentId': typeof InvoicePaymentIdRoute
   '/listing/$id': typeof ListingIdRoute
+  '/r/$code': typeof RCodeRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
   '/admin': typeof AdminIndexRoute
@@ -318,6 +333,7 @@ export interface FileRoutesByTo {
   '/api/cron/pricing': typeof ApiCronPricingRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
   '/squads/join/$code': typeof SquadsJoinCodeRoute
+  '/api/og/listing/$id': typeof ApiOgListingIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -351,6 +367,7 @@ export interface FileRoutesById {
   '/edit-listing/$id': typeof EditListingIdRoute
   '/invoice/$paymentId': typeof InvoicePaymentIdRoute
   '/listing/$id': typeof ListingIdRoute
+  '/r/$code': typeof RCodeRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
   '/admin/': typeof AdminIndexRoute
@@ -359,6 +376,7 @@ export interface FileRoutesById {
   '/api/cron/pricing': typeof ApiCronPricingRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
   '/squads/join/$code': typeof SquadsJoinCodeRoute
+  '/api/og/listing/$id': typeof ApiOgListingIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -393,6 +411,7 @@ export interface FileRouteTypes {
     | '/edit-listing/$id'
     | '/invoice/$paymentId'
     | '/listing/$id'
+    | '/r/$code'
     | '/squads/$id'
     | '/verify/digilocker'
     | '/admin/'
@@ -401,6 +420,7 @@ export interface FileRouteTypes {
     | '/api/cron/pricing'
     | '/api/webhooks/mappstore'
     | '/squads/join/$code'
+    | '/api/og/listing/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -433,6 +453,7 @@ export interface FileRouteTypes {
     | '/edit-listing/$id'
     | '/invoice/$paymentId'
     | '/listing/$id'
+    | '/r/$code'
     | '/squads/$id'
     | '/verify/digilocker'
     | '/admin'
@@ -441,6 +462,7 @@ export interface FileRouteTypes {
     | '/api/cron/pricing'
     | '/api/webhooks/mappstore'
     | '/squads/join/$code'
+    | '/api/og/listing/$id'
   id:
     | '__root__'
     | '/'
@@ -473,6 +495,7 @@ export interface FileRouteTypes {
     | '/edit-listing/$id'
     | '/invoice/$paymentId'
     | '/listing/$id'
+    | '/r/$code'
     | '/squads/$id'
     | '/verify/digilocker'
     | '/admin/'
@@ -481,6 +504,7 @@ export interface FileRouteTypes {
     | '/api/cron/pricing'
     | '/api/webhooks/mappstore'
     | '/squads/join/$code'
+    | '/api/og/listing/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -514,6 +538,7 @@ export interface RootRouteChildren {
   EditListingIdRoute: typeof EditListingIdRoute
   InvoicePaymentIdRoute: typeof InvoicePaymentIdRoute
   ListingIdRoute: typeof ListingIdRoute
+  RCodeRoute: typeof RCodeRoute
   SquadsIdRoute: typeof SquadsIdRoute
   VerifyDigilockerRoute: typeof VerifyDigilockerRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -522,6 +547,7 @@ export interface RootRouteChildren {
   ApiCronPricingRoute: typeof ApiCronPricingRoute
   ApiWebhooksMappstoreRoute: typeof ApiWebhooksMappstoreRoute
   SquadsJoinCodeRoute: typeof SquadsJoinCodeRoute
+  ApiOgListingIdRoute: typeof ApiOgListingIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -743,6 +769,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ListingIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/r/$code': {
+      id: '/r/$code'
+      path: '/r/$code'
+      fullPath: '/r/$code'
+      preLoaderRoute: typeof RCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/squads/': {
       id: '/squads/'
       path: '/squads'
@@ -792,6 +825,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SquadsJoinCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/og/listing/$id': {
+      id: '/api/og/listing/$id'
+      path: '/api/og/listing/$id'
+      fullPath: '/api/og/listing/$id'
+      preLoaderRoute: typeof ApiOgListingIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -826,6 +866,7 @@ const rootRouteChildren: RootRouteChildren = {
   EditListingIdRoute: EditListingIdRoute,
   InvoicePaymentIdRoute: InvoicePaymentIdRoute,
   ListingIdRoute: ListingIdRoute,
+  RCodeRoute: RCodeRoute,
   SquadsIdRoute: SquadsIdRoute,
   VerifyDigilockerRoute: VerifyDigilockerRoute,
   AdminIndexRoute: AdminIndexRoute,
@@ -834,6 +875,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCronPricingRoute: ApiCronPricingRoute,
   ApiWebhooksMappstoreRoute: ApiWebhooksMappstoreRoute,
   SquadsJoinCodeRoute: SquadsJoinCodeRoute,
+  ApiOgListingIdRoute: ApiOgListingIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
