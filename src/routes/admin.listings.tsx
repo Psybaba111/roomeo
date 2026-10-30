@@ -23,6 +23,26 @@ function Rooms() {
   const { user } = useCurrentUserState();
   const [rows, setRows] = useState<Awaited<ReturnType<typeof adminListings>>>([]);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState("");
+  function act(row: { id: string; ownerIsMe: boolean }, action: "verify" | "reject" | "feature" | "remove" | "pause" | "activate") {
+    let reason = "";
+    if (row.ownerIsMe && (action === "verify" || action === "feature")) {
+      reason = window.prompt("This is your own listing. As super admin you can self-review with a reason (goes in the audit log):") ?? "";
+      if (!reason.trim()) return;
+    }
+    if (action === "remove" && !window.confirm("Remove this listing? It disappears from search.")) return;
+    setBusy(row.id + action);
+    setError("");
+    setNotice("");
+    void adminSetListing({ data: { id: row.id, action, reason } })
+      .then((r) => {
+        setNotice(r.message);
+        load();
+      })
+      .catch((e) => setError(errText(e)))
+      .finally(() => setBusy(""));
+  }
   function load() {
     void adminListings().then(setRows).catch((e) => setError(errText(e)));
   }
@@ -32,7 +52,8 @@ function Rooms() {
   return (
     <AdminFrame>
       <h1 className="font-display text-4xl">Rooms</h1>
-      {error ? <p className="mt-3 text-danger">{error}</p> : null}
+      {error ? <p role="alert" className="mt-3 rounded-2xl border border-line bg-card p-3 font-semibold text-danger">{error}</p> : null}
+      {notice ? <p role="status" className="mt-3 rounded-2xl border border-line bg-card p-3 font-semibold text-brand">{notice}</p> : null}
       <ul className="mt-4 space-y-2">
         {rows.map((row) => (
           <li key={row.id} className="rounded-2xl border border-line bg-card p-4">
@@ -46,10 +67,15 @@ function Rooms() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <Link to="/edit-listing/$id" params={{ id: row.id }} className="inline-flex h-9 items-center rounded-full bg-ink px-3 text-sm font-semibold text-card">Edit</Link>
-                <button type="button" className="h-9 rounded-full border border-line px-3 text-sm" onClick={() => void adminSetListing({ data: { id: row.id, action: "verify" } }).then(load)}>Verify</button>
-                <button type="button" className="h-9 rounded-full border border-line px-3 text-sm" onClick={() => void adminSetListing({ data: { id: row.id, action: "reject" } }).then(load)}>Reject</button>
-                <button type="button" className="h-9 rounded-full border border-line px-3 text-sm" onClick={() => void adminSetListing({ data: { id: row.id, action: "feature" } }).then(load)}>Feature</button>
-                <button type="button" className="h-9 rounded-full px-3 text-sm text-danger" onClick={() => void adminSetListing({ data: { id: row.id, action: "remove" } }).then(load)}>Remove</button>
+                {row.status === "REMOVED" ? null : row.status === "ACTIVE" ? (
+                  <button type="button" disabled={busy !== ""} className="h-9 rounded-full border border-line px-3 text-sm disabled:opacity-60" onClick={() => act(row, "pause")}>Pause</button>
+                ) : (
+                  <button type="button" disabled={busy !== ""} className="h-9 rounded-full bg-brand px-3 text-sm font-semibold text-card disabled:opacity-60" onClick={() => act(row, "activate")}>Go live</button>
+                )}
+                <button type="button" disabled={busy !== ""} className="h-9 rounded-full border border-line px-3 text-sm disabled:opacity-60" onClick={() => act(row, "verify")}>Verify</button>
+                <button type="button" disabled={busy !== ""} className="h-9 rounded-full border border-line px-3 text-sm disabled:opacity-60" onClick={() => act(row, "reject")}>Reject</button>
+                <button type="button" disabled={busy !== ""} className="h-9 rounded-full border border-line px-3 text-sm disabled:opacity-60" onClick={() => act(row, "feature")}>Feature</button>
+                <button type="button" disabled={busy !== ""} className="h-9 rounded-full px-3 text-sm text-danger disabled:opacity-60" onClick={() => act(row, "remove")}>Remove</button>
               </div>
             </div>
           </li>

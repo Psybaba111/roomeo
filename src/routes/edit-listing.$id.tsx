@@ -5,6 +5,7 @@ import { ArrowLeft, Camera, CheckCircle, Trash } from "@phosphor-icons/react";
 import { NeedAccount } from "@/components/need-account";
 import { Shell } from "@/components/shell";
 import { control } from "@/components/cards";
+import { ListingStatusToggle } from "@/components/listing-status-toggle";
 import { EMPTY_TRUST, TrustFields, trustPayload, type TrustForm } from "@/components/trust-fields";
 import { btnPrimary, btnSecondary, btnSmall } from "@/components/ui-tokens";
 import { readPhotos } from "@/components/photo-upload";
@@ -116,6 +117,7 @@ function EditListing({ id }: { id: string }) {
         <p className="mt-2 max-w-xl text-muted">
           {room.title} · {room.locality}, {room.city} · {room.status === "ACTIVE" ? "Live" : room.status.toLowerCase()}
         </p>
+        <ListingStatusToggle id={room.id} status={room.status} asAdmin={room.asAdmin} onChanged={(status) => setRoom((r) => (r ? { ...r, status } : r))} />
         {room.asAdmin ? (
           <p className="mt-4 rounded-2xl bg-pop-soft px-4 py-3 text-sm font-semibold text-pop">Operator edit. This change is written to the audit log.</p>
         ) : null}

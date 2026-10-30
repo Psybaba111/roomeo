@@ -1,3 +1,5 @@
+import { ACTION_DONE, LISTING_ACTIONS, auditAction, moderationBlock, type ListingAction } from "@/lib/roomsetu/listing-moderation";
+import { canPublish } from "@/lib/roomsetu/otp";
 import { createServerFn } from "@tanstack/react-start";
 import { applyPaidPayment } from "@/lib/roomsetu/pricing-db";
 import { getSql, type Sql } from "@/lib/db";
@@ -222,7 +224,7 @@ export const adminListings = createServerFn({ method: "GET" })
     await assertAdmin(sql, context.userId);
     const rows = await sql.query<Record<string, unknown>>(
       `select l.id, l.title, l.city_name, l.monthly_rent, l.status, l.verification_status, l.listing_tier,
-              l.possible_duplicate, l.is_demo, l.quality_score, pr.full_name as host
+              l.possible_duplicate, l.is_demo, l.quality_score, pr.full_name as host, l.owner_id
        from listings l join profiles pr on pr.user_id = l.owner_id
        order by l.created_at desc limit 80`,
     );
@@ -238,6 +240,7 @@ export const adminListings = createServerFn({ method: "GET" })
       isDemo: bool(r.is_demo),
       quality: num(r.quality_score),
       host: str(r.host),
+      ownerIsMe: str(r.owner_id) === context.userId,
     }));
   });
 
@@ -248,37 +251,49 @@ export const adminSetListing = createServerFn({ method: "POST" })
     const id = str(o.id);
     const action = str(o.action);
     if (!/^[0-9a-f-]{8,80}$/i.test(id)) throw new Error("Unknown listing.");
-    if (!["verify", "reject", "remove", "feature", "restore"].includes(action))
-      throw new Error("Unknown action.");
-    return { id, action };
+    if (!(LISTING_ACTIONS as readonly string[]).includes(action)) throw new Error("Unknown action.");
+    const reason = typeof o.reason === "string" ? o.reason.trim().slice(0, 300) : "";
+    return { id, action: action as ListingAction, reason };
   })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await assertAdmin(sql, context.userId);
-    const listing = await sql<{
-      owner_id: string;
-    }>`select owner_id from listings where id = ${data.id}`;
+    const listing = await sql<{ owner_id: string; status: string; identity_status: string | null; phone_ok: boolean }>`
+      select l.owner_id, l.status, p.identity_status, p.phone_verified_at is not null as phone_ok
+      from listings l left join profiles p on p.user_id = l.owner_id where l.id = ${data.id}`;
     if (!listing[0]) throw new Error("That listing was not found.");
-    if (
-      listing[0].owner_id === context.userId &&
-      (data.action === "verify" || data.action === "feature")
-    ) {
-      throw new Error("Another operator has to review your listing.");
-    }
+    const roles = (await sql<{ role: string }>`select role from profile_roles where user_id = ${context.userId}`).map((r) => str(r.role));
+    const l = listing[0];
+    const actorIsOwner = str(l.owner_id) === context.userId;
+    const block = moderationBlock({
+      action: data.action,
+      actorIsOwner,
+      actorIsSuperAdmin: roles.includes("SUPER_ADMIN"),
+      reason: data.reason,
+      listingStatus: str(l.status),
+      ownerCanPublish: canPublish({ identityStatus: str(l.identity_status), phoneVerified: Boolean(l.phone_ok) }),
+    });
+    if (block) throw new Error(block);
+    let changed: unknown[] = [];
     if (data.action === "verify") {
-      await sql`update listings set verification_status = 'VERIFIED', updated_at = now() where id = ${data.id}`;
+      changed = await sql`update listings set verification_status = 'VERIFIED', updated_at = now() where id = ${data.id} returning id`;
       await sql`update properties set verification_status = 'VERIFIED' where id = (select property_id from listings where id = ${data.id})`;
     } else if (data.action === "reject") {
-      await sql`update listings set verification_status = 'REJECTED', updated_at = now() where id = ${data.id}`;
+      changed = await sql`update listings set verification_status = 'REJECTED', updated_at = now() where id = ${data.id} returning id`;
     } else if (data.action === "remove") {
-      await sql`update listings set status = 'REMOVED', updated_at = now() where id = ${data.id}`;
+      changed = await sql`update listings set status = 'REMOVED', updated_at = now() where id = ${data.id} returning id`;
     } else if (data.action === "feature") {
-      await sql`update listings set listing_tier = 'FEATURED', updated_at = now() where id = ${data.id}`;
+      changed = await sql`update listings set listing_tier = 'FEATURED', updated_at = now() where id = ${data.id} returning id`;
+    } else if (data.action === "pause") {
+      changed = await sql`update listings set status = 'PAUSED', updated_at = now() where id = ${data.id} returning id`;
+    } else if (data.action === "activate") {
+      changed = await sql`update listings set status = 'ACTIVE', updated_at = now() where id = ${data.id} returning id`;
     } else {
-      await sql`update listings set status = 'ACTIVE', verification_status = 'PENDING', updated_at = now() where id = ${data.id}`;
+      changed = await sql`update listings set status = 'ACTIVE', verification_status = 'PENDING', updated_at = now() where id = ${data.id} returning id`;
     }
-    await audit(sql, context.userId, data.action, "listing", data.id, "");
-    return { ok: true };
+    if (!changed.length) throw new Error("Nothing was saved. Reload and try again.");
+    await audit(sql, context.userId, auditAction({ action: data.action, actorIsOwner }), "listing", data.id, data.reason);
+    return { ok: true, message: ACTION_DONE[data.action] };
   });
 
 export const adminVerifications = createServerFn({ method: "GET" })
