@@ -39,6 +39,7 @@ test("move-in: invite → claim → details + private ID → e-sign → police f
   const doc = await agreementDoc(sql, id, "owner");
   assert.equal(doc.signature?.ip, "1.2.3.4");
   assert.match(doc.signature!.agreement_sha256, /^[0-9a-f]{64}$/);
+  assert.match(doc.signature!.signed_at, /^\d{2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2} [AP]M IST$/);
 
   await assert.rejects(policeForm(sql, id, "tenant"));
   const form = (await policeForm(sql, id, "owner")).map((l) => l.text).join("\n");

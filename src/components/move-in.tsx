@@ -253,9 +253,17 @@ function DepositPanel({ m, owner, reload }: { m: Item; owner: boolean; reload: (
       ) : null}
       {photo ? <img src={photo} alt="Deduction evidence" className="mt-2 max-h-56 rounded-lg border border-line" onClick={() => setPhoto(null)} /> : null}
       <p className="mt-2 text-sm">
-        Balance to refund: <b>{inr(d.balanceInr)}</b>
-        {d.refundDueOn && d.status !== "REFUNDED" ? ` by ${d.refundDueOn}` : ""}
-        {d.status === "REFUNDED" ? ` · paid ${inr(d.refundedInr ?? 0)} on ${d.refundedOn}${d.refundRef ? ` (ref ${d.refundRef})` : ""}` : ""}
+        {d.status === "REFUNDED" ? (
+          <>
+            Refunded <b>{inr(d.refundedInr ?? 0)}</b> on {d.refundedOn}
+            {d.refundRef ? ` (ref ${d.refundRef})` : ""}
+          </>
+        ) : (
+          <>
+            Balance to refund: <b>{inr(d.balanceInr)}</b>
+            {d.refundDueOn ? ` by ${d.refundDueOn}` : ""}
+          </>
+        )}
       </p>
       {!owner && (!d.tenantAckAt || d.deductions.some((x) => !x.tenantAckAt)) ? (
         <button className={`mt-2 ${btnSmallPrimary}`} disabled={busy} onClick={() => go(() => depositAction({ data: { depositId: d.id, action: "ack" } }))}>

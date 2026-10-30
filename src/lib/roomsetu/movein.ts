@@ -31,7 +31,7 @@ const digits = (s: string) => s.replace(/\D/g, "");
 export function idLast4(type: IdType, raw: string): string {
   const v = raw.replace(/[\s-]/g, "").toUpperCase();
   if (type === "AADHAAR") {
-    if (!/^[2-9]\d{11}$/.test(v)) throw new Error("Aadhaar should be 12 digits.");
+    if (!/^[2-9]\d{11}$/.test(v)) throw new Error("Aadhaar should be 12 digits (it never starts with 0 or 1).");
   } else if (!/^[A-Z0-9/]{4,24}$/.test(v)) throw new Error("That ID number looks off.");
   return v.slice(-4);
 }

@@ -155,7 +155,7 @@ export async function idDoc(sql: Sql, inviteId: string, userId: string) {
 export async function agreementDoc(sql: Sql, inviteId: string, userId: string) {
   const { inv } = await access(sql, inviteId, userId);
   const d = await details(sql, inviteId);
-  const s = (await sql<{ typed_name: string; signed_at: string; ip: string; agreement_sha256: string }>`select typed_name, signed_at::text as signed_at, ip, agreement_sha256 from movein_signatures where invite_id = ${inviteId}`)[0];
+  const s = (await sql<{ typed_name: string; signed_at: string; ip: string; agreement_sha256: string }>`select typed_name, to_char(signed_at at time zone 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') || ' IST' as signed_at, ip, agreement_sha256 from movein_signatures where invite_id = ${inviteId}`)[0];
   return { text: agreementText(agreementInput(inv, d?.full_name ?? "the resident")), signature: s ?? null };
 }
 
@@ -243,7 +243,7 @@ export async function markRefunded(sql: Sql, depositId: string, userId: string, 
 }
 
 export async function listMoveIns(sql: Sql, userId: string) {
-  const invites = (await sql.query(`select ${INVITE_COLS}, d.full_name as tenant_name, d.outside_mangaluru, d.id_type, d.id_last4, s.signed_at::text as signed_at
+  const invites = (await sql.query(`select ${INVITE_COLS}, d.full_name as tenant_name, d.outside_mangaluru, d.id_type, d.id_last4, (to_char(s.signed_at at time zone 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') || ' IST') as signed_at
     ${INVITE_FROM} left join movein_details d on d.invite_id = i.id left join movein_signatures s on s.invite_id = i.id
     where (i.owner_id = $1 or i.tenant_id = $1) and i.status <> 'CANCELLED' order by i.created_at desc limit 50`, [userId])) as (InviteRow & {
     tenant_name: string | null; outside_mangaluru: boolean | null; id_type: string | null; id_last4: string | null; signed_at: string | null;
