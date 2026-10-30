@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clip, ogCardModel, ogCardTree, usablePhoto } from "./listing-card.ts";
+import { AI_PHOTO_LABEL, hasAiPhotos, clip, ogCardModel, ogCardTree, usablePhoto } from "./listing-card.ts";
 
 const base = { title: "Mud Home Premium PG · AC 2-sharing", roomType: "PG", locality: "Bunder", city: "Mangaluru", rent: 8999, allInInr: null, verified: true, photo: "data:image/jpeg;base64,AAAA" };
 
@@ -36,4 +36,15 @@ test("tree has the badge text only when verified", () => {
   assert.ok(s(true).includes("verified by phone"));
   assert.ok(!s(false).includes("verified by phone"));
   assert.ok(s(true).includes("roomeo"));
+});
+
+test("AI preview photos get a visible label", () => {
+  const mud = "Bright AC room. AI photos for representation purpose only; real photos coming soon.";
+  assert.equal(hasAiPhotos(mud), true);
+  assert.equal(hasAiPhotos("AI-generated images, real ones soon"), true);
+  assert.equal(hasAiPhotos("Near the bus stand, fast wifi"), false);
+  const tree = (d: string, photo: string | null = base.photo) => JSON.stringify(ogCardTree(ogCardModel({ ...base, photo, description: d })));
+  assert.ok(tree(mud).includes(AI_PHOTO_LABEL));
+  assert.ok(!tree("real photos").includes(AI_PHOTO_LABEL));
+  assert.ok(!tree(mud, null).includes(AI_PHOTO_LABEL), "no photo, no label");
 });

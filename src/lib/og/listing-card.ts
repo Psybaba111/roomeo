@@ -11,6 +11,7 @@ export type OgListing = {
   allInInr: number | null;
   verified: boolean;
   photo: string | null;
+  description?: string;
 };
 
 export type OgCardModel = {
@@ -20,7 +21,16 @@ export type OgCardModel = {
   area: string;
   verified: boolean;
   photo: string | null;
+  aiPhoto?: boolean;
 };
+
+export const AI_PHOTO_LABEL = "AI photo · for representation only";
+
+/** Owners flag AI preview photos in the description ("AI photos for representation purpose only"). */
+export function hasAiPhotos(description: string | null | undefined): boolean {
+  const d = String(description ?? "").toLowerCase();
+  return /\bai[- ]?(generated )?(photo|image|render|picture)s?\b/.test(d) || /for representation (purpose|only)/.test(d);
+}
 
 const rupees = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
@@ -47,6 +57,7 @@ export function ogCardModel(l: OgListing): OgCardModel {
     area: clip([l.locality, l.city].filter(Boolean).join(", "), 40),
     verified: l.verified,
     photo: usablePhoto(l.photo),
+    aiPhoto: Boolean(usablePhoto(l.photo)) && hasAiPhotos(l.description),
   };
 }
 
@@ -64,7 +75,12 @@ export function ogCardTree(m: OgCardModel): El {
   const pill = (text: string, bg: string, color: string) =>
     el("div", { display: "flex", alignItems: "center", padding: "10px 20px", borderRadius: 999, background: bg, color, fontSize: 28, fontWeight: 800 }, text);
   const left = m.photo
-    ? el("img", { width: 560, height: OG_H, objectFit: "cover" }, undefined, { src: m.photo, width: 560, height: OG_H })
+    ? el("div", { display: "flex", position: "relative", width: 560, height: OG_H }, [
+        el("img", { width: 560, height: OG_H, objectFit: "cover" }, undefined, { src: m.photo, width: 560, height: OG_H }),
+        ...(m.aiPhoto
+          ? [el("div", { display: "flex", position: "absolute", left: 20, bottom: 20, padding: "8px 16px", borderRadius: 999, background: "rgba(20,17,31,0.82)", color: "#fff", fontSize: 22, fontWeight: 600 }, AI_PHOTO_LABEL)]
+          : []),
+      ])
     : el("div", { width: 560, height: OG_H, display: "flex", alignItems: "center", justifyContent: "center", background: BRAND, color: "#fff", fontSize: 140, fontWeight: 800 }, "roomeo");
   const right = el(
     "div",

@@ -13,7 +13,7 @@ async function loadModel(id: string) {
   const sql = await getSql();
   // to_jsonb keeps this working before migration 0016 (all_in_inr) lands on a database.
   const rows = await sql.query<Record<string, unknown>>(
-    `select l.title, l.room_type, l.city_name, l.locality_name, l.monthly_rent, l.is_demo, l.status,
+    `select l.title, l.description, l.room_type, l.city_name, l.locality_name, l.monthly_rent, l.is_demo, l.status,
             to_jsonb(l) ->> 'all_in_inr' as all_in_inr,
             pr.identity_status, pr.phone_verified_at, pr.is_demo as host_demo, pr.account_status,
             (select i.url from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
@@ -34,6 +34,7 @@ async function loadModel(id: string) {
     allInInr: r.all_in_inr == null ? null : Number(r.all_in_inr),
     verified: verifiedId && Boolean(r.phone_verified_at),
     photo: r.photo == null ? null : String(r.photo),
+    description: String(r.description ?? ""),
   });
 }
 
