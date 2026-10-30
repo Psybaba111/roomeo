@@ -42,13 +42,16 @@ test("ID image must be an image data URL", () => {
 });
 
 test("agreement carries rent, deposit, 3-month min stay, 30-day notice and rules", () => {
-  const t = agreementText({ ownerName: "Athiti", tenantName: "Asha", propertyTitle: "Mud Home", propertyAddress: "Kadri", bedLabel: "B2", rentInr: 8999, depositInr: 8999, startDate: "2026-11-01", minStayMonths: 3, noticeDays: 30, houseRules: "No smoking\nGate 11 PM" }).join("\n");
+  const t = agreementText({ ownerName: "Athiti", tenantName: "Asha", propertyTitle: "Mud Home", propertyAddress: "Kadri", bedLabel: "B2", rentInr: 8999, depositInr: 8999, startDate: "2026-11-01", madeOn: "2026-10-30", minStayMonths: 3, noticeDays: 30, houseRules: "No smoking\nGate 11 PM" }).join("\n");
   assert.match(t, /LEAVE AND LICENCE/);
   assert.match(t, /₹8,999 per month/);
   assert.match(t, /Minimum stay is 3 months/);
   assert.match(t, /30 days' written notice/);
   assert.match(t, /1\. No smoking/);
   assert.match(t, /bed B2/);
+  assert.match(t, /This agreement is made on 30 Oct 2026 between/, "made on = signing date, not move-in date");
+  assert.match(t, /The licence starts on 1 Nov 2026\./);
+  assert.doesNotMatch(t, /\d{4}-\d{2}-\d{2}/, "no raw ISO dates");
 });
 
 test("police form flags outside residents and masks the ID", () => {

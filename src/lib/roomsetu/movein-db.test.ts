@@ -40,6 +40,11 @@ test("move-in: invite → claim → details + private ID → e-sign → police f
   assert.equal(doc.signature?.ip, "1.2.3.4");
   assert.match(doc.signature!.agreement_sha256, /^[0-9a-f]{64}$/);
   assert.match(doc.signature!.signed_at, /^\d{2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2} [AP]M IST$/);
+  // Made on = signing day (IST), not the 1 Nov move-in date.
+  await pg.query(`update movein_signatures set signed_at = '2026-10-30T12:00:00Z' where invite_id = $1`, [id]);
+  const made = (await agreementDoc(sql, id, "tenant")).text.join("\n");
+  assert.match(made, /made on 30 Oct 2026 between/);
+  assert.match(made, /starts on 1 Nov 2026/);
 
   await assert.rejects(policeForm(sql, id, "tenant"));
   const form = (await policeForm(sql, id, "owner")).map((l) => l.text).join("\n");

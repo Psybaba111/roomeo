@@ -10,6 +10,7 @@ import { errText } from "@/lib/ui-text";
 import { pageHead } from "@/lib/seo";
 import { ID_TYPES } from "@/lib/roomsetu/movein";
 import { getAgreementPdf, openMoveIn, signMoveInAgreement, submitMoveInDetails } from "@/lib/roomsetu/movein-api";
+import { readableDate } from "@/lib/roomsetu/dates";
 
 export const Route = createFileRoute("/move-in/$token")({
   head: () => pageHead("Your move-in", { description: "Fill your details, upload ID and sign your PG stay agreement.", noindex: true }),
@@ -46,7 +47,7 @@ function Flow({ token }: { token: string }) {
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Move-in · {data.title}</p>
       <h1 className="mt-2 font-display text-4xl sm:text-5xl">Let's get you moved in 🏠</h1>
       <p className="mt-2 text-muted">
-        From {data.startDate}{data.bedLabel ? ` · ${data.bedLabel}` : ""} · ₹{data.rentInr.toLocaleString("en-IN")}/mo · deposit ₹{data.depositInr.toLocaleString("en-IN")} · owner {data.ownerName}
+        From {readableDate(data.startDate)}{data.bedLabel ? ` · ${data.bedLabel}` : ""} · ₹{data.rentInr.toLocaleString("en-IN")}/mo · deposit ₹{data.depositInr.toLocaleString("en-IN")} · owner {data.ownerName}
       </p>
       {data.role === "owner" ? (
         <p className={`mt-4 ${inner} text-sm`}>This is your own move-in link. Share it with the resident from your dashboard.</p>

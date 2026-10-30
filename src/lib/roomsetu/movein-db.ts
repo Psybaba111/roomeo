@@ -1,3 +1,4 @@
+import { istToday } from "./dates.ts";
 import type { Sql } from "../db.ts";
 import { confirmMoveInRecord, signedKey } from "./movein-confirm.ts";
 import {
@@ -110,7 +111,7 @@ async function details(sql: Sql, inviteId: string) {
     emergency_name, emergency_phone, id_type, id_last4, outside_mangaluru from movein_details where invite_id = ${inviteId}`)[0];
 }
 
-export function agreementInput(inv: InviteRow, tenantName: string): AgreementInput {
+export function agreementInput(inv: InviteRow, tenantName: string, madeOn: string = istToday()): AgreementInput {
   return {
     ownerName: inv.owner_name,
     tenantName,
@@ -120,6 +121,7 @@ export function agreementInput(inv: InviteRow, tenantName: string): AgreementInp
     rentInr: Number(inv.rent_inr),
     depositInr: Number(inv.deposit_inr),
     startDate: inv.start_date,
+    madeOn,
     minStayMonths: Number(inv.min_stay_months),
     noticeDays: Number(inv.notice_days),
     houseRules: inv.house_rules,
@@ -139,7 +141,7 @@ export async function signAgreement(sql: Sql, inviteId: string, userId: string, 
   const d = await details(sql, inviteId);
   if (!d) throw new Error("Fill in your details and ID first.");
   if (norm(typedName) !== norm(d.full_name)) throw new Error(`Type your name exactly as "${d.full_name}" to sign.`);
-  const hash = await sha256Hex(agreementText(agreementInput(inv, d.full_name)).join("\n"));
+  const hash = await sha256Hex(agreementText(agreementInput(inv, d.full_name, istToday())).join("\n"));
   const r = await sql<{ signed_at: string }>`insert into movein_signatures (invite_id, typed_name, ip, user_agent, agreement_sha256)
     values (${inviteId}, ${typedName.trim()}, ${meta.ip}, ${meta.userAgent}, ${hash}) on conflict (invite_id) do nothing returning signed_at::text as signed_at`;
   await sql`update movein_invites set status = 'SIGNED', updated_at = now() where id = ${inviteId}`;
@@ -163,8 +165,11 @@ export async function idDoc(sql: Sql, inviteId: string, userId: string) {
 export async function agreementDoc(sql: Sql, inviteId: string, userId: string) {
   const { inv } = await access(sql, inviteId, userId);
   const d = await details(sql, inviteId);
-  const s = (await sql<{ typed_name: string; signed_at: string; ip: string; agreement_sha256: string }>`select typed_name, to_char(signed_at at time zone 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') || ' IST' as signed_at, ip, agreement_sha256 from movein_signatures where invite_id = ${inviteId}`)[0];
-  return { text: agreementText(agreementInput(inv, d?.full_name ?? "the resident")), signature: s ?? null };
+  const row = (await sql<{ typed_name: string; signed_at: string; signed_on: string; ip: string; agreement_sha256: string }>`select typed_name, to_char(signed_at at time zone 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') || ' IST' as signed_at,
+    (signed_at at time zone 'Asia/Kolkata')::date::text as signed_on, ip, agreement_sha256 from movein_signatures where invite_id = ${inviteId}`)[0];
+  const s = row ? { typed_name: row.typed_name, signed_at: row.signed_at, ip: row.ip, agreement_sha256: row.agreement_sha256 } : undefined;
+  // "Made on" = the day it was signed (IST); while unsigned, today.
+  return { text: agreementText(agreementInput(inv, d?.full_name ?? "the resident", row?.signed_on ?? istToday())), signature: s ?? null };
 }
 
 export async function policeForm(sql: Sql, inviteId: string, userId: string) {

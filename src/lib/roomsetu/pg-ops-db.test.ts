@@ -25,6 +25,10 @@ test("bed board: add beds, link resident, relist vacant / on-notice", async () =
   await assert.rejects(saveBed(sql, "owner", "L1", null, parseBed({ label: "B1", status: "OCCUPIED" }), "stranger"), /moved in/);
   let board = await bedBoard(sql, "owner");
   assert.equal(board.listings[0].unplaced[0].userId, "tenant");
+  // A signed move-in seeds the agreed move-in date, not the day it was signed.
+  await pg.query(`insert into movein_invites (id, token, listing_id, owner_id, tenant_id, rent_inr, start_date, status) values ('inv1','tok1','L1','owner','tenant',8999,'2026-11-01','SIGNED')`);
+  board = await bedBoard(sql, "owner");
+  assert.equal(board.listings[0].unplaced[0].since, "2026-11-01");
   await saveBed(sql, "owner", "L1", null, parseBed({ label: "B1", status: "OCCUPIED", tenantName: "Asha", moveInDate: "2026-11-01" }), "tenant");
   const b2 = await saveBed(sql, "owner", "L1", null, parseBed({ label: "B2", status: "ON_NOTICE", tenantName: "Ravi", noticeEnd: "2026-11-30" }));
   const b3 = await saveBed(sql, "owner", "L1", null, parseBed({ label: "B3", status: "VACANT" }));
