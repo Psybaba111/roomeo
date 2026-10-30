@@ -5,7 +5,6 @@ import { SITE_URL } from "@/lib/seo";
 import {
   CLAIM_MESSAGES,
   canClaim,
-  completionCredits,
   isMissingTable,
   makeReferralCode,
   normalizeCode,
@@ -85,24 +84,4 @@ export const claimReferral = createServerFn({ method: "POST" })
     }
   });
 
-/**
- * Called once a move-in is confirmed by both sides. If the renter came in on an invite and this is their
- * first completed move-in, both people get ₹500 credit. Never throws: a referral hiccup must not break the move-in.
- */
-export async function completeReferralOnMoveIn(sql: Sql, seekerId: string, applicationId: string): Promise<boolean> {
-  if (!referralsEnabled()) return false;
-  try {
-    const done = await sql<{ id: string; referrer_id: string }>`update referrals set completed_at = now(), application_id = ${applicationId}
-      where referee_id = ${seekerId} and completed_at is null returning id, referrer_id`;
-    const r = done[0];
-    if (!r) return false;
-    for (const c of completionCredits({ id: r.id, referrerId: r.referrer_id, refereeId: seekerId })) {
-      await sql`insert into referral_credits (id, user_id, referral_id, amount_inr, reason) values (${crypto.randomUUID()}, ${c.userId}, ${c.referralId}, ${c.amountInr}, ${c.reason}) on conflict (user_id, referral_id) do nothing`;
-      await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${c.userId}, 'application', ${`₹${c.amountInr} off your first month`}, ${c.reason + ". Show this at move-in, we'll knock it off the rent."}, '/dashboard')`;
-    }
-    return true;
-  } catch (err) {
-    console.error("[referrals] completion skipped", isMissingTable(err) ? "(migration 0017 not applied)" : err);
-    return false;
-  }
-}
+export { completeReferralOnMoveIn } from "@/lib/roomsetu/movein-confirm";
