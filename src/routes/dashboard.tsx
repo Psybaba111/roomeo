@@ -3,11 +3,11 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { ReferralCard } from "@/components/referral-card";
-import { MoveInSection } from "@/components/move-in";
 import { BoostPanel } from "@/components/host-extras";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
 import { RoomCard } from "@/components/cards";
+import { MoveInSection } from "@/components/move-in";
 import { getPublicPricing, startPassCheckout } from "@/lib/roomsetu/pricing-api";
 import { dashboardPasses, type DashboardPass } from "@/lib/roomsetu/dashboard-passes";
 import { UpiCheckout, type UpiCheckoutData } from "@/components/upi-checkout";
@@ -192,8 +192,6 @@ function Desk() {
       </div>
 
       <ReferralCard />
-
-      <MoveInSection />
 
       {incoming.length ? (
         <section className="mt-6">
@@ -388,6 +386,8 @@ function Desk() {
           ) : null}
         </section>
       ) : null}
+
+      <MoveInSection />
 
       <section className="mt-10 grid gap-4 lg:grid-cols-2">
         <div className="rounded-3xl border border-line bg-card p-4">
