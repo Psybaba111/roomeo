@@ -445,7 +445,9 @@ export function injectGrokPwaHead(html, ctx = {}) {
     host,
     documentTitle,
   );
-  let next = stripShareMetaTags(html);
+  // A page that ships its own share tags (e.g. a listing card) keeps them; everything else gets the site card.
+  const pageOwnsOg = /<meta[^>]+name=["']roomeo:og["']/i.test(html);
+  let next = pageOwnsOg ? html : stripShareMetaTags(html);
   if (!readGrokExtensionsEnabled()) next = stripGrokExtensionsScript(next);
 
   const missing = grokPwaHeadTags(appName)
@@ -456,7 +458,7 @@ export function injectGrokPwaHead(html, ctx = {}) {
     })
     .map(([, tag]) => tag);
 
-  next = insertAfterHeadOpen(
+  if (!pageOwnsOg) next = insertAfterHeadOpen(
     next,
     grokOgHeadTags({ host, appName, site, documentTitle, cwd }).join(""),
   );

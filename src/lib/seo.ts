@@ -45,6 +45,31 @@ export function pageHead(title: string, opts: { description?: string; noindex?: 
   return { meta };
 }
 
+/** Marks a page that ships its own og:/twitter: tags so the platform head injector keeps them. */
+export const OWN_OG_META = { name: "roomeo:og", content: "page" } as const;
+
+export function listingOgImageUrl(id: string, base = SITE_URL): string {
+  return `${base}/api/og/listing/${encodeURIComponent(id)}.jpg`;
+}
+
+export function listingShareMeta(p: { title: string; description: string; url: string; image: string }): Array<Record<string, string>> {
+  return [
+    OWN_OG_META,
+    { property: "og:type", content: "website" },
+    { property: "og:site_name", content: "roomeo" },
+    { property: "og:url", content: p.url },
+    { property: "og:image", content: p.image },
+    { property: "og:image:type", content: "image/jpeg" },
+    { property: "og:image:width", content: "1200" },
+    { property: "og:image:height", content: "630" },
+    { property: "og:image:alt", content: p.title },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: `${p.title} · roomeo` },
+    { name: "twitter:description", content: p.description },
+    { name: "twitter:image", content: p.image },
+  ];
+}
+
 type ListingSeo = {
   id: string;
   title: string;
@@ -96,16 +121,10 @@ export function listingHead(room: (ListingSeo & { held?: false }) | { held: true
   const title = `${room.roomType} in ${room.locality} · ₹${room.rent.toLocaleString("en-IN")}/mo`;
   const description = `${room.title}. ${room.roomType} in ${room.locality}, ${room.city} for ₹${room.rent.toLocaleString("en-IN")} a month. Chat the owner free, no broker's month.`;
   const head = pageHead(title, { description, noindex: room.isDemo });
-  const image = room.images[0]?.url;
-  head.meta.push(
-    { property: "og:type", content: "website" },
-    { property: "og:url", content: `${SITE_URL}/listing/${room.id}` },
-  );
-  if (image)
-    head.meta.push(
-      { property: "og:image", content: image },
-      { name: "twitter:card", content: "summary_large_image" },
-    );
+  // Always our own share card (photo + all-in price + area + badge). Listing photos are data URLs that chat apps can't fetch.
+  const image = listingOgImageUrl(room.id);
+  const url = `${SITE_URL}/listing/${room.id}`;
+  head.meta.push(...listingShareMeta({ title, description, url, image }));
   return {
     ...head,
     links: [{ rel: "canonical", href: `${SITE_URL}/listing/${room.id}` }],

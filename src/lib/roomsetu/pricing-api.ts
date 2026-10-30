@@ -7,6 +7,7 @@ import { num, str } from "@/lib/roomsetu/map";
 import { buildUpiLink, makeRef, upiPayee } from "@/lib/roomsetu/upi";
 import { pricingConfig, moveInConfirmed, REFUND_PROMISE } from "@/lib/roomsetu/pricing";
 import { contactSummary, runPricingSweep } from "@/lib/roomsetu/pricing-db";
+import { completeReferralOnMoveIn } from "@/lib/roomsetu/referral-api";
 
 function rec(input: unknown): Record<string, unknown> {
   return input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -190,6 +191,7 @@ export const confirmMoveIn = createServerFn({ method: "POST" })
       await sql`update move_ins set confirmed_at = now() where application_id = ${data.applicationId} and confirmed_at is null`;
       const other = context.userId === app.seeker_id ? app.host_id : app.seeker_id;
       await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${other}, 'application', 'Move in confirmed', 'Both of you confirmed the move in. Welcome home.', '/applications')`;
+      await completeReferralOnMoveIn(sql, app.seeker_id, data.applicationId);
     }
     return { confirmed: both };
   });
