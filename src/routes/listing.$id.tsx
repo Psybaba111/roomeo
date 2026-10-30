@@ -4,6 +4,7 @@ import { SquadShortlistButton } from "@/components/squad-shortlist-button";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SealCheck as BadgeCheck } from "@phosphor-icons/react";
+import { RentOnTimeBadge } from "@/components/rent-autopay";
 import { Shell } from "@/components/shell";
 import { errText, safeNext } from "@/lib/ui-text";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -199,6 +200,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
                 Not verified yet
               </span>
             )}
+            <RentOnTimeBadge listingId={room.id} />
             {room.isDemo ? (
               <span className="rounded-full bg-marigold-soft px-2 py-1 text-xs font-semibold text-ink">
                 Demo

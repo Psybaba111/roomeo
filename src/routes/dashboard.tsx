@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { ReferralCard } from "@/components/referral-card";
+import { RentAutopaySection } from "@/components/rent-autopay";
 import { BoostPanel } from "@/components/host-extras";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
@@ -189,6 +190,8 @@ function Desk() {
           <p className="font-display text-3xl">See</p>
         </Link>
       </div>
+
+      <RentAutopaySection />
 
       <ReferralCard />
 
