@@ -20,11 +20,12 @@ test("privacy covers required sections", () => {
 test("terms fees match pricing defaults", () => {
   const c = pricingConfig({});
   assert.equal(c.successFeeEnabled, false);
-  assert.ok(T.includes(`first ${c.freeContacts} owner chats are free`));
-  for (const n of [c.passes.WEEKLY.priceInr, c.passes.MONTHLY.priceInr, c.passes.SQUAD.priceInr, c.boostInr, c.fastTrackInr]) assert.ok(T.includes(`₹${n}`), String(n));
-  assert.ok(T.includes(`₹${SUCCESS_FEE_INR} + 18% GST (₹${Math.round(SUCCESS_FEE_INR * 1.18).toLocaleString("en-IN")})`));
+  assert.equal(c.passesEnabled, false);
+  assert.ok(T.includes("Owner chats are free"));
+  assert.ok(T.includes("no success fee"));
+  assert.ok(!T.includes(`₹${SUCCESS_FEE_INR}`));
   assert.ok(T.includes(`within ${c.noReplyHours} hours`));
-  for (const k of ["not the owner, landlord", "within 7 days", "only when we switch it on", "acceptable use", "Mangaluru, Karnataka", "Limitation of liability", "Indemnity", "Intermediary Rules, 2021", "broker"]) assert.ok(T.includes(k), k);
+  for (const k of ["not the owner, landlord", "within 7 days", "acceptable use", "Mangaluru, Karnataka", "Limitation of liability", "Indemnity", "Intermediary Rules, 2021", "broker"]) assert.ok(T.includes(k), k);
 });
 
 test("sitemap lists /privacy and /terms", () => {

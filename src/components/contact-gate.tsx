@@ -156,12 +156,16 @@ function PassGate({ listingId, status, reload }: { listingId: string; status: St
       {open ? (
         <>
           <p id="contact-h" className="text-base font-semibold" data-testid="contact-quota">
-            {s.pass
-              ? `Pass active until ${s.pass.endsAt.slice(0, 10)}. Message any owner.`
-              : `${s.freeLeft} of ${s.freeTotal} free owner contacts left`}
+            {s.unlimited
+              ? "Chat the owner, free"
+              : s.pass
+                ? `Pass active until ${s.pass.endsAt.slice(0, 10)}. Message any owner.`
+                : `${s.freeLeft} of ${s.freeTotal} free owner contacts left`}
           </p>
           <p className="mt-2 text-sm text-muted [text-wrap:pretty]">
-            {s.pass
+            {s.unlimited
+              ? "No passes, no fees. Ask for a video tour, the all-in price and the deposit terms before you visit."
+              : s.pass
               ? "Unlimited contacts while your pass lasts."
               : "Messaging this owner uses one free contact. If the owner declines or does not reply in 48 hours, you get it back."}
           </p>
@@ -174,7 +178,9 @@ function PassGate({ listingId, status, reload }: { listingId: string; status: St
           <p id="contact-h" className="flex items-center gap-2 text-base font-semibold">
             <LockSimple size={18} aria-hidden="true" /> Verify your phone to message owners
           </p>
-          <p className="mt-2 text-sm text-muted">You get {s.freeTotal} free owner contacts once your phone is verified.</p>
+          <p className="mt-2 text-sm text-muted">
+            {s.unlimited ? "One quick OTP keeps spam out. Then chat as many owners as you like, free." : `You get ${s.freeTotal} free owner contacts once your phone is verified.`}
+          </p>
           <Link to="/verification" className={`mt-4 w-full ${btnPrimary}`}>
             Verify my phone
           </Link>

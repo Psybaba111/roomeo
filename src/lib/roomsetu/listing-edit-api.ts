@@ -1,3 +1,5 @@
+import { readTrust, writeTrust } from "@/lib/roomsetu/trust-db";
+import { trustOf } from "@/lib/roomsetu/trust";
 import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
@@ -61,13 +63,17 @@ export const getListingForEdit = createServerFn({ method: "POST" })
       availableFrom: str(row.available_from).slice(0, 10),
       amenities: Object.fromEntries(EDIT_AMENITIES.map((a) => [a.key, bool(row[a.column])])) as Record<AmenityKey, boolean>,
       photos: photos.map((p) => ({ id: str(p.id), url: str(p.url), category: str(p.category) })),
+      trust: await readTrust(sql, data.id),
       asAdmin,
     };
   });
 
 export const updateListing = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(editOf)
+  .validator((input: unknown) => {
+    const edit = editOf(input);
+    return { ...edit, trust: trustOf(input, edit.monthlyRent) };
+  })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const { asAdmin } = await access(sql, data.id, context.userId);
@@ -106,6 +112,7 @@ export const updateListing = createServerFn({ method: "POST" })
       const p = data.newPhotos[i];
       await sql`insert into listing_images (id, listing_id, url, category, sort_order) values (${crypto.randomUUID()}, ${data.id}, ${p.url}, ${p.category}, ${keep.length + i})`;
     }
+    await writeTrust(sql, data.id, data.trust);
     await sql`delete from listing_amenities where listing_id = ${data.id}`;
     for (const a of EDIT_AMENITIES) {
       if (!a.amenity || !data.amenities[a.key]) continue;

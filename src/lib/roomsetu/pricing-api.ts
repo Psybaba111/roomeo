@@ -44,6 +44,9 @@ export const getPublicPricing = createServerFn({ method: "GET" }).handler(async 
   const c = pricingConfig();
   return {
     model: c.contactModel,
+    paidChatEnabled: c.paidChatEnabled,
+    boostsEnabled: c.boostsEnabled,
+    fastTrackEnabled: c.fastTrackEnabled,
     freeContacts: c.freeContacts,
     weekly: c.passes.WEEKLY.priceInr,
     monthly: c.passes.MONTHLY.priceInr,
@@ -98,6 +101,8 @@ export const getHostExtras = createServerFn({ method: "GET" })
     const listings = await sql<{ id: string; title: string; status: string; b: string | null }>`select id, title, status, case when boosted_until > now() then boosted_until::text end as b
       from listings where owner_id = ${context.userId} and status <> 'REMOVED' order by created_at desc limit 20`;
     return {
+      boostsEnabled: cfg.boostsEnabled,
+      fastTrackEnabled: cfg.fastTrackEnabled,
       boostInr: cfg.boostInr,
       boostDays: cfg.boostDays,
       fastTrackInr: cfg.fastTrackInr,
@@ -120,6 +125,7 @@ export const startBoostCheckout = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const cfg = pricingConfig();
+    if (!cfg.boostsEnabled) throw new Error("Boosts are parked for now. Every listing gets the same shot, free.");
     const l = await sql<{ title: string; status: string }>`select title, status from listings where id = ${data.listingId} and owner_id = ${context.userId}`;
     if (!l[0]) throw new Error("Only the owner can boost this listing.");
     if (l[0].status !== "ACTIVE") throw new Error("Publish the listing before boosting it.");
@@ -131,6 +137,7 @@ export const startFastTrackCheckout = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const sql = await getSql();
     const cfg = pricingConfig();
+    if (!cfg.fastTrackEnabled) throw new Error("Fast track is parked for now. ID checks are free and in one queue.");
     const p = await sql<{ fast: boolean; verified: boolean }>`select fast_track_at is not null as fast, identity_status = 'VERIFIED' as verified from profiles where user_id = ${context.userId}`;
     if (!p[0]) throw new Error("Finish your profile first.");
     if (p[0].verified) throw new Error("Your ID is already verified.");

@@ -5,6 +5,7 @@ import { ArrowLeft, Camera, CheckCircle, Trash } from "@phosphor-icons/react";
 import { NeedAccount } from "@/components/need-account";
 import { Shell } from "@/components/shell";
 import { control } from "@/components/cards";
+import { EMPTY_TRUST, TrustFields, trustPayload, type TrustForm } from "@/components/trust-fields";
 import { btnPrimary, btnSecondary, btnSmall } from "@/components/ui-tokens";
 import { readPhotos } from "@/components/photo-upload";
 import { errText } from "@/lib/ui-text";
@@ -36,6 +37,7 @@ function EditListing({ id }: { id: string }) {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ monthlyRent: "", deposit: "", description: "", furnished: "Furnished", availableFrom: "" });
+  const [trust, setTrust] = useState<TrustForm>(EMPTY_TRUST);
   const [amenities, setAmenities] = useState<Record<AmenityKey, boolean> | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
 
@@ -44,6 +46,7 @@ function EditListing({ id }: { id: string }) {
       .then((r) => {
         setRoom(r);
         setForm({ monthlyRent: String(r.monthlyRent), deposit: String(r.deposit), description: r.description, furnished: r.furnished, availableFrom: r.availableFrom });
+        setTrust({ allInInr: r.trust.allInInr ? String(r.trust.allInInr) : "", allInIncludes: r.trust.allInIncludes, videoTourUrl: r.trust.videoTourUrl, depositRefundDays: String(r.trust.depositRefundDays) });
         setAmenities(r.amenities);
         setPhotos(r.photos);
       })
@@ -74,6 +77,7 @@ function EditListing({ id }: { id: string }) {
         furnished: form.furnished,
         availableFrom: form.availableFrom,
         amenities,
+        ...trustPayload(trust),
         keepPhotoIds: photos.filter((p) => p.id).map((p) => p.id as string),
         newPhotos: photos.filter((p) => !p.id).map((p) => ({ url: p.url, category: p.category })),
       },
@@ -132,6 +136,7 @@ function EditListing({ id }: { id: string }) {
           <span className="mb-1 block text-sm text-muted">Deposit (₹)</span>
           <input className={control} inputMode="numeric" name="deposit" value={form.deposit} onChange={(e) => set("deposit", e.target.value.replace(/[^\d]/g, ""))} required />
         </label>
+        <TrustFields value={trust} onChange={(k, v) => setTrust((t) => ({ ...t, [k]: v }))} />
         <label>
           <span className="mb-1 block text-sm text-muted">Furnished</span>
           <select className={control} name="furnished" value={form.furnished} onChange={(e) => set("furnished", e.target.value)}>

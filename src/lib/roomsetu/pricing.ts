@@ -25,6 +25,10 @@ export type PricingConfig = {
   successFeeEnabled: boolean;
   successFeeTenantInr: number;
   successFeeOwnerInr: number;
+  /** Free trust-first model (Oct 2026): paid chat, boosts and fast track are parked behind these. */
+  paidChatEnabled: boolean;
+  boostsEnabled: boolean;
+  fastTrackEnabled: boolean;
 };
 
 const procEnv = (): Env => (typeof process !== "undefined" ? process.env : {});
@@ -49,7 +53,8 @@ export function pricingConfig(env: Env = procEnv()): PricingConfig {
     contactFeeInr: contactFeeInr(env),
     squadSplitEnabled: env.ROOMEO_SQUAD_SPLIT?.trim().toLowerCase() !== "false",
     freeContacts: int(env, "ROOMEO_FREE_CONTACTS", 3, 0, 100),
-    passesEnabled: flag(env, "ROOMEO_PASSES_ENABLED", true),
+    // Chatting owners is free. Passes only come back if BOTH flags are switched on again.
+    passesEnabled: flag(env, "ROOMEO_PAID_CHAT_ENABLED", false) && flag(env, "ROOMEO_PASSES_ENABLED", true),
     passes: {
       WEEKLY: { code: "WEEKLY", name: "Weekly pass", priceInr: int(env, "ROOMEO_WEEKLY_PASS_INR", 149, 1, 100000), days: 7, perMember: false },
       MONTHLY: { code: "MONTHLY", name: "Monthly pass", priceInr: int(env, "ROOMEO_MONTHLY_PASS_INR", 299, 1, 100000), days: 30, perMember: false },
@@ -59,9 +64,13 @@ export function pricingConfig(env: Env = procEnv()): PricingConfig {
     boostInr: int(env, "ROOMEO_BOOST_INR", 199, 1, 100000),
     boostDays: int(env, "ROOMEO_BOOST_DAYS", 7, 1, 90),
     fastTrackInr: int(env, "ROOMEO_FAST_TRACK_INR", 149, 1, 100000),
-    successFeeEnabled: flag(env, "ROOMEO_SUCCESS_FEE_ENABLED", false),
+    // The success fee is retired for good: this stays false whatever the env says.
+    successFeeEnabled: false,
     successFeeTenantInr: int(env, "ROOMEO_SUCCESS_FEE_TENANT_INR", SUCCESS_FEE_INR, 0, 100000),
     successFeeOwnerInr: int(env, "ROOMEO_SUCCESS_FEE_OWNER_INR", SUCCESS_FEE_INR, 0, 100000),
+    paidChatEnabled: flag(env, "ROOMEO_PAID_CHAT_ENABLED", false),
+    boostsEnabled: flag(env, "ROOMEO_BOOSTS_ENABLED", false),
+    fastTrackEnabled: flag(env, "ROOMEO_FAST_TRACK_ENABLED", false),
   };
 }
 
@@ -105,6 +114,7 @@ export type ContactAccess =
  * saved for later), then the free quota, then a pass (or the legacy fee).
  */
 export function contactAccess(cfg: PricingConfig, p: { phoneVerified: boolean; freeUsed: number; activePassId: string | null }): ContactAccess {
+  if (!cfg.paidChatEnabled) return p.phoneVerified ? { kind: "OPEN", source: "FREE", freeLeftAfter: -1 } : { kind: "NEED_PHONE" };
   if (cfg.contactModel === "PER_LISTING_FEE") return { kind: "NEED_FEE" };
   if (p.activePassId) return { kind: "OPEN", source: "PASS", passId: p.activePassId };
   const left = Math.max(0, cfg.freeContacts - p.freeUsed);

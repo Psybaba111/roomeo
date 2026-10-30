@@ -88,9 +88,9 @@ export const TERMS: LegalSection[] = [
   ] },
   { id: "fees", title: "Fees", body: [
     "Browsing, saving, listing and applying are free.",
-    "Owner chats: your first 3 owner chats are free. After that: Weekly pass ₹149 (7 days), Monthly pass ₹299 (30 days), Squad pass ₹99 per person.",
-    "Owners: Boost ₹199 (listing shows first for a while). Fast-track ₹149 (your ID review jumps the queue).",
-    "Success fee (only when we switch it on, and we'll show it clearly before you sign): a one-time ₹999 + 18% GST (₹1,179) per side, charged to the tenant (each squad member) and to the owner, once both sides have signed the Roomeo agreement and before move in.",
+    "Owner chats are free for renters once your phone is verified. There are no chat passes.",
+    "Listing is free for owners. There are no paid boosts or paid fast-track reviews right now.",
+    "There is no success fee or move-in fee. Roomeo never takes a cut of rent or deposit.",
     "Prices include or add GST as shown at checkout, and you get a GST invoice for platform fees. We may change prices for the future; we'll never change the price of something you already paid for.",
   ] },
   { id: "refunds", title: "Refunds", body: [

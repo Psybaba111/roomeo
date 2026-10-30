@@ -82,7 +82,7 @@ export function citySeoTitle(name: string): string {
 
 export function citySeoDescription(name: string): string {
   const c = cityInfo(name);
-  return `Shared rooms, PG beds and whole flats in ${c.name}. ${c.tagline}. Message 3 owners free, no broker's month.`;
+  return `Shared rooms, PG beds and whole flats in ${c.name}. ${c.tagline}. Chat owners free, no broker's month.`;
 }
 
 /** Search URLs for the sitemap, default city first. */
