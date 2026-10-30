@@ -22,6 +22,7 @@ import {
 } from "@/lib/roomsetu/account-api";
 import { COMING_SOON, HOST_WIDGETS, defaultLayout } from "@/lib/roomsetu/constants";
 import { inr } from "@/lib/roomsetu/map";
+import { ComplaintsReceiptsSection } from "@/components/complaints-receipts";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/dashboard")({
@@ -285,6 +286,8 @@ function Desk() {
           Finish your profile so matches can use your city, budget, and house rules.
         </Link>
       ) : null}
+
+      <ComplaintsReceiptsSection />
 
       <section className="mt-8">
         <h2 className="font-display text-3xl">Recommended for you</h2>
