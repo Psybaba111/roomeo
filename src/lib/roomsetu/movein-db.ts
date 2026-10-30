@@ -1,4 +1,5 @@
 import type { Sql } from "../db.ts";
+import { confirmMoveInRecord, signedKey } from "./movein-confirm.ts";
 import {
   DEFAULT_HOUSE_RULES,
   MIN_STAY_MONTHS,
@@ -142,6 +143,13 @@ export async function signAgreement(sql: Sql, inviteId: string, userId: string, 
   const r = await sql<{ signed_at: string }>`insert into movein_signatures (invite_id, typed_name, ip, user_agent, agreement_sha256)
     values (${inviteId}, ${typedName.trim()}, ${meta.ip}, ${meta.userAgent}, ${hash}) on conflict (invite_id) do nothing returning signed_at::text as signed_at`;
   await sql`update movein_invites set status = 'SIGNED', updated_at = now() where id = ${inviteId}`;
+  // Signing = both sides agreed (owner sent the terms, tenant signed), so it counts as a confirmed move-in.
+  // Reuse the tenant's accepted request for this listing if there is one, else key the record to the invite.
+  const app = (await sql<{ id: string }>`select id from applications where seeker_id = ${userId} and listing_id = ${inv.listing_id} and status = 'ACCEPTED' order by created_at desc limit 1`)[0];
+  await confirmMoveInRecord(sql, {
+    applicationId: app?.id ?? signedKey(inviteId), listingId: inv.listing_id, seekerId: userId, ownerId: inv.owner_id,
+    side: "both", notifyUserId: inv.owner_id, notifyBody: `${d.full_name} signed the move-in agreement. Move in confirmed.`,
+  });
   return { signed: true, already: r.length === 0 };
 }
 
