@@ -40,7 +40,7 @@ function CreateListing() {
     title: "",
     propertyType: "Apartment",
     address: "",
-    city: "Bengaluru",
+    city: "",
     locality: "Koramangala",
     pincode: "560034",
     monthlyRent: "15000",
@@ -77,8 +77,6 @@ function CreateListing() {
   useEffect(() => {
     void listCities().then((rows) => {
       setCities(rows);
-      const first = rows[0];
-      if (first) setForm((f) => ({ ...f, city: first.name, locality: first.localities[0] ?? "" }));
     });
   }, []);
 
@@ -210,31 +208,39 @@ function CreateListing() {
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">City</span>
-          <select
+          <input
             className={control}
+            list="known-cities"
+            placeholder="Type any city"
+            maxLength={60}
+            required
             value={form.city}
-            onChange={(e) => {
-              const city = e.target.value;
-              const loc = cities.find((c) => c.name === city)?.localities[0] ?? "";
-              setForm((f) => ({ ...f, city, locality: loc }));
-            }}
-          >
+            onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+            data-testid="listing-city"
+          />
+          <datalist id="known-cities">
             {cities.map((c) => (
-              <option key={c.name}>{c.name}</option>
+              <option key={c.name} value={c.name} />
             ))}
-          </select>
+          </datalist>
         </label>
         <label>
           <span className="mb-1 block text-sm text-muted">Locality</span>
-          <select
+          <input
             className={control}
+            list="known-localities"
+            placeholder="Area or locality"
+            maxLength={60}
+            required
             value={form.locality}
             onChange={(e) => set("locality", e.target.value)}
-          >
+            data-testid="listing-locality"
+          />
+          <datalist id="known-localities">
             {localities.map((l) => (
-              <option key={l}>{l}</option>
+              <option key={l} value={l} />
             ))}
-          </select>
+          </datalist>
         </label>
         <label className="md:col-span-2">
           <span className="mb-1 block text-sm text-muted">

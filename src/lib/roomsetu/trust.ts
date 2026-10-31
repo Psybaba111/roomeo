@@ -60,9 +60,10 @@ export function trustOf(input: unknown, monthlyRent: number): TrustFields {
 }
 
 /** "Deposit ₹10,000 · refunded within 7 days of move-out". */
-export function depositTerms(depositInr: number, refundDays: number): string {
+/** Roomeo shows the deposit but never holds it (Rohith, 31 Oct 2026). */
+export function depositTerms(depositInr: number, _refundDays?: number): string {
   if (!depositInr) return "No deposit";
-  return `Deposit ₹${depositInr.toLocaleString("en-IN")} · refunded within ${refundDays} day${refundDays === 1 ? "" : "s"} of move-out`;
+  return `Deposit ₹${depositInr.toLocaleString("en-IN")} · paid directly to the owner, never held by Roomeo`;
 }
 
 /** "Photo updated 12 Oct 2026", or "" when the upload date is unknown (older photos). */

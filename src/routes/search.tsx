@@ -147,7 +147,7 @@ function SearchPage() {
     <Shell>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4 pt-6">
         <div>
-          <h1 className="text-4xl font-semibold tracking-tight">{city} beds</h1>
+          <h1 className="text-4xl font-semibold tracking-tight">{city ? `${city} beds` : "Beds in any city"}</h1>
           <p className="mt-1 text-muted">
             {loading
               ? "Finding your people…"
@@ -298,7 +298,7 @@ function SearchPage() {
               className={control}
               value={initial.q}
               onChange={(e) => set("q", e.target.value)}
-              placeholder={city === "Mangaluru" ? "Bunder, PG, AC" : "Whitefield, PG, studio"}
+              placeholder="Area, PG, AC"
             />
           </label>
           <button

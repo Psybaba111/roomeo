@@ -87,10 +87,10 @@ export const TERMS: LegalSection[] = [
     "Verified badges mean we did a limited check, not a guarantee. Visit the place, meet the person and check documents yourself before paying anything.",
   ] },
   { id: "fees", title: "Fees", body: [
-    "Browsing, saving, listing and applying are free.",
+    "Browsing, saving, listing, applying and chatting are free.",
     "Owner chats are free for renters once your phone is verified. There are no chat passes.",
     "Listing is free for owners. There are no paid boosts or paid fast-track reviews right now.",
-    "There is no success fee or move-in fee. Roomeo never takes a cut of rent or deposit.",
+    "Roomeo charges a flat platform fee of ₹499, once, to the renter and ₹499, once, to the owner, per person, per stay, when the stay is confirmed. No monthly fee. Roomeo never takes a cut of rent or deposit.",
     "Prices include or add GST as shown at checkout, and you get a GST invoice for platform fees. We may change prices for the future; we'll never change the price of something you already paid for.",
   ] },
   { id: "refunds", title: "Refunds", body: [

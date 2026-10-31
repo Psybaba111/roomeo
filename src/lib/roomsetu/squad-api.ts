@@ -78,7 +78,9 @@ export async function assertContactAllowed(
   ownerId: string,
 ) {
   const unlocked = viewerId === ownerId ? true : await isUnlocked(sql, listingId, viewerId);
-  if (!unlocked && pricingConfig().contactModel === "FREE_THEN_PASS") {
+  const cfg = pricingConfig();
+  // Chat is free unless paid chat is switched on (then the configured model applies).
+  if (!unlocked && (!cfg.paidChatEnabled || cfg.contactModel === "FREE_THEN_PASS")) {
     await grantContact(sql, listingId, viewerId);
     return;
   }
@@ -245,6 +247,7 @@ export const startContactCheckout = createServerFn({ method: "POST" })
     if (!l[0]) throw new Error("That room is not available.");
     if (l[0].owner_id === context.userId) throw new Error("Hosts never pay to talk to seekers.");
     const squadId = data.squadId || null;
+    if (!pricingConfig().paidChatEnabled) throw new Error("Chatting owners is free. There is no contact fee.");
     if (!squadId && pricingConfig().contactModel === "FREE_THEN_PASS")
       throw new Error("Contacts are free or covered by a pass now. Use your free contacts or get a pass.");
     let splitMembers = 0;
@@ -555,7 +558,7 @@ export const getSquad = createServerFn({ method: "POST" })
       inviteCode: str(squad.invite_code),
       me: context.userId,
       fee: squadFeeInr(pricingConfig(), members.length),
-      model: pricingConfig().contactModel,
+      model: pricingConfig().paidChatEnabled ? pricingConfig().contactModel : ("FREE_THEN_PASS" as const),
       perMember: pricingConfig().passes.SQUAD.priceInr,
       passEndsAt: str((await squadActivePass(sql, data))?.ends_at),
       myContacts: await contactSummary(sql, context.userId),

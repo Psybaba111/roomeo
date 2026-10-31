@@ -2,7 +2,7 @@
 
 Approved 27 October 2026. This document is the product. It replaces the 26 October 2026 PRD, earlier RoomSetu scope, and anything the current prototype does that is not written here. Approval of this document is not an order to rebuild.
 
-**Market:** Bengaluru only.  
+**Market:** Any city. No city is locked or featured.  
 **Line:** People choose their own group. The owner says yes once. Each share is paid inside. No broker. No visit. No score.
 
 ## 1. Problem
@@ -29,21 +29,21 @@ A person who was chosen, and later turns out to be difficult, is not a failed ro
 
 ## 4. Who it is for
 
-**Seeker.** One adult. A student new to the city, a first job, or someone leaving a PG, all fit. They may come from any city. The bed is in Bengaluru. They will stay at least a month. They start alone and choose others, or they arrive with friends who are each that same kind of person.
+**Seeker.** One adult. A student new to the city, a first job, or someone leaving a PG, all fit. They may come from any city. The bed can be in any city. They will stay at least a month. They start alone and choose others, or they arrive with friends who are each that same kind of person.
 
-**Owner.** Empty beds in Bengaluru. Three shapes, same close: lives in the house, owns it but lives elsewhere, or runs a small PG they already operate. If they live elsewhere, they still tap yes themselves. Only the owner publishes. Only the owner says yes.
+**Owner.** Empty beds in any city. Three shapes, same close: lives in the house, owns it but lives elsewhere, or runs a small PG they already operate. If they live elsewhere, they still tap yes themselves. Only the owner publishes. Only the owner says yes.
 
 **One account, two hats.** A person may list a bed and also join someone else's group. They cannot join the group on their own bed.
 
 **Manager.** May draft a listing. Cannot publish. Cannot say yes. Cannot touch money.
 
-**Out.** Couples. Families. Anyone who wants the whole flat alone. Stays under a month. Brokers. A manager acting as the owner. A chain, even if it promises to follow the rules. A second city.
+**Out.** Couples. Families. Anyone who wants the whole flat alone. Stays under a month. Brokers. A manager acting as the owner. A chain, even if it promises to follow the rules.
 
 **Bed rule.** One paying person per bed. Friends do not share a room. A couple is out because a couple is a household.
 
 ## 5. Where it sits
 
-Not a broker, and not a PG brand. A bed in Bengaluru, a group that chose itself, each share paid here, ₹499 once.
+Not a broker, and not a PG brand. A spare bed in any city, a group that chose itself, each share paid here, ₹499 once.
 
 If someone says it is NoBroker for flatmates, the answer is: the group is chosen here, the owner says yes once, and the money does not leave for a broker. The fee and the missing visit are part of that. Neither one is the whole difference.
 
@@ -53,7 +53,7 @@ Do not file it next to a co-living brand, a site for taking a whole flat, or a s
 
 **Must.**
 
-- A Bengaluru bed, room or small PG, one paying person, rent visible.
+- A bed, room or small PG in any city, one paying person, rent visible.
 - A profile before anyone can be chosen: name, how long they will stay, that they can pay, a photo, and a short note in their own words.
 - A group that chooses its own members. No score. No visit.
 - A live message thread inside the product, before the yes.
@@ -63,11 +63,11 @@ Do not file it next to a co-living brand, a site for taking a whole flat, or a s
 
 **The group is finished when it says so,** even if a bed is empty. An empty bed is not a failed close, and it is not billed.
 
-**Waits.** Reviews. A written contract. Another city. A store app. A compatibility score. Booking a visit. A manager saying yes. A deposit. A refund. A staff role.
+**Waits.** Reviews. A written contract. A store app. A compatibility score. Booking a visit. A manager saying yes. Roomeo holding a deposit. A refund. A staff role.
 
 ## 7. The path
 
-**Seeker.** Account, then the profile. They find a Bengaluru bed, or friends bring them in. The people already in the group accept or refuse. They message inside roomeo. They mark the group finished. Each person is checked. The owner says yes or no once. If yes, each person pays for their own bed.
+**Seeker.** Account, then the profile. They find a bed, or friends bring them in. The people already in the group accept or refuse. They message inside roomeo. They mark the group finished. Each person is checked. The owner says yes or no once. If yes, each person pays for their own bed.
 
 **Owner.** Account, then the identity check, before the bed can be seen. They publish the bed. A manager may have drafted it. They see a finished group and say yes or no once.
 
@@ -113,15 +113,15 @@ The old warm paper, deep green, and gold are out.
 
 ## 11. What it is built on
 
-A phone site. Bengaluru only. Messages feel live: a new one shows without leaving and coming back.
+A phone site. Any city. Messages feel live: a new one shows without leaving and coming back.
 
-**Out of the build.** A store app. A map. Live location. Cash. A broker. Operating a building or a PG. A chain as supply. Storing an ID number or the ID photo after the check. A second city, including as a way to pad the number. A human who can touch a payment or reverse a failed check.
+**Out of the build.** A store app. A map. Live location. Cash. A broker. Operating a building or a PG. A chain as supply. Storing an ID number or the ID photo after the check. A human who can touch a payment or reverse a failed check.
 
 ## 12. Success
 
-**The win.** Fifty Bengaluru beds pay a second month here. No second fee on those payments. A group of one counts. An empty bed does not. A first payment does not. A signup does not. A bed outside Bengaluru does not.
+**The win.** Fifty beds pay a second month here. No second fee on those payments. A group of one counts. An empty bed does not. A first payment does not. A signup does not.
 
-**Before the first rupee, all four.** Ten real Bengaluru conversations, with owners and with seekers. Both sides accept the same rent on a real bed. The payments partner can take UPI or a card. The identity check can really pass or fail. If any one is missing, the rupee is not real.
+**Before the first rupee, all four.** Ten real conversations, with owners and with seekers. Both sides accept the same rent on a real bed. The payments partner can take UPI or a card. The identity check can really pass or fail. If any one is missing, the rupee is not real.
 
 **Watched every week, and not called success.** Beds published. Seekers who sent a message. Groups that died at the identity check. Groups that died because the owner said no. First payments that never became a second month.
 
@@ -133,8 +133,15 @@ A phone site. Bengaluru only. Messages feel live: a new one shows without leavin
 
 **Reopen the promise if.** Owners demand a visit. Seekers refuse the ID photo. People still pay a broker outside. The screen starts scoring people, or gets used like a dating app.
 
-**If Bengaluru stays thin.** Wait. Do not open another city. A second city is unset.
+**If supply stays thin.** Wait. Do not buy supply or pad numbers with fake beds.
 
 ## 14. Accepted, and not a defect
 
 Owners are assumed to say yes with no visit. Seekers are assumed to photograph an ID. People are assumed to choose from a photo and a note. ₹499 once is assumed to beat going back to a broker. A room photo can lie. A chosen person can turn out to be difficult. None of that, by itself, means roomeo failed.
+
+## Decisions, 31 October 2026 (Rohith)
+
+1. **Fee.** One flat ₹499, once, from the seeker and ₹499, once, from the owner, per person, per stay. The old ₹999 success fee is dropped. "3 free contacts, then a pass" is not the default. Chatting stays free.
+2. **City.** No particular city. Search and listings take any city a person types. No city is locked, preselected or featured (Bengaluru and Mangaluru included).
+3. **No score.** No compatibility or match score anywhere, in the screen or in the logic. A bed either fits the facts a seeker gave (city, budget, gender) or it doesn't.
+4. **Deposit.** roomeo shows the owner's deposit on the listing. The seeker pays it directly to the owner. roomeo never holds, tracks or refunds a deposit.

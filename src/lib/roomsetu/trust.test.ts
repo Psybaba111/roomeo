@@ -43,7 +43,7 @@ test("refund days 1-60", () => {
   assert.throws(() => trustOf({ depositRefundDays: 90 }, 0));
 });
 test("deposit terms and photo date copy", () => {
-  assert.equal(depositTerms(10000, 7), "Deposit ₹10,000 · refunded within 7 days of move-out");
+  assert.equal(depositTerms(10000, 7), "Deposit ₹10,000 · paid directly to the owner, never held by Roomeo");
   assert.equal(depositTerms(0, 7), "No deposit");
   assert.equal(photoDateLabel(null), "");
   assert.equal(photoDateLabel("2026-10-12T05:00:00Z"), "Photo updated 12 Oct 2026");

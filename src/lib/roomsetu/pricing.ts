@@ -1,7 +1,7 @@
 // Single place for how seekers pay to contact owners, and for host extras.
-// Launch model (FREE_THEN_PASS): 3 free owner contacts per verified seeker, then a weekly or
-// monthly pass for unlimited contacts, ₹99 per member for squads. The old one time fee per listing
-// (PER_LISTING_FEE, ₹499) stays available for rollback via ROOMEO_CONTACT_MODEL.
+// Decision (Rohith, 31 Oct 2026): one flat ₹499 fee, once, from the seeker and once from the owner,
+// per person per stay. Chatting stays free. The old "free contacts then pass" model is no longer
+// the default; it only comes back if ROOMEO_CONTACT_MODEL=FREE_THEN_PASS and paid chat is switched on.
 import { contactFeeInr } from "./contact.ts";
 
 export type ContactModel = "FREE_THEN_PASS" | "PER_LISTING_FEE";
@@ -46,7 +46,7 @@ function flag(env: Env, k: string, def: boolean): boolean {
 }
 
 export function pricingConfig(env: Env = procEnv()): PricingConfig {
-  const model = env.ROOMEO_CONTACT_MODEL?.trim().toUpperCase() === "PER_LISTING_FEE" ? "PER_LISTING_FEE" : "FREE_THEN_PASS";
+  const model = env.ROOMEO_CONTACT_MODEL?.trim().toUpperCase() === "FREE_THEN_PASS" ? "FREE_THEN_PASS" : "PER_LISTING_FEE";
   const squadDays = int(env, "ROOMEO_SQUAD_PASS_DAYS", 30, 1, 365);
   return {
     contactModel: model,
@@ -64,10 +64,11 @@ export function pricingConfig(env: Env = procEnv()): PricingConfig {
     boostInr: int(env, "ROOMEO_BOOST_INR", 199, 1, 100000),
     boostDays: int(env, "ROOMEO_BOOST_DAYS", 7, 1, 90),
     fastTrackInr: int(env, "ROOMEO_FAST_TRACK_INR", 149, 1, 100000),
-    // The success fee is retired for good: this stays false whatever the env says.
-    successFeeEnabled: false,
-    successFeeTenantInr: int(env, "ROOMEO_SUCCESS_FEE_TENANT_INR", SUCCESS_FEE_INR, 0, 100000),
-    successFeeOwnerInr: int(env, "ROOMEO_SUCCESS_FEE_OWNER_INR", SUCCESS_FEE_INR, 0, 100000),
+    // Flat ₹499 per side, fixed (not env-tunable). Collection stays off until the payment gates
+    // are met and ROOMEO_FEE_ENABLED=true is set on purpose.
+    successFeeEnabled: flag(env, "ROOMEO_FEE_ENABLED", false),
+    successFeeTenantInr: SUCCESS_FEE_INR,
+    successFeeOwnerInr: SUCCESS_FEE_INR,
     paidChatEnabled: flag(env, "ROOMEO_PAID_CHAT_ENABLED", false),
     boostsEnabled: flag(env, "ROOMEO_BOOSTS_ENABLED", false),
     fastTrackEnabled: flag(env, "ROOMEO_FAST_TRACK_ENABLED", false),
@@ -170,8 +171,8 @@ export function squadSuccessShareInr(tenantFeeInr: number, members: number): num
 export const REFUND_PROMISE =
   "If every owner you contact with a pass declines or does not reply within 48 hours, the full pass price goes back to your UPI ID.";
 
-/** One-time success fee per side per deal (Rohith, 2026-10-29). */
-export const SUCCESS_FEE_INR = 999;
+/** One-time fee per side, per person, per stay (Rohith, 2026-10-31). Replaces the old ₹999. */
+export const SUCCESS_FEE_INR = 499;
 
 /** Shown before anyone signs or pays, so nobody is surprised. */
 export function successFeeHeadsUp(feeInr: number, role: "tenant" | "owner"): string {

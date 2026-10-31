@@ -1,7 +1,7 @@
 import { MapPin } from "@phosphor-icons/react";
-import { SEARCH_CITIES } from "@/lib/roomsetu/cities";
+import { useEffect, useState } from "react";
 
-/** Segmented city switch. Bengaluru first and default. */
+/** Free-text city box. Empty means any city. No city is featured or preselected. */
 export function CityPicker({
   value,
   onChange,
@@ -13,33 +13,33 @@ export function CityPicker({
   tone?: "light" | "dark";
   className?: string;
 }) {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
   const wrap =
-    tone === "dark" ? "border-white/30 bg-white/10 text-white" : "border-line bg-card text-ink";
-  const on = tone === "dark" ? "bg-white text-[#14111f]" : "bg-ink text-card";
-  const off = tone === "dark" ? "text-white/90" : "text-muted";
+    tone === "dark" ? "border-white/30 bg-white/10 text-white placeholder:text-white/70" : "border-line bg-card text-ink";
+  const commit = () => {
+    if (text.trim() !== value) onChange(text.trim());
+  };
   return (
-    <div
-      role="radiogroup"
-      aria-label="City"
-      className={`inline-flex rounded-full border p-1 text-sm font-semibold ${wrap} ${className}`}
-    >
-      {SEARCH_CITIES.map((c) => {
-        const active = c.name === value;
-        return (
-          <button
-            key={c.name}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            data-testid={`city-${c.name.toLowerCase()}`}
-            onClick={() => onChange(c.name)}
-            className={`inline-flex h-10 items-center gap-2 rounded-full px-4 ${active ? on : off}`}
-          >
-            <MapPin size={16} weight={active ? "fill" : "regular"} aria-hidden />
-            {c.name}
-          </button>
-        );
-      })}
-    </div>
+    <label className={`inline-flex h-12 items-center gap-2 rounded-full border px-4 text-sm font-semibold ${wrap} ${className}`}>
+      <MapPin size={16} weight={value ? "fill" : "regular"} aria-hidden />
+      <span className="sr-only">City</span>
+      <input
+        data-testid="city-input"
+        aria-label="City"
+        className="min-w-0 flex-1 bg-transparent outline-none"
+        placeholder="Any city"
+        value={text}
+        maxLength={60}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+          }
+        }}
+      />
+    </label>
   );
 }
