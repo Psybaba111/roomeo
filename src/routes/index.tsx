@@ -40,7 +40,7 @@ const STEPS = [
     "Choose your own flatmates. No random allotment, no awkward surprises.",
   ],
   ["02", "Owner says yes once", "One clear yes or no. No endless calls, no ghosting."],
-  ["03", "Chat owners free", "Unlimited owner chats, ₹0. Free for owners to list too. No passes, no move-in fee."],
+  ["03", "Chat owners free", "Unlimited owner chats, free. Listing is free too. ₹499 once per side when the stay is confirmed."],
 ];
 
 const TRUST: [typeof ShieldCheck, string, string][] = [
@@ -102,7 +102,7 @@ function Home() {
           </h1>
           <p className="mt-4 max-w-md text-base leading-relaxed text-white/90">
             Spare beds near college and office, with dated photos, one all-in price and deposit
-            terms in writing. Free for renters and owners. No broker's month, no cut of your rent.
+            paid directly to the owner. ₹499 once, not a broker's month. No cut of your rent.
           </p>
           <form
             className="mt-6 grid max-w-2xl gap-2 rounded-3xl bg-white p-2 text-[#14111f] shadow-xl sm:grid-cols-[1fr_1fr_auto]"
@@ -124,7 +124,7 @@ function Home() {
                 value={area}
                 onChange={(e) => setArea(e.target.value)}
               >
-                <option value="">Anywhere in {city}</option>
+                <option value="">{city ? `Anywhere in ${city}` : "Anywhere"}</option>
                 {areas.map((a) => (
                   <option key={a}>{a}</option>
                 ))}
@@ -190,7 +190,7 @@ function Home() {
         <div className="mb-4 flex items-end justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Swipe karo</p>
-            <h2 className="mt-1 text-3xl sm:text-4xl">Fresh beds in {city}</h2>
+            <h2 className="mt-1 text-3xl sm:text-4xl">{city ? `Fresh beds in ${city}` : "Fresh beds"}</h2>
             <p className="mt-1 text-sm text-muted">{cityInfo(city).tagline}</p>
           </div>
           <Link to="/search" search={search} className="text-sm font-semibold text-brand">
