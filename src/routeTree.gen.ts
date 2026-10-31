@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminClaimRouteImport } from './routes/admin-claim'
 import { Route as ApplicationsRouteImport } from './routes/applications'
 import { Route as CreateListingRouteImport } from './routes/create-listing'
 import { Route as CreateRoomWantedRouteImport } from './routes/create-room-wanted'
@@ -54,6 +55,11 @@ import { Route as ApiOgListingIdRouteImport } from './routes/api/og/listing.$id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminClaimRoute = AdminClaimRouteImport.update({
+  id: '/admin-claim',
+  path: '/admin-claim',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApplicationsRoute = ApplicationsRouteImport.update({
@@ -259,6 +265,7 @@ const ApiOgListingIdRoute = ApiOgListingIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin-claim': typeof AdminClaimRoute
   '/applications': typeof ApplicationsRoute
   '/create-listing': typeof CreateListingRoute
   '/create-room-wanted': typeof CreateRoomWantedRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin-claim': typeof AdminClaimRoute
   '/applications': typeof ApplicationsRoute
   '/create-listing': typeof CreateListingRoute
   '/create-room-wanted': typeof CreateRoomWantedRoute
@@ -346,6 +354,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin-claim': typeof AdminClaimRoute
   '/applications': typeof ApplicationsRoute
   '/create-listing': typeof CreateListingRoute
   '/create-room-wanted': typeof CreateRoomWantedRoute
@@ -391,6 +400,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin-claim'
     | '/applications'
     | '/create-listing'
     | '/create-room-wanted'
@@ -434,6 +444,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin-claim'
     | '/applications'
     | '/create-listing'
     | '/create-room-wanted'
@@ -477,6 +488,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin-claim'
     | '/applications'
     | '/create-listing'
     | '/create-room-wanted'
@@ -521,6 +533,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminClaimRoute: typeof AdminClaimRoute
   ApplicationsRoute: typeof ApplicationsRoute
   CreateListingRoute: typeof CreateListingRoute
   CreateRoomWantedRoute: typeof CreateRoomWantedRoute
@@ -570,6 +583,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin-claim': {
+      id: '/admin-claim'
+      path: '/admin-claim'
+      fullPath: '/admin-claim'
+      preLoaderRoute: typeof AdminClaimRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/applications': {
@@ -857,6 +877,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminClaimRoute: AdminClaimRoute,
   ApplicationsRoute: ApplicationsRoute,
   CreateListingRoute: CreateListingRoute,
   CreateRoomWantedRoute: CreateRoomWantedRoute,

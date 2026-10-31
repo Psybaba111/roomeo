@@ -29,5 +29,16 @@ Node 22+ is required (`engines`, `.nvmrc`). CI (`.github/workflows/ci.yml`) runs
 ### Verification
 Publishing a bed requires a verified phone (OTP) **and** a verified ID (DigiLocker, or an operator desk pass). See `.env.example` for `OTP_PROVIDER`, `SMS_GATEWAY_*` and `DIGILOCKER_*`.
 
+### Operator (admin) access
+Nobody becomes an operator by signing up. Two safe ways, no credentials in the repo:
+
+1. **CLI (preferred).** The person signs up on the site first (and verifies their phone if you use a phone number). Then someone with database access runs:
+   ```bash
+   DATABASE_URL=... npm run admin:grant -- you@example.com     # or a phone: 98450 11111
+   DATABASE_URL=... npm run admin:grant -- --revoke you@example.com
+   ```
+   It grants `SUPER_ADMIN` to that one existing account, is idempotent, and prints who it matched.
+2. **First-run claim (optional).** Set `ADMIN_BOOTSTRAP_TOKEN` (24+ random characters) in the environment. While it is set *and no admin exists*, a signed-in user with a verified phone can open `/admin-claim` and enter the token once. After the first admin exists it refuses, and you should remove the variable.
+
 ### Tests
 `npm test` runs `test:scripts` (the template script tests that apply to this app) and `test:app` (`src/lib/**/*.test.ts`, including PGlite-backed SQL tests). The other `scripts/*.test.mjs` files assert builder-template defaults (auth off, `.grok/skills` present) that this app intentionally diverges from, so they are not run.

@@ -113,7 +113,7 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
       </div>
       {mode === "register" ? (
         <p className="mt-6 text-sm text-muted">
-          The first account created on this prototype becomes the operator and can open the marketplace desk.
+          Operators are added by the Roomeo team. Nobody becomes an operator just by signing up.
         </p>
       ) : null}
       <p className={`${mode === "register" ? "mt-2" : "mt-6"} text-sm text-muted`}>
