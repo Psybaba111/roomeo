@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { agreementText, depositBalance, depositStatusLabel, idLast4, isFromMangaluru, maskId, moveInEnabled, parseDetails, parseIdImage, policeFormLines, refundDueOn } from "./movein.ts";
+import { agreementText, depositBalance, depositStatusLabel, idLast4, isFromCity, maskId, moveInEnabled, parseDetails, parseIdImage, policeFormLines, refundDueOn } from "./movein.ts";
 
 test("move-in is OFF unless the flag is set", () => {
   assert.equal(moveInEnabled({}), false);
@@ -17,12 +17,12 @@ test("ID numbers: only last 4 kept, masked for display", () => {
   assert.equal(maskId("OFFICE_ID", "0981"), "XXXX0981");
 });
 
-test("Mangaluru vs outside residents", () => {
-  assert.equal(isFromMangaluru("Mangalore", "000000"), true);
-  assert.equal(isFromMangaluru("Kudla", ""), true);
-  assert.equal(isFromMangaluru("Somewhere", "575003"), true);
-  assert.equal(isFromMangaluru("Udupi", "576101"), false);
-  assert.equal(isFromMangaluru("Bengaluru", "560001"), false);
+test("local vs outside residents, any city", () => {
+  assert.equal(isFromCity("Mangalore", "Mangaluru"), true);
+  assert.equal(isFromCity("bangalore", "Bengaluru"), true);
+  assert.equal(isFromCity("Pune", "Pune"), true);
+  assert.equal(isFromCity("Udupi", "Mangaluru"), false);
+  assert.equal(isFromCity("", "Pune"), false);
 });
 
 test("details parse validates and drops the full ID number", () => {

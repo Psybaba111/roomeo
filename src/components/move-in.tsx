@@ -1,23 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { WhatsappLogo, Copy, FilePdf, IdentificationCard, Warning } from "@phosphor-icons/react";
-import { compressPhoto } from "@/components/photo-upload";
 import { downloadBase64 } from "@/components/download";
 import { btnSmall, btnSmallPrimary, card, errorBox, inner, input } from "@/components/ui-tokens";
 import { errText } from "@/lib/ui-text";
 import { whatsappShareUrl } from "@/lib/share";
-import { depositStatusLabel } from "@/lib/roomsetu/movein";
 import { readableDate } from "@/lib/roomsetu/dates";
 import {
-  addDepositDeduction,
   createMoveInInvite,
-  depositAction,
   getAgreementPdf,
-  getDeductionPhoto,
   getMoveInIdPhoto,
   getMoveIns,
   getPoliceFormPdf,
-  recordMoveInDeposit,
 } from "@/lib/roomsetu/movein-api";
 
 type Data = Awaited<ReturnType<typeof getMoveIns>>;
@@ -27,7 +21,7 @@ const today = () => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0,
 const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 const STATUS: Record<string, string> = { SENT: "Link sent 📨", SUBMITTED: "Details in, not signed ✍️", SIGNED: "Signed ✅" };
 
-/** Dashboard: owner sends move-in links + tracks deposits; resident sees theirs. Hidden while the flag is off. */
+/** Dashboard: owner sends move-in links; resident sees theirs. Hidden while the flag is off. */
 export function MoveInSection() {
   const [data, setData] = useState<Data | null>(null);
   const load = useCallback(() => getMoveIns().then(setData).catch(() => setData(null)), []);
@@ -39,7 +33,7 @@ export function MoveInSection() {
   const mine = data.items.filter((i) => i.role === "tenant");
   return (
     <section id="move-in" className="mt-6 space-y-3">
-      <h2 className="font-display text-3xl">Move-ins &amp; deposits</h2>
+      <h2 className="font-display text-3xl">Move-ins</h2>
       {mine.map((m) => (
         <TenantCard key={m.id} m={m} reload={load} />
       ))}
@@ -162,7 +156,7 @@ function Docs({ m, owner }: { m: Item; owner: boolean }) {
   );
 }
 
-function OwnerCard({ m, base, reload }: { m: Item; base: string; reload: () => void }) {
+function OwnerCard({ m, base, reload: _reload }: { m: Item; base: string; reload: () => void }) {
   return (
     <article className={card}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -177,17 +171,17 @@ function OwnerCard({ m, base, reload }: { m: Item; base: string; reload: () => v
       </p>
       {m.outsideMangaluru ? (
         <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-marigold-soft px-3 py-1 text-xs font-semibold text-ink">
-          <Warning /> From outside Mangaluru: home town police clearance needed
+          <Warning /> From outside this city: home town police clearance may be needed
         </p>
       ) : null}
       {m.status === "SENT" ? <ShareLink link={`${base}${m.token}`} /> : null}
       <Docs m={m} owner />
-      <DepositPanel m={m} owner reload={reload} />
+      <DepositNote />
     </article>
   );
 }
 
-function TenantCard({ m, reload }: { m: Item; reload: () => void }) {
+function TenantCard({ m, reload: _reload }: { m: Item; reload: () => void }) {
   return (
     <article className={card}>
       <p className="font-semibold">Your stay at {m.title} 🏡</p>
@@ -199,109 +193,13 @@ function TenantCard({ m, reload }: { m: Item; reload: () => void }) {
       ) : (
         <Docs m={m} owner={false} />
       )}
-      <DepositPanel m={m} owner={false} reload={reload} />
+      <DepositNote />
     </article>
   );
 }
 
-function DepositPanel({ m, owner, reload }: { m: Item; owner: boolean; reload: () => void }) {
-  const { busy, err, run } = useAct();
-  const [amt, setAmt] = useState(String(m.depositInr));
-  const [ded, setDed] = useState({ amountInr: "", reason: "", photo: "" });
-  const [date, setDate] = useState(today());
-  const [refRef, setRef] = useState("");
-  const [photo, setPhoto] = useState<string | null>(null);
-  const d = m.deposit;
-  const go = (fn: () => Promise<unknown>) => run(async () => { await fn(); reload(); });
-  if (!d) {
-    if (!owner) return <p className="mt-3 text-sm text-muted">Deposit not recorded yet. Ask your owner to log it here so it's on record 🧾</p>;
-    return (
-      <div className={`mt-3 ${inner}`}>
-        <p className="text-sm font-semibold">Got the deposit? Log it 🧾</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <input className={`${input} max-w-36`} inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} aria-label="Deposit amount" />
-          <input className={`${input} max-w-44`} type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Received on" />
-          <button className={btnSmallPrimary} disabled={busy} onClick={() => go(() => recordMoveInDeposit({ data: { id: m.id, amountInr: amt, receivedOn: date } }))}>
-            Save
-          </button>
-        </div>
-        {err ? <p className={`mt-2 ${errorBox}`}>{err}</p> : null}
-      </div>
-    );
-  }
-  return (
-    <div className={`mt-3 ${inner}`}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-semibold">
-          Deposit {inr(d.amountInr)} · received {readableDate(d.receivedOn)}
-        </p>
-        <span className="text-xs font-semibold">{depositStatusLabel({ status: d.status, refund_due_on: d.refundDueOn }, today())}</span>
-      </div>
-      {d.deductions.length ? (
-        <ul className="mt-2 space-y-1 text-sm">
-          {d.deductions.map((x) => (
-            <li key={x.id} className="flex flex-wrap items-center gap-2">
-              <span>−{inr(x.amountInr)} · {x.reason}</span>
-              {x.hasPhoto ? (
-                <button className="text-xs font-semibold text-brand underline" onClick={() => run(async () => setPhoto((await getDeductionPhoto({ data: { id: x.id } })).dataUrl))}>
-                  photo
-                </button>
-              ) : null}
-              <span className="text-xs text-muted">{x.tenantAckAt ? "acknowledged ✓" : "not acknowledged"}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {photo ? <img src={photo} alt="Deduction evidence" className="mt-2 max-h-56 rounded-lg border border-line" onClick={() => setPhoto(null)} /> : null}
-      <p className="mt-2 text-sm">
-        {d.status === "REFUNDED" ? (
-          <>
-            Refunded <b>{inr(d.refundedInr ?? 0)}</b> on {readableDate(d.refundedOn)}
-            {d.refundRef ? ` (ref ${d.refundRef})` : ""}
-          </>
-        ) : (
-          <>
-            Balance to refund: <b>{inr(d.balanceInr)}</b>
-            {d.refundDueOn ? ` by ${readableDate(d.refundDueOn)}` : ""}
-          </>
-        )}
-      </p>
-      {!owner && (!d.tenantAckAt || d.deductions.some((x) => !x.tenantAckAt)) ? (
-        <button className={`mt-2 ${btnSmallPrimary}`} disabled={busy} onClick={() => go(() => depositAction({ data: { depositId: d.id, action: "ack" } }))}>
-          Looks right, acknowledge 👍
-        </button>
-      ) : null}
-      {owner && d.status !== "REFUNDED" ? (
-        <div className="mt-3 space-y-2">
-          <div className="flex flex-wrap gap-2">
-            <input className={`${input} max-w-28`} inputMode="numeric" placeholder="₹" value={ded.amountInr} onChange={(e) => setDed({ ...ded, amountInr: e.target.value })} aria-label="Deduction amount" />
-            <input className={`${input} min-w-40 flex-1`} placeholder="Reason (e.g. broken chair)" value={ded.reason} onChange={(e) => setDed({ ...ded, reason: e.target.value })} />
-            <label className={btnSmall}>
-              {ded.photo ? "Photo ✓" : "Add photo"}
-              <input type="file" accept="image/*" className="sr-only" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setDed({ ...ded, photo: await compressPhoto(f) }); }} />
-            </label>
-            <button className={btnSmall} disabled={busy} onClick={() => go(async () => { await addDepositDeduction({ data: { depositId: d.id, ...ded } }); setDed({ amountInr: "", reason: "", photo: "" }); })}>
-              Add deduction
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <input className={`${input} max-w-44`} type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" />
-            {d.status === "HELD" ? (
-              <button className={btnSmall} disabled={busy} onClick={() => go(() => depositAction({ data: { depositId: d.id, action: "checkout", date } }))}>
-                Set checkout (refund due +7 days)
-              </button>
-            ) : (
-              <>
-                <input className={`${input} max-w-40`} placeholder="UPI / UTR ref" value={refRef} onChange={(e) => setRef(e.target.value)} />
-                <button className={btnSmallPrimary} disabled={busy} onClick={() => go(() => depositAction({ data: { depositId: d.id, action: "refund", date, amountInr: d.balanceInr, ref: refRef } }))}>
-                  Mark {inr(d.balanceInr)} refunded
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      ) : null}
-      {err ? <p className={`mt-2 ${errorBox}`}>{err}</p> : null}
-    </div>
-  );
+/** Roomeo shows the deposit but never holds, tracks or refunds it (Rohith, 31 Oct 2026). */
+function DepositNote() {
+  return <p className="mt-3 text-sm text-muted">The deposit is paid directly to the owner. Roomeo never holds or refunds it.</p>;
 }
+

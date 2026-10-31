@@ -9,7 +9,7 @@ import { pageHead } from "@/lib/seo";
 export const Route = createFileRoute("/r/$code")({
   head: () =>
     pageHead(`Your friend saved you ₹${REFERRAL_CREDIT_INR}`, {
-      description: `Join roomeo with this invite and you both get ₹${REFERRAL_CREDIT_INR} off your first month. Free for renters, no broker's month.`,
+      description: `Join roomeo with this invite and you both get ₹${REFERRAL_CREDIT_INR} off your first month. ₹499 once, not a broker's month.`,
       noindex: true,
     }),
   component: Invite,

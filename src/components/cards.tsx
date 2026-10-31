@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { SealCheck as BadgeCheck } from "@phosphor-icons/react";
 import { genderLabel, inr, type ListingCard } from "@/lib/roomsetu/map";
 
-export function RoomCard({ room, score }: { room: ListingCard; score?: number }) {
+export function RoomCard({ room }: { room: ListingCard }) {
   const [photoOk, setPhotoOk] = useState(true);
   return (
     <Link
@@ -50,11 +50,6 @@ export function RoomCard({ room, score }: { room: ListingCard; score?: number })
             </span>
           ) : null}
         </div>
-        {typeof score === "number" ? (
-          <span className="absolute bottom-3 right-3 rounded-full bg-ink px-2 py-1 text-xs font-semibold text-card tabular-nums">
-            {score}% match
-          </span>
-        ) : null}
       </div>
       <div className="flex flex-1 flex-col gap-2 p-4">
         <div className="flex items-start justify-between gap-3">

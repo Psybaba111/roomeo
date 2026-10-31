@@ -22,8 +22,8 @@ test("terms fees match pricing defaults", () => {
   assert.equal(c.successFeeEnabled, false);
   assert.equal(c.passesEnabled, false);
   assert.ok(T.includes("Owner chats are free"));
-  assert.ok(T.includes("no success fee"));
-  assert.ok(!T.includes(`₹${SUCCESS_FEE_INR}`));
+  assert.ok(T.includes("₹499, once"));
+  assert.ok(T.includes(`₹${SUCCESS_FEE_INR}`));
   assert.ok(T.includes(`within ${c.noReplyHours} hours`));
   for (const k of ["not the owner, landlord", "within 7 days", "acceptable use", "Mangaluru, Karnataka", "Limitation of liability", "Indemnity", "Intermediary Rules, 2021", "broker"]) assert.ok(T.includes(k), k);
 });

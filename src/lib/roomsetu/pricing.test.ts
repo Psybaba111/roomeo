@@ -31,9 +31,10 @@ test("owner notes cannot carry contact details", () => {
 });
 
 
-test("launch config: free contacts and passes on, success fee off", () => {
+test("default config: flat-fee model, passes off, fee collection off", () => {
   const c = pricingConfig({});
-  assert.equal(c.contactModel, "FREE_THEN_PASS");
+  assert.equal(c.contactModel, "PER_LISTING_FEE");
+  assert.equal(pricingConfig({ ROOMEO_CONTACT_MODEL: "FREE_THEN_PASS" }).contactModel, "FREE_THEN_PASS");
   assert.equal(c.freeContacts, 3);
   assert.equal(c.passesEnabled, false);
   assert.equal(pricingConfig({ ROOMEO_PAID_CHAT_ENABLED: "true" }).passesEnabled, true);
@@ -44,18 +45,18 @@ test("launch config: free contacts and passes on, success fee off", () => {
   assert.equal(c.boostInr, 199);
   assert.equal(c.fastTrackInr, 149);
   assert.equal(c.successFeeEnabled, false);
-  assert.equal(pricingConfig({ ROOMEO_SUCCESS_FEE_ENABLED: "true" }).successFeeEnabled, false);
+  assert.equal(pricingConfig({ ROOMEO_FEE_ENABLED: "true" }).successFeeEnabled, true);
   assert.equal(pricingConfig({ ROOMEO_FREE_CONTACTS: "abc" }).freeContacts, 3);
 });
 
 test("squad pass is ₹99 per member, full or split", () => {
-  const c = pricingConfig({});
+  const c = pricingConfig({ ROOMEO_CONTACT_MODEL: "FREE_THEN_PASS" });
   assert.deepEqual(contactQuote(c, { squadMembers: 3, mode: "FULL" }), { amountInr: 297, splitParts: 0 });
   assert.deepEqual(contactQuote(c, { squadMembers: 3, mode: "SPLIT" }), { amountInr: 99, splitParts: 3 });
 });
 
 test("contact access (paid chat flag on): pass first, then free quota, then pass needed", () => {
-  const c = pricingConfig({ ROOMEO_PAID_CHAT_ENABLED: "true" });
+  const c = pricingConfig({ ROOMEO_PAID_CHAT_ENABLED: "true", ROOMEO_CONTACT_MODEL: "FREE_THEN_PASS" });
   assert.deepEqual(contactAccess(c, { phoneVerified: true, freeUsed: 0, activePassId: null }), { kind: "OPEN", source: "FREE", freeLeftAfter: 2 });
   assert.deepEqual(contactAccess(c, { phoneVerified: true, freeUsed: 2, activePassId: null }), { kind: "OPEN", source: "FREE", freeLeftAfter: 0 });
   assert.deepEqual(contactAccess(c, { phoneVerified: true, freeUsed: 3, activePassId: null }), { kind: "NEED_PASS" });
@@ -92,14 +93,14 @@ test("squad move in needs every member and the owner; fee split per member", () 
   assert.equal(squadSuccessShareInr(499, 3), 167);
 });
 
-test("success fee: ₹999 per side by default, still OFF unless the flag is set", async () => {
+test("fee: flat ₹499 per side, not env-tunable, still OFF unless the flag is set", async () => {
   const { SUCCESS_FEE_INR } = await import("./pricing.ts");
   const c = pricingConfig({});
-  assert.equal(SUCCESS_FEE_INR, 999);
-  assert.equal(c.successFeeTenantInr, 999);
-  assert.equal(c.successFeeOwnerInr, 999);
+  assert.equal(SUCCESS_FEE_INR, 499);
+  assert.equal(c.successFeeTenantInr, 499);
+  assert.equal(c.successFeeOwnerInr, 499);
   assert.equal(c.successFeeEnabled, false);
-  assert.equal(pricingConfig({ ROOMEO_SUCCESS_FEE_TENANT_INR: "0" }).successFeeTenantInr, 0);
+  assert.equal(pricingConfig({ ROOMEO_SUCCESS_FEE_TENANT_INR: "0" }).successFeeTenantInr, 499);
 });
 
 test("success fee copy is shown up front and says one-time", async () => {

@@ -22,7 +22,7 @@ export function trustPayload(t: TrustForm) {
   };
 }
 
-/** Owner-side trust kit: one all-in price, written deposit terms, an optional video tour. */
+/** Owner-side trust kit: one all-in price, deposit shown (paid directly to the owner), an optional video tour. */
 export function TrustFields({
   value,
   onChange,
@@ -59,18 +59,6 @@ export function TrustFields({
           value={value.allInIncludes}
           onChange={(e) => onChange("allInIncludes", e.target.value)}
           data-testid="all-in-includes"
-        />
-      </label>
-      <label>
-        <span className="mb-1 block text-sm text-muted">
-          Deposit refunded within (days of move-out)
-        </span>
-        <input
-          className={control}
-          inputMode="numeric"
-          value={value.depositRefundDays}
-          onChange={(e) => onChange("depositRefundDays", digits(e.target.value).slice(0, 2))}
-          data-testid="refund-days"
         />
       </label>
       <label>

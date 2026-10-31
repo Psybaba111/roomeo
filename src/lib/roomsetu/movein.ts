@@ -1,3 +1,4 @@
+import { searchCity } from "./cities.ts";
 import { readableDate } from "./dates.ts";
 /** Digital move-in + deposit records: pure rules (flag, validation, masking, documents). */
 type Env = Record<string, string | undefined>;
@@ -15,7 +16,7 @@ export const MIN_STAY_MONTHS = 3;
 export const NOTICE_DAYS = 30;
 
 export const DEFAULT_HOUSE_RULES = [
-  "Check-in needs Aadhaar and office/college ID, plus police verification if you're from outside Mangaluru.",
+  "Check-in needs a government ID and office/college ID, plus local police verification where the city requires it.",
   "Rent is due by the 5th of every month.",
   "Deposit is one month's rent, refunded within 7 days of checkout after any agreed deductions.",
   "Gate closes at 11 PM. Late shift? Tell the caretaker.",
@@ -42,12 +43,11 @@ export function maskId(type: string, last4: string): string {
   return type === "AADHAAR" ? `XXXX XXXX ${last4}` : `XXXX${last4}`;
 }
 
-/** Mangaluru: city name or a 575xxx pincode in Dakshina Kannada's city range. */
-export function isFromMangaluru(city: string, pincode: string): boolean {
-  const c = city.trim().toLowerCase().replace(/[^a-z]/g, "");
-  if (["mangaluru", "mangalore", "mangaloore", "kudla", "surathkal", "ullal"].includes(c)) return true;
-  const p = digits(pincode);
-  return /^5750(0\d|1\d|2\d|30)$/.test(p);
+/** Is the resident's home city the same as the property's city? Any city, normalised spellings. */
+export function isFromCity(homeCity: string, propertyCity: string): boolean {
+  const h = searchCity(homeCity);
+  const p = searchCity(propertyCity);
+  return Boolean(h) && h === p;
 }
 
 export function addDays(iso: string, days: number): string {
@@ -163,9 +163,9 @@ export function agreementText(a: AgreementInput): string[] {
     `4. Security deposit. ${inr(a.depositInr)}, interest free. Refunded within 7 days of checkout, less only deductions for unpaid dues or damage beyond normal wear, each recorded with a reason and photo.`,
     "5. Use. The Premises are for residence only. The Licensee will not sublet, share, or allow anyone else to stay, and will follow the house rules below.",
     `6. Notice. Either party may end this licence with ${a.noticeDays} days' written notice (in-app notice counts). If the Licensee leaves before the minimum stay or without notice, the licence fee for the shortfall in notice may be adjusted from the deposit.`,
-    "7. Police verification. The Licensee consents to their details and ID being shared with the jurisdictional police station for tenant verification as required by the Mangaluru City Police.",
+    "7. Police verification. The Licensee consents to their details and ID being shared with the jurisdictional police station for tenant verification as required by the local police.",
     "8. Termination. The Licensor may end the licence immediately for illegal activity, violence, or repeated breach of house rules.",
-    "9. Governing law. Laws of India; courts at Mangaluru, Karnataka.",
+    "9. Governing law. Laws of India; courts where the property is located.",
     "HOUSE RULES",
     ...rules.map((r, i) => `${i + 1}. ${r}`),
   ];
@@ -179,7 +179,7 @@ export type PoliceFormInput = {
   startDate: string;
 };
 
-/** Mangaluru City Police tenant/PG resident information form, for the owner to submit at the local station. */
+/** Local police tenant/PG resident information form, for the owner to submit at the local station. */
 export function policeFormLines(f: PoliceFormInput) {
   const d = f.details;
   return [
@@ -194,7 +194,7 @@ export function policeFormLines(f: PoliceFormInput) {
     { text: `Permanent home address: ${d.homeAddress}, ${d.homeCity}, ${d.homeState} - ${d.homePincode}` },
     { text: `Emergency contact: ${d.emergencyName || "-"} ${d.emergencyPhone || ""}` },
     { text: `ID proof: ${ID_TYPES[d.idType]} no. ${d.idMasked} (copy attached by owner)` },
-    { text: `From outside Mangaluru: ${f.outsideMangaluru ? "YES - home town police clearance required" : "No"}`, bold: f.outsideMangaluru },
+    { text: `From outside this city: ${f.outsideMangaluru ? "YES - home town police clearance required" : "No"}`, bold: f.outsideMangaluru },
     { text: "B. ACCOMMODATION", bold: true, gap: 10 },
     { text: `PG address: ${f.propertyAddress}` },
     { text: `Date of occupation: ${readableDate(f.startDate)}` },
@@ -202,7 +202,7 @@ export function policeFormLines(f: PoliceFormInput) {
     { text: `Name: ${f.owner.name}    Mobile: ${f.owner.phone || "-"}` },
     { text: `Address: ${f.owner.address}` },
     { text: "D. DECLARATION", bold: true, gap: 10 },
-    { text: "I declare the above is true to the best of my knowledge. Attach: resident photo, ID copy, and (if from outside Mangaluru) home town police clearance." },
+    { text: "I declare the above is true to the best of my knowledge. Attach: resident photo, ID copy, and (if from outside this city) home town police clearance." },
     { text: "Owner signature: ____________________     Resident signature: ____________________", gap: 24 },
     { text: "Date: ____________     Police station: ____________________", gap: 12 },
     { text: "For office use: Received by ____________  Verified on ____________", gap: 24, size: 9 },

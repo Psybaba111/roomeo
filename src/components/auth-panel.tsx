@@ -20,7 +20,7 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mobile, setMobile] = useState("");
-  const [city, setCity] = useState("Bengaluru");
+  const [city, setCity] = useState("");
   const [intent, setIntent] = useState("BOTH");
   const [cities, setCities] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -77,7 +77,8 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
           <>
             <input className={control} placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} required />
             <input className={control} placeholder="Mobile" value={mobile} onChange={(e) => setMobile(e.target.value)} required />
-            <select className={control} value={city} onChange={(e) => setCity(e.target.value)}>
+            <select className={control} value={city} onChange={(e) => setCity(e.target.value)} aria-label="City">
+              <option value="">City (pick later)</option>
               {cities.map((c) => (
                 <option key={c}>{c}</option>
               ))}

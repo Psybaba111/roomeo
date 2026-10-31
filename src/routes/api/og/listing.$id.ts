@@ -6,7 +6,7 @@ import { renderOgCard } from "@/lib/og/listing-card.server";
 const ID = /^[0-9A-Za-z_-]{6,80}$/;
 
 /** Generic brand card when the bed is missing, held or the DB hiccups. Never leaks hidden listings. */
-const BRAND_CARD = { headline: "Find your bed. No broker's month.", priceLabel: "₹0 fees", priceNote: "free for renters + owners", area: "Mangaluru · Bengaluru", verified: false, photo: null };
+const BRAND_CARD = { headline: "Find your bed. No broker's month.", priceLabel: "₹499 once", priceNote: "not a broker's month", area: "Any city", verified: false, photo: null };
 
 async function loadModel(id: string) {
   if (!ID.test(id)) return BRAND_CARD;
