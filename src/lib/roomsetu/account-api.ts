@@ -19,7 +19,8 @@ import {
 import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { listingCard, bool, num, str } from "@/lib/roomsetu/map";
-import { scoreMatch, type SeekerFacts } from "@/lib/roomsetu/match";
+import { searchCity } from "@/lib/roomsetu/cities";
+import { fitsSeeker, type SeekerFacts } from "@/lib/roomsetu/match";
 import { rentQuote } from "@/lib/roomsetu/money";
 import { photoUrlError, logEvent } from "@/lib/roomsetu/services";
 import {
@@ -313,9 +314,8 @@ export const getDesk = createServerFn({ method: "GET" })
         [userId],
       )
     )
-      .map((listing) => ({
-        card: listingCard(listing),
-        match: scoreMatch(
+      .filter((listing) =>
+        fitsSeeker(
           {
             city: str(listing.city_name),
             locality: str(listing.locality_name),
@@ -330,8 +330,8 @@ export const getDesk = createServerFn({ method: "GET" })
           },
           facts,
         ),
-      }))
-      .sort((a, b) => b.match.score - a.match.score)
+      )
+      .map((listing) => ({ card: listingCard(listing) }))
       .slice(0, 4);
     const fields = [
       row.full_name,
@@ -530,15 +530,27 @@ export const createListing = createServerFn({ method: "POST" })
     await requireProfile(sql, userId);
     await requirePublishable(sql, userId);
     await hitLimit(sql, userId, "listing");
+    // Any city (Rohith, 31 Oct 2026): a typed city or locality that isn't known yet is added.
+    const cityName = searchCity(data.city);
+    if (!cityName) throw new Error("Type the city the bed is in.");
+    const localityName = data.locality.trim().replace(/\s+/g, " ").slice(0, 60);
+    if (!localityName) throw new Error("Type the area or locality.");
+    await sql`insert into cities (id, name, state, lat, lng) values (${crypto.randomUUID()}, ${cityName}, '', 20.5937, 78.9629) on conflict (name) do nothing`;
     const city = await sql<{
       id: string;
       lat: number;
       lng: number;
-    }>`select id, lat, lng from cities where lower(name) = lower(${data.city})`;
-    if (!city[0]) throw new Error("That city is not open yet. An operator can add it.");
-    const loc = await sql<{ id: string; lat: number; lng: number }>`
-      select id, lat, lng from localities where city_id = ${city[0].id} and lower(name) = lower(${data.locality})`;
-    if (!loc[0]) throw new Error("Pick a locality from the list for that city.");
+    }>`select id, lat, lng from cities where lower(name) = lower(${cityName})`;
+    if (!city[0]) throw new Error("Could not save that city. Try again.");
+    let loc = await sql<{ id: string; lat: number; lng: number }>`
+      select id, coalesce(lat, ${city[0].lat}) as lat, coalesce(lng, ${city[0].lng}) as lng from localities where city_id = ${city[0].id} and lower(name) = lower(${localityName})`;
+    if (!loc[0]) {
+      await sql`insert into localities (id, city_id, name, lat, lng) values (${crypto.randomUUID()}, ${city[0].id}, ${localityName}, ${city[0].lat}, ${city[0].lng}) on conflict (city_id, name) do nothing`;
+      loc = await sql<{ id: string; lat: number; lng: number }>`
+        select id, coalesce(lat, ${city[0].lat}) as lat, coalesce(lng, ${city[0].lng}) as lng from localities where city_id = ${city[0].id} and lower(name) = lower(${localityName})`;
+    }
+    if (!loc[0]) throw new Error("Could not save that locality. Try again.");
+    data = { ...data, city: cityName, locality: localityName };
     const propertyId = crypto.randomUUID();
     const listingId = crypto.randomUUID();
     const description =
@@ -1216,9 +1228,8 @@ export const getMatches = createServerFn({ method: "GET" })
       [context.userId],
     );
     const matches = pool
-      .map((listing) => ({
-        card: listingCard(listing),
-        match: scoreMatch(
+      .filter((listing) =>
+        fitsSeeker(
           {
             city: str(listing.city_name),
             locality: str(listing.locality_name),
@@ -1233,42 +1244,12 @@ export const getMatches = createServerFn({ method: "GET" })
           },
           facts,
         ),
-      }))
-      .sort((a, b) => b.match.score - a.match.score)
+      )
+      .map((listing) => ({ card: listingCard(listing) }))
       .slice(0, 12);
     return { ready: true as const, matches };
   });
 
-export const scoreFor = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
-  .validator((input: unknown) => listingKey(input))
-  .handler(async ({ context, data }) => {
-    const sql = await getSql();
-    const profile = await requireProfile(sql, context.userId);
-    const wanted = await sql<
-      Record<string, unknown>
-    >`select * from room_wanted where user_id = ${context.userId} and status = 'ACTIVE' order by created_at desc limit 1`;
-    const listing = await sql<Record<string, unknown>>`select * from listings where id = ${data}`;
-    if (!listing[0] || str(listing[0].owner_id) === context.userId)
-      return { score: null, reasons: [] };
-    const facts = seekerFrom(profile, wanted[0]);
-    if (!facts.city && !facts.budget) return { score: null, reasons: [] };
-    return scoreMatch(
-      {
-        city: str(listing[0].city_name),
-        locality: str(listing[0].locality_name),
-        rent: num(listing[0].monthly_rent),
-        availableFrom: str(listing[0].available_from),
-        roomType: str(listing[0].room_type),
-        genderPref: str(listing[0].gender_pref),
-        occupationPref: str(listing[0].occupation_pref),
-        smokingAllowed: bool(listing[0].smoking_allowed),
-        petsAllowed: bool(listing[0].pets_allowed),
-        foodAvailable: bool(listing[0].food_available),
-      },
-      facts,
-    );
-  });
 
 export const getListingAddress = createServerFn({ method: "POST" })
   .middleware([authMiddleware])

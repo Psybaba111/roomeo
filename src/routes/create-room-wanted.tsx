@@ -23,7 +23,7 @@ function Form() {
   const [cities, setCities] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
-    city: "Bengaluru",
+    city: "",
     localities: "",
     budget: "15000",
     moveIn: "",
@@ -78,7 +78,7 @@ function Form() {
         <select className={control} value={form.roommateGender} onChange={(e) => setForm({ ...form, roommateGender: e.target.value })}>
           {GENDER_PREFS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
         </select>
-        <textarea className="rounded-xl border border-line bg-paper p-3" rows={5} placeholder="27 year old software engineer relocating to Bengaluru…" value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} required />
+        <textarea className="rounded-xl border border-line bg-paper p-3" rows={5} placeholder="27 year old software engineer relocating for a new job…" value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} required />
         {error ? <p className="text-sm text-danger">{error}</p> : null}
         <button className="h-12 rounded-full bg-brand font-semibold text-card" type="submit">Publish request</button>
       </form>

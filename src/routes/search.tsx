@@ -298,7 +298,7 @@ function SearchPage() {
               className={control}
               value={initial.q}
               onChange={(e) => set("q", e.target.value)}
-              placeholder={city === "Mangaluru" ? "Bunder, PG, AC" : "Whitefield, PG, studio"}
+              placeholder="Area, PG, AC"
             />
           </label>
           <button

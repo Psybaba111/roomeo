@@ -190,7 +190,7 @@ function Desk() {
           <p className="font-display text-3xl tabular-nums">{data.unread}</p>
         </Link>
         <Link to="/matches" className="rounded-2xl border border-line bg-card p-4">
-          <p className="text-sm text-muted">Matches</p>
+          <p className="text-sm text-muted">Beds that fit</p>
           <p className="font-display text-3xl">See</p>
         </Link>
       </div>
@@ -296,7 +296,7 @@ function Desk() {
         <h2 className="font-display text-3xl">Recommended for you</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {data.recommended.map((item) => (
-            <RoomCard key={item.card.id} room={item.card} score={item.match.score} />
+            <RoomCard key={item.card.id} room={item.card} />
           ))}
         </div>
         {data.recommended.length === 0 ? (

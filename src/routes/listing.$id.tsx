@@ -19,7 +19,7 @@ import {
 import { REPORT_CATEGORIES } from "@/lib/roomsetu/constants";
 import { genderLabel, inr, cardPhoto, whenLabel } from "@/lib/roomsetu/map";
 import { ShareButtons } from "@/components/share-buttons";
-import { REVIEWS_NOTE, depositTerms, headlinePrice, photoDateLabel } from "@/lib/roomsetu/trust";
+import { depositTerms, headlinePrice, photoDateLabel } from "@/lib/roomsetu/trust";
 import { SITE_URL } from "@/lib/seo";
 
 export const Route = createFileRoute("/listing/$id")({
@@ -242,12 +242,11 @@ function ListingBody({ room }: { room: LoadedRoom }) {
               {inr(room.rent)} rent + {inr(room.deposit)} deposit
             </p>
             <p className="mt-1 text-sm text-brand-soft">
-              Rent and deposit go to the owner. Roomeo takes no cut. Chatting the owner is free.
+              Rent and deposit are paid directly to the owner. Roomeo never holds your deposit and takes no cut. ₹499 once, chat free.
             </p>
             <p className="mt-2 text-sm font-semibold" data-testid="deposit-terms">
-              {depositTerms(room.deposit, room.trust.depositRefundDays)}
+              {depositTerms(room.deposit)}
             </p>
-            <p className="mt-1 text-xs text-brand-soft">{REVIEWS_NOTE}</p>
           </div>
           <div className="mt-4 flex flex-col gap-2">
             {user ? (

@@ -11,16 +11,16 @@ import { DEFAULT_CITY, budgetHints, cityInfo } from "@/lib/roomsetu/cities";
 
 export const Route = createFileRoute("/")({
   head: () =>
-    pageHead("Spare beds in Bengaluru & Mangaluru for students & first jobbers", {
+    pageHead("Spare beds for students & first jobbers", {
       description:
-        "Shared rooms, PG beds and whole flats in Bengaluru and Mangaluru. Real photos, one all-in price, deposit terms in writing. Free for renters and owners.",
+        "Shared rooms, PG beds and whole flats in any city. Real photos, one all-in price, deposit paid to the owner. ₹499 once, not a broker's month.",
     }),
   loader: () => getHome({ data: { city: DEFAULT_CITY } }),
   component: Home,
 });
 
 const SEARCH = {
-  city: "Bengaluru",
+  city: "",
   locality: "",
   maxRent: "",
   roomType: "",
@@ -46,7 +46,7 @@ const STEPS = [
 const TRUST: [typeof ShieldCheck, string, string][] = [
   [ShieldCheck, "ID + phone checked", "Hosts verify phone and ID before a bed goes live."],
   [CalendarCheck, "Dated photos + video tours", "See when each photo was taken. Watch the room before you visit."],
-  [Receipt, "One all-in price", "Rent + food + bills in one number. Deposit refund terms in writing."],
+  [Receipt, "One all-in price", "Rent + food + bills in one number. Deposit shown, paid directly to the owner."],
   [MapPin, "Address stays private", "Exact address only after the owner says yes."],
   [ChatCircle, "Chat inside roomeo", "Your number stays hidden till you're ready."],
   [Flag, "Report in one tap", "Something feels off? Flag it. A real person reviews it."],

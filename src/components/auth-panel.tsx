@@ -20,7 +20,7 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mobile, setMobile] = useState("");
-  const [city, setCity] = useState("Bengaluru");
+  const [city, setCity] = useState("");
   const [intent, setIntent] = useState("BOTH");
   const [cities, setCities] = useState<string[]>([]);
   const [error, setError] = useState("");

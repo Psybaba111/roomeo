@@ -1,42 +1,19 @@
-import assert from "node:assert/strict";
 import test from "node:test";
-import { scoreMatch, type ListingFacts, type SeekerFacts } from "./match.ts";
+import assert from "node:assert/strict";
+import * as m from "./match.ts";
+import type { ListingFacts, SeekerFacts } from "./match.ts";
 
-const listing: ListingFacts = {
-  city: "Bengaluru",
-  locality: "Koramangala",
-  rent: 15000,
-  availableFrom: "2026-11-01",
-  roomType: "Private room",
-  genderPref: "ANY",
-  occupationPref: "Working professional",
-  smokingAllowed: false,
-  petsAllowed: false,
-  foodAvailable: false,
-};
+const seeker: SeekerFacts = { city: "Pune", localities: "", budget: 10000, moveIn: "", roomPref: "", gender: "FEMALE", roommateGender: "", occupation: "", smoking: "", pets: "", food: "" };
+const bed: ListingFacts = { city: "pune", locality: "Baner", rent: 9000, availableFrom: "", roomType: "", genderPref: "ANY", occupationPref: "ANY", smokingAllowed: false, petsAllowed: false, foodAvailable: false };
 
-const seeker: SeekerFacts = {
-  city: "Bengaluru",
-  localities: "Koramangala, Indiranagar",
-  budget: 18000,
-  moveIn: "2026-11-10",
-  roomPref: "Private room",
-  gender: "F",
-  roommateGender: "ANY",
-  occupation: "Software engineer",
-  smoking: "NO",
-  pets: "NO",
-  food: "ANY",
-};
-
-test("a fitting room scores as a strong match", () => {
-  const result = scoreMatch(listing, seeker);
-  assert.ok(result.score >= 80);
-  assert.equal(result.reasons.find((r) => r.label === "Budget")?.detail, "Inside your budget");
+test("no score function is exported", () => {
+  assert.equal("scoreMatch" in m, false);
 });
 
-test("the wrong city and a blown budget score lower", () => {
-  const fit = scoreMatch(listing, seeker).score;
-  const miss = scoreMatch(listing, { ...seeker, city: "Jaipur", localities: "", budget: 4000 }).score;
-  assert.ok(miss < fit);
+test("fit is a plain yes/no on city, budget and gender", () => {
+  assert.equal(m.fitsSeeker(bed, seeker), true);
+  assert.equal(m.fitsSeeker({ ...bed, city: "Mumbai" }, seeker), false);
+  assert.equal(m.fitsSeeker({ ...bed, rent: 12000 }, seeker), false);
+  assert.equal(m.fitsSeeker({ ...bed, genderPref: "MEN" }, seeker), false);
+  assert.equal(m.fitsSeeker({ ...bed, city: "Mumbai" }, { ...seeker, city: "" }), true);
 });

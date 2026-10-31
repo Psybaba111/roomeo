@@ -7,7 +7,7 @@ import {
   NOTICE_DAYS,
   agreementText,
   depositBalance,
-  isFromMangaluru,
+  isFromCity,
   maskId,
   policeFormLines,
   refundDueOn,
@@ -89,7 +89,9 @@ export async function submitDetails(sql: Sql, inviteId: string, userId: string, 
   const { role, inv } = await access(sql, inviteId, userId);
   if (role !== "tenant") throw new Error("Only the resident fills this in.");
   if (inv.status === "SIGNED") throw new Error("Already signed. Ask your owner if something needs fixing.");
-  const outside = !isFromMangaluru(d.homeCity, d.homePincode);
+  const city = (await sql<{ city_name: string | null }>`select l.city_name from movein_invites i left join listings l on l.id = i.listing_id where i.id = ${inviteId}`)[0]?.city_name ?? "";
+  // Column keeps its old name (outside_mangaluru); it now means "from outside the property's city".
+  const outside = !isFromCity(d.homeCity, city);
   await sql`insert into movein_details (invite_id, full_name, phone, email, date_of_birth, occupation, employer, home_address, home_city, home_state, home_pincode, emergency_name, emergency_phone, id_type, id_last4, outside_mangaluru)
     values (${inviteId}, ${d.fullName}, ${d.phone}, ${d.email}, ${d.dateOfBirth}::date, ${d.occupation}, ${d.employer}, ${d.homeAddress}, ${d.homeCity}, ${d.homeState}, ${d.homePincode}, ${d.emergencyName}, ${d.emergencyPhone}, ${d.idType}, ${d.idLast4}, ${outside})
     on conflict (invite_id) do update set full_name = excluded.full_name, phone = excluded.phone, email = excluded.email, date_of_birth = excluded.date_of_birth,

@@ -139,7 +139,7 @@ export const getPoliceFormPdf = createServerFn({ method: "POST" })
   .validator((input: unknown) => ({ id: uuid(rec(input).id) }))
   .handler(async ({ context, data }) => {
     assertOn();
-    return { filename: "mangaluru-police-tenant-form.pdf", base64: pdfBase64(await db.policeForm(await getSql(), data.id, context.userId)) };
+    return { filename: "police-tenant-form.pdf", base64: pdfBase64(await db.policeForm(await getSql(), data.id, context.userId)) };
   });
 
 export const recordMoveInDeposit = createServerFn({ method: "POST" })
@@ -150,6 +150,7 @@ export const recordMoveInDeposit = createServerFn({ method: "POST" })
   })
   .handler(async ({ context, data }) => {
     assertOn();
+    throw new Error("Roomeo doesn't hold or refund deposits. Pay the deposit directly to the owner.");
     await db.recordDeposit(await getSql(), data.id, context.userId, data.amountInr, data.receivedOn);
     return { ok: true };
   });
@@ -164,6 +165,7 @@ export const addDepositDeduction = createServerFn({ method: "POST" })
   })
   .handler(async ({ context, data }) => {
     assertOn();
+    throw new Error("Roomeo doesn't hold or refund deposits. Pay the deposit directly to the owner.");
     await db.addDeduction(await getSql(), data.depositId, context.userId, data.amountInr, data.reason, data.photo);
     return { ok: true };
   });
@@ -192,6 +194,7 @@ export const depositAction = createServerFn({ method: "POST" })
   })
   .handler(async ({ context, data }) => {
     assertOn();
+    throw new Error("Roomeo doesn't hold or refund deposits. Pay the deposit directly to the owner.");
     const sql = await getSql();
     if (data.action === "ack") await db.ackDeposit(sql, data.depositId, context.userId);
     else if (data.action === "checkout") await db.setCheckout(sql, data.depositId, context.userId, data.date);

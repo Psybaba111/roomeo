@@ -89,7 +89,7 @@ export const getHome = createServerFn({ method: "GET" })
   const listings = await sql.query<Record<string, unknown>>(
     `select ${CARD_SQL} ${FROM}
      where l.status = 'ACTIVE' and pr.account_status = 'ACTIVE'
-       and lower(l.city_name) = lower($1)
+       and ($1 = '' or lower(l.city_name) = lower($1))
        and (l.is_demo = true or pr.identity_status = 'VERIFIED')
      order by case when l.boosted_until > now() then 0 else 1 end,
               case when l.listing_tier = 'FEATURED' then 0 when l.listing_tier = 'PREMIUM' then 1 else 2 end,
@@ -100,7 +100,7 @@ export const getHome = createServerFn({ method: "GET" })
   );
   const wanted = await sql.query<Record<string, unknown>>(
     `select id, display_name, age, occupation, city, localities, budget, bio, room_pref, is_demo, move_in::text as move_in
-     from room_wanted where status = 'ACTIVE' and lower(city) = lower($1) order by created_at desc limit 4`,
+     from room_wanted where status = 'ACTIVE' and ($1 = '' or lower(city) = lower($1)) order by created_at desc limit 4`,
     [city],
   );
   const cities = await sql.query<Record<string, unknown>>(
@@ -110,7 +110,7 @@ export const getHome = createServerFn({ method: "GET" })
      from cities c
      left join listings l on l.city_name = c.name
      left join profiles pr on pr.user_id = l.owner_id
-     where c.name = $1
+     where ($1 = '' or c.name = $1)
      group by c.name, c.state
      order by rooms desc, c.name`,
     [city],
@@ -176,7 +176,7 @@ export const searchListings = createServerFn({ method: "POST" })
   .validator(filters)
   .handler(async ({ data }) => {
     const sql = await getSql();
-    const where = ["l.status = 'ACTIVE'", "pr.account_status = 'ACTIVE'", "(l.is_demo = true or pr.identity_status = 'VERIFIED')", "lower(l.city_name) = lower($1)"];
+    const where = ["l.status = 'ACTIVE'", "pr.account_status = 'ACTIVE'", "(l.is_demo = true or pr.identity_status = 'VERIFIED')", "($1 = '' or lower(l.city_name) = lower($1))"];
     const params: unknown[] = [searchCity(data.city)];
     const add = (value: unknown, clause: string) => {
       params.push(value);
@@ -387,7 +387,7 @@ export const listAreaCentroids = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
-      `select l.name, l.lat, l.lng from localities l join cities c on c.id = l.city_id where c.name = $1`,
+      `select l.name, l.lat, l.lng from localities l join cities c on c.id = l.city_id where ($1 <> '' and c.name = $1)`,
       [data.city],
     );
     return rows.map((r) => {
