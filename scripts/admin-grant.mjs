@@ -4,11 +4,14 @@
  *
  *   DATABASE_URL=... npm run admin:grant -- <email-or-phone>
  *   DATABASE_URL=... npm run admin:grant -- --revoke <email-or-phone>
+ *   Options: --http (HTTPS driver, default for Neon hosts), --tcp (force node-postgres),
+ *            --timeout=<seconds> (default 15; each connect/query is bounded)
  *
  * No credentials are stored or printed. The person must already have signed up
  * (phone lookups need a verified phone). Prints which account was matched.
  */
 import pg from "pg";
+import { chooseDriver, parseTimeoutMs, withTimeout } from "../src/lib/roomsetu/admin-connect.ts";
 import { parseIdentifier, findUser, grantAdmin, revokeAdmin } from "../src/lib/roomsetu/admin-bootstrap.ts";
 
 const args = process.argv.slice(2);
@@ -23,10 +26,25 @@ if (!url) {
   console.error("DATABASE_URL is not set. This script only works against a real Postgres database.");
   process.exit(2);
 }
-const client = new pg.Client({ connectionString: url, ssl: /sslmode=disable|localhost|127\.0\.0\.1/.test(url) ? undefined : { rejectUnauthorized: false } });
+const driver = chooseDriver(url, args);
+const timeoutMs = parseTimeoutMs(args);
+let client = null;
 try {
-  await client.connect();
-  const q = async (text, params) => (await client.query(text, params)).rows;
+  let q;
+  if (driver === "http") {
+    const { neon } = await import("@neondatabase/serverless");
+    const sql = neon(url, { fullResults: true });
+    q = async (text, params) => (await withTimeout(sql.query(text, params ?? []), timeoutMs, "Query over HTTPS")).rows;
+  } else {
+    client = new pg.Client({
+      connectionString: url,
+      connectionTimeoutMillis: timeoutMs,
+      query_timeout: timeoutMs,
+      ssl: /sslmode=disable|localhost|127\.0\.0\.1/.test(url) ? undefined : { rejectUnauthorized: false },
+    });
+    await withTimeout(client.connect(), timeoutMs, "Connecting over TCP");
+    q = async (text, params) => (await withTimeout(client.query(text, params), timeoutMs, "Query")).rows;
+  }
   const id = parseIdentifier(ident);
   const user = await findUser(q, id);
   const host = new URL(url).hostname;
@@ -41,5 +59,5 @@ try {
   console.error(`admin:grant failed: ${e instanceof Error ? e.message : String(e)}`);
   process.exitCode = 1;
 } finally {
-  await client.end().catch(() => {});
+  if (client) await withTimeout(client.end(), 3000, "Closing").catch(() => {});
 }

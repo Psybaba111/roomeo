@@ -38,6 +38,7 @@ Nobody becomes an operator by signing up. Two safe ways, no credentials in the r
    DATABASE_URL=... npm run admin:grant -- --revoke you@example.com
    ```
    It grants `SUPER_ADMIN` to that one existing account, is idempotent, and prints who it matched.
+   Neon hosts (`*.neon.tech`) are reached over HTTPS via `@neondatabase/serverless`, which works on networks that block TCP 5432; other hosts use `pg` over TCP. Force either with `--http` / `--tcp`. Every connect and query gives up after 15s with a clear error (`--timeout=<seconds>` to change).
 2. **First-run claim (optional).** Set `ADMIN_BOOTSTRAP_TOKEN` (24+ random characters) in the environment. While it is set *and no admin exists*, a signed-in user with a verified phone can open `/admin-claim` and enter the token once. After the first admin exists it refuses, and you should remove the variable.
 
 ### Tests
