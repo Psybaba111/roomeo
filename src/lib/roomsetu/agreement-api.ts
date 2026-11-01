@@ -5,6 +5,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { num, str } from "@/lib/roomsetu/map";
 import { buildUpiLink, makeRef, upiPayee } from "@/lib/roomsetu/upi";
 import { pricingConfig } from "@/lib/roomsetu/pricing";
+import { tenantFeeWithTrialCredit } from "@/lib/roomsetu/trial-db";
 import { agreementBody, agreementState, feeWithGst, refundableOnVacate, refundDeadline, validSignName } from "@/lib/roomsetu/deal-agreement";
 import { dealSteps } from "@/lib/roomsetu/deal-steps";
 import { cancelAgreement, loadAgreement, signAgreement, signSquadAgreement, squadAgreementKey, squadSigners } from "@/lib/roomsetu/agreement-db";
@@ -159,9 +160,12 @@ export const startAgreementFee = createServerFn({ method: "POST" })
     let row = (await find())[0];
     if (row?.status === "PAID") throw new Error("Already paid. Thanks!");
     if (!row) {
-      await sql.query(`insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, kind, listing_id, agreement_id, squad_id)
-        values ($1,$2,$3,$4,'PENDING','UPI',$5,'SUCCESS_FEE',$6,$7,$8)`,
-        [crypto.randomUUID(), context.userId, `Success fee (${isOwner ? "owner" : d.squadId ? "squad member" : "tenant"}) ₹${fee.base} + ₹${fee.gst.toFixed(2)} GST`, fee.total, makeRef(), d.listingId, str(a.id), d.squadId]);
+      // Trial nights (1 Nov 2026): a tenant whose paid trial ended within 14 days of this deal gets ₹99 off.
+      const credit = isOwner ? { amount: fee.total, credit: 0, bookingId: null } : await tenantFeeWithTrialCredit(sql, context.userId, fee.total, str(a.issued_at));
+      const creditNote = credit.credit > 0 ? `, less ₹${credit.credit} trial credit` : "";
+      await sql.query(`insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, kind, listing_id, agreement_id, squad_id, trial_credit_inr, trial_credit_booking_id)
+        values ($1,$2,$3,$4,'PENDING','UPI',$5,'SUCCESS_FEE',$6,$7,$8,$9,$10)`,
+        [crypto.randomUUID(), context.userId, `Success fee (${isOwner ? "owner" : d.squadId ? "squad member" : "tenant"}) ₹${fee.base} + ₹${fee.gst.toFixed(2)} GST${creditNote}`, credit.amount, makeRef(), d.listingId, str(a.id), d.squadId, credit.credit, credit.bookingId]);
       row = (await find())[0];
     }
     const link = buildUpiLink({ vpa: payee.vpa, name: payee.name, amountInr: num(row.amount_inr), ref: str(row.ref) });

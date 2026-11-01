@@ -11,6 +11,7 @@ import {
   adminPayments,
   adminRefunds,
   adminReviewPayment,
+  adminTrialBookings,
 } from "@/lib/roomsetu/admin-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { btnSmallPrimary, card, input } from "@/components/ui-tokens";
@@ -33,12 +34,16 @@ function Payments() {
   const [refundUtr, setRefundUtr] = useState<Record<string, string>>({});
   const [vacate, setVacate] = useState({ applicationId: "", vacatedOn: "" });
   const [vacateNote, setVacateNote] = useState("");
+  const [trials, setTrials] = useState<Awaited<ReturnType<typeof adminTrialBookings>>>([]);
   function load() {
     void adminPayments()
       .then(setRows)
       .catch((e) => setError(errText(e)));
     void adminRefunds()
       .then(setRefunds)
+      .catch(() => undefined);
+    void adminTrialBookings()
+      .then(setTrials)
       .catch(() => undefined);
   }
   function review(id: string, decision: "APPROVE" | "REJECT") {
@@ -131,6 +136,30 @@ function Payments() {
           </button>
         </div>
         {vacateNote ? <p className="mt-2 text-sm font-semibold" data-testid="vacate-note">{vacateNote}</p> : null}
+      </section>
+      <section className="mt-10" aria-labelledby="trials-h">
+        <h2 className="text-2xl font-semibold" id="trials-h">
+          Trial nights
+        </h2>
+        <p className="mt-2 text-sm text-muted [text-wrap:pretty]">
+          ₹99 incl. GST (₹83.90 + ₹15.10 GST) per trial booking, approved above like any UPI payment. Stay money goes to the
+          owner directly. A trial earns ₹99 off the ₹589 fee if the deal is issued within 14 days of check-out.
+        </p>
+        <ul className="mt-4 space-y-2" data-testid="trial-bookings">
+          {trials.map((t) => (
+            <li key={t.id} className={card}>
+              <p className="font-semibold">
+                {t.seeker} at {t.title || t.listingId} · {t.checkIn} · {t.nights} night(s) · {t.status}
+              </p>
+              <p className="text-sm text-muted">
+                Owner {t.owner} · stay ₹{t.nightlyInr} × {t.nights} = ₹{t.stayTotalInr} (paid to owner) · fee{" "}
+                <span className="font-mono">{t.feeRef}</span> {t.feeStatus} · ID {t.idCheckedAt ? "checked" : "not checked yet"}
+                {t.creditedOn ? ` · ₹99 credited on ${t.creditedOn}` : ""}
+              </p>
+            </li>
+          ))}
+        </ul>
+        {trials.length === 0 ? <p className={`mt-4 text-sm text-muted ${card}`}>No trial bookings yet.</p> : null}
       </section>
       <section className="mt-10" aria-labelledby="refunds-h">
         <h2 className="text-2xl font-semibold" id="refunds-h">

@@ -8,6 +8,7 @@ import { bool, num, str } from "@/lib/roomsetu/map";
 import { notifyWhatsApp } from "@/lib/roomsetu/mappstore";
 import { unlockFromPayment } from "@/lib/roomsetu/squad-api";
 import { recordVacate } from "@/lib/roomsetu/agreement-db";
+import { adminTrialBookings as loadTrialBookings } from "@/lib/roomsetu/trial-db";
 
 function asRecord(input: unknown): Record<string, unknown> {
   return input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -688,4 +689,13 @@ export const adminRecordVacate = createServerFn({ method: "POST" })
     const out = await recordVacate(sql, { applicationId: data.applicationId, vacatedOn: data.vacatedOn, actorId: context.userId });
     await audit(sql, context.userId, "agreement.vacate", "agreement", data.applicationId, `vacated ${data.vacatedOn}: ${out.refunds} refund(s) due, ${out.kept} kept`);
     return out;
+  });
+
+/** Trial-night bookings for the payments page: ₹99 fee status, ID check, and whether the credit was used. */
+export const adminTrialBookings = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    return loadTrialBookings(sql);
   });
