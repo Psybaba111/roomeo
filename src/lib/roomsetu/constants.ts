@@ -91,14 +91,10 @@ export const HOST_WIDGETS = [
   { id: "earnings", title: "Earnings" },
 ] as const;
 
+/** Only genuinely upcoming features. Agreements and complaints are live; Roomeo never holds deposits (#41). */
 export const COMING_SOON = [
-  "Digital rental agreements",
+  "Rent AutoPay & reminders",
   "Tenant screening",
-  "Rent collection",
-  "Security deposit holding",
-  "Maintenance requests",
-  "Rent reminders",
-  "Lease management",
 ] as const;
 
 export function defaultLayout(ids: readonly { id: string }[]) {

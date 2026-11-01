@@ -1,3 +1,4 @@
+import { readableDate } from "@/lib/roomsetu/dates";
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { ChatCircleDots, LockSimple, Ticket } from "@phosphor-icons/react";
@@ -159,7 +160,7 @@ function PassGate({ listingId, status, reload }: { listingId: string; status: St
             {s.unlimited
               ? "Chat the owner, free"
               : s.pass
-                ? `Pass active until ${s.pass.endsAt.slice(0, 10)}. Message any owner.`
+                ? `Pass active until ${readableDate(s.pass.endsAt)}. Message any owner.`
                 : `${s.freeLeft} of ${s.freeTotal} free owner contacts left`}
           </p>
           <p className="mt-2 text-sm text-muted [text-wrap:pretty]">

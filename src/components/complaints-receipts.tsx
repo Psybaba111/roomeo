@@ -186,7 +186,7 @@ function Receipts({ data, reload }: { data: On; reload: () => void }) {
       {data.residents.length ? (
         <>
           <form className={card} onSubmit={(e) => { e.preventDefault(); void save.run(() => markRentPaid({ data: m })); }}>
-            <p className="font-semibold">Got rent outside AutoPay? Mark it paid</p>
+            <p className="font-semibold">Got rent? Mark it paid</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-3">
               <select className={input} value={m.moveInId} onChange={(e) => { const r = data.residents.find((x) => x.id === e.target.value); setM({ ...m, moveInId: e.target.value, month: dueFor(e.target.value), amountInr: r ? String(r.rent) : m.amountInr }); }} aria-label="Resident">
                 {data.residents.map((r) => <option key={r.id} value={r.id}>{r.tenant} · {r.title}</option>)}

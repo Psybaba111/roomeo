@@ -1,3 +1,4 @@
+import { readableDate } from "@/lib/roomsetu/dates";
 import { SquadMoveIn } from "@/components/squad-move-in";
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
@@ -98,7 +99,7 @@ function Squads() {
                 </p>
                 <p className="mt-1 text-sm text-muted">
                   {r.members.length} people · combined budget {inr(r.combinedBudget)} a month (rent{" "}
-                  {inr(r.rent)}){r.moveIn ? ` · move in ${r.moveIn}` : ""} · status{" "}
+                  {inr(r.rent)}){r.moveIn ? ` · move in ${readableDate(r.moveIn)}` : ""} · status{" "}
                   <b>{r.status}</b>
                 </p>
                 <ul className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
