@@ -6,6 +6,9 @@ import { listCities } from "@/lib/roomsetu/public-api";
 import { control } from "@/components/cards";
 import { errText, safeNext } from "@/lib/ui-text";
 
+/** Cities Roomeo is live in. Signup only offers these (Rohith, 1 Nov 2026). */
+const OPEN_CITIES = ["Mangaluru", "Udupi", "Manipal"];
+
 const BEARER_KEY = "grok-auth.bearer-token";
 
 async function remember(token?: string | null) {
@@ -20,7 +23,7 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mobile, setMobile] = useState("");
-  const [city, setCity] = useState("");
+  const [city, setCity] = useState("Mangaluru");
   const [intent, setIntent] = useState("BOTH");
   const [cities, setCities] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -30,7 +33,7 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
     const picked = sessionStorage.getItem("roomsetu-intent");
     if (picked === "LOOKING" || picked === "OFFERING" || picked === "BOTH") setIntent(picked);
     void listCities()
-      .then((rows) => setCities(rows.map((r) => r.name)))
+      .then((rows) => setCities(rows.map((r) => r.name).filter((n) => OPEN_CITIES.includes(n))))
       .catch(() => undefined);
   }, []);
 
@@ -42,9 +45,9 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
 
   return (
     <div className="mx-auto max-w-md">
-      <h1 className="font-display text-4xl">{mode === "login" ? "Welcome back" : "Create your roomeo.com"}</h1>
+      <h1 className="font-display text-4xl">{mode === "login" ? "Welcome back" : "Let's find your bed 🛏️"}</h1>
       <p className="mt-2 text-muted">
-        {mode === "login" ? "Use email, Google, or X." : "A few details. You can be looking, offering, or both."}
+        {mode === "login" ? "Use email, Google, or X." : "Takes a minute. Mangaluru beds, no broker's month."}
       </p>
       <form
         className="mt-6 space-y-3"
@@ -75,15 +78,16 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
       >
         {mode === "register" ? (
           <>
-            <input className={control} placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} required />
-            <input className={control} placeholder="Mobile" value={mobile} onChange={(e) => setMobile(e.target.value)} required />
-            <select className={control} value={city} onChange={(e) => setCity(e.target.value)} aria-label="City">
-              <option value="">City (pick later)</option>
-              {cities.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
-            <select className={control} value={intent} onChange={(e) => setIntent(e.target.value)}>
+            <input className={control} placeholder="Your name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} required />
+            <input className={control} placeholder="Mobile (10 digits)" type="tel" inputMode="numeric" autoComplete="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} required />
+            {cities.length > 1 ? (
+              <select className={control} value={city} onChange={(e) => setCity(e.target.value)} aria-label="City">
+                {cities.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            ) : null}
+            <select className={control} aria-label="I am" value={intent} onChange={(e) => setIntent(e.target.value)}>
               <option value="LOOKING">Looking for a room</option>
               <option value="OFFERING">Offering a room</option>
               <option value="BOTH">Both</option>

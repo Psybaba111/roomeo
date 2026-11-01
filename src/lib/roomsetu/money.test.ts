@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { FEE_INR, rentQuote } from "./money.ts";
+import { FEE_INR, FEE_LINE, rentQuote } from "./money.ts";
 import { razorpaySignatureMatches } from "./razorpay.ts";
 
 test("rent quote adds 499 for the seeker and takes 499 from the host", () => {
@@ -19,4 +19,11 @@ test("razorpay signature accepts the order and payment pair only", () => {
   assert.equal(razorpaySignatureMatches(secret, "order_1", "pay_1", good), true);
   assert.equal(razorpaySignatureMatches(secret, "order_1", "pay_1", "nope"), false);
   assert.equal(razorpaySignatureMatches(secret, "order_1", "pay_2", good), false);
+});
+
+test("one fee line: chat free, ₹589 incl GST once, 7 day refund", () => {
+  assert.match(FEE_LINE, /chat free/i);
+  assert.ok(FEE_LINE.includes("₹589") && FEE_LINE.includes("₹499 + GST"));
+  assert.match(FEE_LINE, /7 days/);
+  assert.equal(Math.round(FEE_INR * 1.18), 589);
 });
