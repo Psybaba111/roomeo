@@ -2,6 +2,7 @@ import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Camera, CheckCircle, Trash } from "@phosphor-icons/react";
+import { TrialNightsOwner } from "@/components/trial-nights";
 import { NeedAccount } from "@/components/need-account";
 import { Shell } from "@/components/shell";
 import { control } from "@/components/cards";
@@ -138,6 +139,7 @@ function EditListing({ id }: { id: string }) {
           <span className="mb-1 block text-sm text-muted">Deposit (₹)</span>
           <input className={control} inputMode="numeric" name="deposit" value={form.deposit} onChange={(e) => set("deposit", e.target.value.replace(/[^\d]/g, ""))} required />
         </label>
+        <TrialNightsOwner listingId={room.id} />
         <TrustFields value={trust} onChange={(k, v) => setTrust((t) => ({ ...t, [k]: v }))} />
         <label>
           <span className="mb-1 block text-sm text-muted">Furnished</span>
