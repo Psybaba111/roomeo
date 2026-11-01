@@ -1,3 +1,4 @@
+import { FEE_LINE } from "@/lib/roomsetu/money";
 import { listingHead } from "@/lib/seo";
 import { ContactGate } from "@/components/contact-gate";
 import { SquadShortlistButton } from "@/components/squad-shortlist-button";
@@ -140,7 +141,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
         </p>
       ) : null}
       <div className="grid gap-8 lg:grid-cols-12">
-        <div className="lg:col-span-7">
+        <div className="min-w-0 lg:col-span-7">
           <div className="overflow-hidden rounded-3xl border border-line bg-brand-soft">
             {img ? (
               <img
@@ -156,9 +157,9 @@ function ListingBody({ room }: { room: LoadedRoom }) {
               <div className="aspect-[4/3]" />
             )}
           </div>
-          {img ? (
+          {img && photoDateLabel(img.uploadedAt) ? (
             <p className="mt-2 text-xs text-muted" data-testid="photo-date">
-              {photoDateLabel(img.uploadedAt) || "Older photo, upload date not recorded. Ask the owner for a fresh one."}
+              {photoDateLabel(img.uploadedAt)}
             </p>
           ) : null}
           {room.trust.videoTourUrl ? (
@@ -188,7 +189,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
           </div>
           <p className="mt-2 text-xs text-muted">{img?.category}</p>
         </div>
-        <div className="lg:col-span-5">
+        <div className="min-w-0 lg:col-span-5">
           <div className="flex flex-wrap gap-2">
             {room.verification === "VERIFIED" ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2 py-1 text-xs font-semibold text-brand-deep">
@@ -210,7 +211,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
               </span>
             ) : null}
           </div>
-          <h1 className="mt-3 font-display text-4xl leading-tight">{room.title}</h1>
+          <h1 className="mt-3 font-display text-3xl leading-tight break-words [text-wrap:balance] md:text-4xl">{room.title}</h1>
           <p className="mt-2 text-muted">
             {room.locality}, {room.city} · {room.propertyType}
           </p>
@@ -242,13 +243,17 @@ function ListingBody({ room }: { room: LoadedRoom }) {
               {inr(room.rent)} rent + {inr(room.deposit)} deposit
             </p>
             <p className="mt-1 text-sm text-brand-soft">
-              Rent and deposit are paid directly to the owner. Roomeo never holds your deposit and takes no cut. ₹499 + GST once, chat free.
+              Rent and deposit are paid directly to the owner. Roomeo never holds your deposit and takes no cut.
             </p>
             <p className="mt-2 text-sm font-semibold" data-testid="deposit-terms">
               {depositTerms(room.deposit)}
             </p>
           </div>
-          <div className="mt-4 flex flex-col gap-2">
+          <p className="mt-3 text-sm text-muted" data-testid="fee-line">
+            {FEE_LINE}{" "}
+            <Link to="/pricing" className="font-semibold text-brand">How pricing works</Link>
+          </p>
+          <div id="contact" className="mt-4 flex scroll-mt-24 flex-col gap-2">
             {user ? (
               <ContactGate listingId={room.id} isDemo={room.isDemo} />
             ) : (
@@ -459,6 +464,35 @@ function ListingBody({ room }: { room: LoadedRoom }) {
             More rooms in {room.city}
           </Link>
         </aside>
+      </div>
+      <div className="h-24 md:hidden" aria-hidden="true" />
+      <div
+        className="fixed inset-x-0 bottom-16 z-20 border-t border-line bg-card/95 px-4 py-2 backdrop-blur md:hidden"
+        data-testid="sticky-cta"
+      >
+        <div className="mx-auto flex max-w-6xl items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-semibold tabular-nums">
+              {inr(headlinePrice(room.rent, room.trust.allInInr).amount)}
+              <span className="text-xs font-medium text-muted"> / month</span>
+            </p>
+            <p className="truncate text-xs text-muted">{inr(room.deposit)} deposit, paid to the owner</p>
+          </div>
+          <button
+            type="button"
+            className="h-12 shrink-0 rounded-full bg-brand px-4 text-sm font-semibold text-card transition-transform duration-300 active:scale-[0.98]"
+            onClick={() => {
+              if (!user) {
+                sessionStorage.setItem("roomsetu-next", `/listing/${room.id}`);
+                window.location.href = "/login";
+                return;
+              }
+              document.getElementById("contact")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          >
+            {user ? "Chat the owner" : "Sign in to chat"}
+          </button>
+        </div>
       </div>
     </Shell>
   );

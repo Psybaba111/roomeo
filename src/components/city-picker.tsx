@@ -28,7 +28,7 @@ export function CityPicker({
         data-testid="city-input"
         aria-label="City"
         className="min-w-0 flex-1 bg-transparent outline-none"
-        placeholder="Any city"
+        placeholder="Mangaluru"
         value={text}
         maxLength={60}
         onChange={(e) => setText(e.target.value)}

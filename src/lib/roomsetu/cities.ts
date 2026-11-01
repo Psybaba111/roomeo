@@ -50,7 +50,7 @@ export function isSearchCity(name: string): boolean {
 
 export function cityInfo(name: string): SearchCity {
   const c = searchCity(name);
-  return { name: c || "any city", short: c.slice(0, 3).toUpperCase(), center: [20.5937, 78.9629], tagline: "Near college, office and the metro", areas: KNOWN_AREAS[c] ?? {} };
+  return { name: c || "any city", short: c.slice(0, 3).toUpperCase(), center: [20.5937, 78.9629], tagline: "Near college, office and the bus stand", areas: KNOWN_AREAS[c] ?? {} };
 }
 
 /** Known public area centroid, falling back to the seeded coordinate. */
@@ -65,7 +65,7 @@ export function citySeoTitle(name: string): string {
 
 export function citySeoDescription(name: string): string {
   const c = searchCity(name);
-  return `Shared rooms, PG beds and whole flats${c ? ` in ${c}` : ""}. ₹499 once, not a broker's month.`;
+  return `Shared rooms, PG beds and whole flats${c ? ` in ${c}` : ""}. Chat free, ₹589 once when you lock a bed.`;
 }
 
 /** Search URLs for the sitemap. */

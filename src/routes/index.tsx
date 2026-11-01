@@ -1,3 +1,4 @@
+import { FEE_LINE } from "@/lib/roomsetu/money";
 import { CalendarCheck, ChatCircle, Flag, MapPin, Receipt, ShieldCheck } from "@phosphor-icons/react";
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
@@ -13,7 +14,7 @@ export const Route = createFileRoute("/")({
   head: () =>
     pageHead("Spare beds for students & first jobbers", {
       description:
-        "Shared rooms, PG beds and whole flats in any city. Real photos, one all-in price, deposit paid to the owner. ₹499 once, not a broker's month.",
+        "Shared rooms and PG beds in Mangaluru. Real photos, one all-in price, deposit paid to the owner. Chat free, ₹589 once when you lock a bed.",
     }),
   loader: () => getHome({ data: { city: DEFAULT_CITY } }),
   component: Home,
@@ -40,7 +41,7 @@ const STEPS = [
     "Choose your own flatmates. No random allotment, no awkward surprises.",
   ],
   ["02", "Owner says yes once", "One clear yes or no. No endless calls, no ghosting."],
-  ["03", "Chat owners free", "Unlimited owner chats, free. Listing is free too. ₹499 + GST once per side when the stay is confirmed."],
+  ["03", "Chat owners free", "Unlimited owner chats, free. Listing is free too. ₹589 (₹499 + GST) once when you lock a bed, refundable within 7 days."],
 ];
 
 const TRUST: [typeof ShieldCheck, string, string][] = [
@@ -102,7 +103,11 @@ function Home() {
           </h1>
           <p className="mt-4 max-w-md text-base leading-relaxed text-white/90">
             Spare beds near college and office, with dated photos, one all-in price and deposit
-            paid directly to the owner. ₹499 once, not a broker's month. No cut of your rent.
+            paid directly to the owner. No broker's month, no cut of your rent.
+          </p>
+          <p className="mt-2 max-w-md text-sm text-white/80" data-testid="fee-line">
+            {FEE_LINE}{" "}
+            <Link to="/pricing" className="font-semibold text-lime underline">How pricing works</Link>
           </p>
           <form
             className="mt-6 grid max-w-2xl gap-2 rounded-3xl bg-white p-2 text-[#14111f] shadow-xl sm:grid-cols-[1fr_1fr_auto]"
