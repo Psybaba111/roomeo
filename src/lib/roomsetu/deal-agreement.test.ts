@@ -123,3 +123,15 @@ test("agreement text hides the street until everyone signs", async () => {
   assert.equal(agreementBodyForView(body, t, true), body);
   assert.equal(agreementBodyForView(body, { ...t, address: "" }, false), body);
 });
+
+test("room line does not repeat the area the address already has", async () => {
+  const { roomPlace, agreementBodyForView } = await import("./deal-agreement.ts");
+  assert.equal(roomPlace({ address: "1 Test Lane, Kadri, Mangaluru", locality: "Kadri", city: "Mangaluru" }), "1 Test Lane, Kadri, Mangaluru");
+  assert.equal(roomPlace({ address: "1 test lane, KADRI", locality: "Kadri", city: "Mangaluru" }), "1 test lane, KADRI, Mangaluru");
+  assert.equal(roomPlace({ address: "MPT Road", locality: "Bunder", city: "Mangaluru" }), "MPT Road, Bunder, Mangaluru");
+  const t = { address: "1 Test Lane, Kadri, Mangaluru", locality: "Kadri", city: "Mangaluru" };
+  const legacy = "Room: PG, 1 Test Lane, Kadri, Mangaluru, Kadri, Mangaluru\nRent";
+  assert.equal(agreementBodyForView(legacy, t, true), "Room: PG, 1 Test Lane, Kadri, Mangaluru\nRent");
+  const draft = agreementBodyForView(legacy, t, false);
+  assert.ok(!draft.includes("Test Lane") && draft.includes("Kadri, Mangaluru (street address shared"));
+});
