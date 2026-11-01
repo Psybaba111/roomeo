@@ -1,3 +1,4 @@
+import { LOCKED_LOCATION_LINE } from "@/lib/roomsetu/location-gate";
 import { TrialNightsBooking } from "@/components/trial-nights";
 import { FEE_LINE } from "@/lib/roomsetu/money";
 import { listingHead } from "@/lib/seo";
@@ -13,7 +14,6 @@ import { getListing } from "@/lib/roomsetu/public-api";
 import {
   applyToListing,
   fileReport,
-  getListingAddress,
   saveListing,
   unsaveListing,
   savedIds,
@@ -91,7 +91,6 @@ function ListingBody({ room }: { room: LoadedRoom }) {
   const { user, isPending } = useCurrentUserState();
   const [photo, setPhoto] = useState(0);
   const [saved, setSaved] = useState(false);
-  const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -102,9 +101,6 @@ function ListingBody({ room }: { room: LoadedRoom }) {
     if (!user) return;
     void savedIds()
       .then((ids) => setSaved(ids.includes(room.id)))
-      .catch(() => undefined);
-    void getListingAddress({ data: room.id })
-      .then((a) => setAddress(`${a.address}, ${a.pincode}`))
       .catch(() => undefined);
   }, [user, room.id]);
 
@@ -359,10 +355,39 @@ function ListingBody({ room }: { room: LoadedRoom }) {
           <div>
             <h2 className="text-2xl font-semibold">The room</h2>
             <p className="mt-2 text-sm text-muted">
-              No visit. You judge this bed from the photos and the rent. The street stays off this
-              page.
-              {user && address ? ` The owner can share ${address} after they say yes.` : ""}
+              No visit. You judge this bed from the photos and the rent.
             </p>
+          </div>
+          <div data-testid="location-box">
+            <h2 className="text-2xl font-semibold">Where it is</h2>
+            {room.exactLocation ? (
+              <div className="mt-2 rounded-2xl border border-line bg-card p-4" data-testid="location-unlocked">
+                <p className="text-sm font-semibold">📍 {room.exactLocation.address}{room.exactLocation.address.includes(room.exactLocation.pincode) ? "" : `, ${room.exactLocation.pincode}`}</p>
+                {room.exactLocation.mapsUrl ? (
+                  <a
+                    href={room.exactLocation.mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex h-12 items-center rounded-full bg-brand px-4 text-sm font-semibold text-card"
+                  >
+                    Open in Google Maps
+                  </a>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-2 rounded-2xl border border-dashed border-line bg-card p-4" data-testid="location-locked">
+                <p className="text-sm font-semibold">
+                  {room.locality}, {room.city}
+                </p>
+                <p className="mt-1 text-sm text-muted">{LOCKED_LOCATION_LINE}</p>
+                {room.locationLock && (room.locationLock.signed || room.locationLock.paid) ? (
+                  <p className="mt-2 text-xs text-muted">
+                    {room.locationLock.signed ? "Agreement signed ✅" : "Agreement not signed yet"} ·{" "}
+                    {room.locationLock.paid ? "Fee paid ✅" : "Fee not confirmed yet"}
+                  </p>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
         <aside className="lg:col-span-5">

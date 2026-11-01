@@ -1,3 +1,4 @@
+import { LOCKED_LOCATION_LINE, locationAccess, locationUnlocked } from "@/lib/roomsetu/location-gate";
 import { audit } from "@/lib/roomsetu/admin-api";
 import { trustOf, type TrustFields } from "@/lib/roomsetu/trust";
 import { writeTrust } from "@/lib/roomsetu/trust-db";
@@ -1263,14 +1264,8 @@ export const getListingAddress = createServerFn({ method: "POST" })
       where l.id = ${data}`;
     const row = rows[0];
     if (!row || row.status === "REMOVED") throw new Error("Address unavailable.");
-    if (row.owner_id !== context.userId) {
-      const accepted = await sql`
-        select id from applications
-        where listing_id = ${data} and seeker_id = ${context.userId} and status = 'ACCEPTED'
-        limit 1`;
-      if (!accepted.length)
-        throw new Error("The street address is shared after the host accepts you.");
-    }
+    const access = await locationAccess(sql, data, row.owner_id, context.userId);
+    if (!locationUnlocked(access)) throw new Error(LOCKED_LOCATION_LINE);
     return { address: row.address, pincode: row.pincode };
   });
 
