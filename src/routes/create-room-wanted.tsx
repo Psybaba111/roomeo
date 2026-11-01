@@ -6,6 +6,7 @@ import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
 import { control } from "@/components/cards";
 import { FURNISHED, GENDER_PREFS, ROOM_TYPES } from "@/lib/roomsetu/constants";
+import { OPEN_CITIES } from "@/lib/roomsetu/open-cities";
 import { listCities } from "@/lib/roomsetu/public-api";
 import { createRoomWanted } from "@/lib/roomsetu/account-api";
 
@@ -40,7 +41,7 @@ function Form() {
   });
 
   useEffect(() => {
-    void listCities().then((rows) => setCities(rows.map((c) => c.name)));
+    void listCities().then((rows) => setCities(rows.map((c) => c.name).filter((n) => OPEN_CITIES.includes(n))));
   }, []);
 
   return (

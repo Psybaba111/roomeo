@@ -6,7 +6,7 @@ import { num, str } from "@/lib/roomsetu/map";
 import { buildUpiLink, makeRef, upiPayee } from "@/lib/roomsetu/upi";
 import { pricingConfig } from "@/lib/roomsetu/pricing";
 import { tenantFeeWithTrialCredit } from "@/lib/roomsetu/trial-db";
-import { agreementBody, agreementState, feeWithGst, refundableOnVacate, refundDeadline, validSignName } from "@/lib/roomsetu/deal-agreement";
+import { agreementBody, agreementBodyForView, agreementState, feeWithGst, refundableOnVacate, refundDeadline, validSignName } from "@/lib/roomsetu/deal-agreement";
 import { dealSteps } from "@/lib/roomsetu/deal-steps";
 import { cancelAgreement, loadAgreement, signAgreement, signSquadAgreement, squadAgreementKey, squadSigners } from "@/lib/roomsetu/agreement-db";
 
@@ -90,7 +90,7 @@ export const getDealAgreement = createServerFn({ method: "GET" })
     const f = feeWithGst(base);
     return {
       kind: data.kind,
-      body: str(a.body),
+      body: agreementBodyForView(str(a.body), d.terms, Boolean(a.issued_at)),
       state,
       role: isOwner ? ("owner" as const) : ("tenant" as const),
       iSigned,

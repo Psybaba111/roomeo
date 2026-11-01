@@ -85,6 +85,12 @@ function ListingBeds({ l, reload }: { l: L; reload: () => void }) {
         <p className="font-semibold">{l.title}</p>
         <span className="text-xs text-muted">listing {l.status.toLowerCase()} · free from {readableDate(l.available_from)}</span>
       </div>
+      {l.unplaced.length ? (
+        <p className="mt-2 rounded-lg border border-line bg-paper p-3 text-sm" data-testid="bed-unplaced">
+          {l.unplaced.length === 1 ? `${l.unplaced[0].name} moved in` : `${l.unplaced.length} residents moved in`} but{" "}
+          {l.unplaced.length === 1 ? "isn't" : "aren't"} on a bed yet. Tap <span className="font-semibold">+ Add a bed</span>, set it to Occupied and pick them 🛏️
+        </p>
+      ) : null}
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         {l.beds.map((b) => (
           <div key={b.id} className={`rounded-lg border-2 bg-paper p-3 ${TONE[b.status] ?? "border-line"}`}>
@@ -138,7 +144,7 @@ function BedForm({ l, bed, done }: { l: L; bed: Bed | null; done: () => void }) 
         {occupied ? (
           <>
             {l.unplaced.length ? (
-              <select className={input} value={f.tenantUserId} onChange={(e) => { const u = l.unplaced.find((x) => x.userId === e.target.value); setF({ ...f, tenantUserId: e.target.value, tenantName: u?.name ?? f.tenantName, moveInDate: u?.since ?? f.moveInDate }); }} aria-label="Roomeo resident">
+              <select className={input} value={f.tenantUserId} onChange={(e) => { const u = l.unplaced.find((x) => x.userId === e.target.value); setF({ ...f, tenantUserId: e.target.value, tenantName: u?.name ?? f.tenantName, moveInDate: u?.since ?? f.moveInDate}); }} aria-label="Roomeo resident">
                 <option value="">Pick a Roomeo resident (optional)</option>
                 {l.unplaced.map((u) => <option key={u.userId} value={u.userId}>{u.name}</option>)}
               </select>

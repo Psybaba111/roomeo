@@ -71,7 +71,7 @@ export function agreementBody(t: DealTerms): string {
     ``,
     `Tenant: ${t.tenantName}`,
     `Owner: ${t.ownerName}`,
-    `Room: ${t.listingTitle}, ${[t.address, t.locality, t.city].filter(Boolean).join(", ")}`,
+    `Room: ${t.listingTitle}, ${roomPlace(t)}`,
     `Monthly rent: ₹${t.monthlyRent}. Deposit: ₹${t.deposit}.${t.moveIn ? ` Planned move in: ${t.moveIn}.` : ""}`,
     ``,
     `1. The tenant takes the room above at the rent and deposit shown. Rent and deposit are paid directly to the owner; Roomeo never holds them or takes a cut.`,
@@ -80,4 +80,29 @@ export function agreementBody(t: DealTerms): string {
     `4. House rules, notice period and anything else are between tenant and owner. A full stamped rental agreement may still be needed under local law.`,
     `5. This agreement is signed by each side clicking "Sign" in Roomeo. Roomeo records the typed name, time and IP address of each signature. The issue date is when the second side signs.`,
   ].join("\n");
+}
+
+/**
+ * Until the agreement is issued (everyone signed), the street address stays out of the text.
+ * People see the area ("Bunder, Mangaluru"); the issued copy carries the full address.
+ */
+/** "1 Test Lane, Kadri, Mangaluru": locality/city are added only if the address doesn't already say them (case-insensitive). */
+export function roomPlace(t: { address: string; locality: string; city: string }): string {
+  const address = (t.address || "").trim();
+  const low = address.toLowerCase();
+  const extra = [t.locality, t.city].map((x) => (x || "").trim()).filter((x) => x && !low.includes(x.toLowerCase()));
+  return [address, ...extra].filter(Boolean).join(", ");
+}
+
+export function agreementBodyForView(body: string, t: { address: string; locality: string; city: string }, issued: boolean): string {
+  const street = (t.address || "").trim();
+  if (!street) return body;
+  // Older drafts repeated the area ("…, Kadri, Mangaluru, Kadri, Mangaluru"). Show them deduped too.
+  const legacy = [street, t.locality, t.city].filter(Boolean).join(", ");
+  const place = roomPlace(t);
+  let out = legacy !== place ? body.split(legacy).join(place) : body;
+  if (issued) return out;
+  const area = [t.locality, t.city].filter(Boolean).join(", ") || "Area shown after signing";
+  out = out.split(place).join(`${area} (street address shared once the agreement is signed)`);
+  return out.split(street).join(area);
 }

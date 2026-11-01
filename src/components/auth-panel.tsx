@@ -1,3 +1,4 @@
+import { OPEN_CITIES } from "@/lib/roomsetu/open-cities";
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { authClient, signIn } from "@/lib/auth/client";
@@ -6,8 +7,6 @@ import { listCities } from "@/lib/roomsetu/public-api";
 import { control } from "@/components/cards";
 import { errText, safeNext } from "@/lib/ui-text";
 
-/** Cities Roomeo is live in. Signup only offers these (Rohith, 1 Nov 2026). */
-const OPEN_CITIES = ["Mangaluru", "Udupi", "Manipal"];
 
 const BEARER_KEY = "grok-auth.bearer-token";
 

@@ -65,7 +65,14 @@ export async function bedBoard(sql: Sql, ownerId: string) {
       (select i.start_date::text from movein_invites i where i.listing_id = mi.listing_id and i.tenant_id = mi.seeker_id and i.status = 'SIGNED' order by i.updated_at desc limit 1),
       (mi.confirmed_at at time zone 'Asia/Kolkata')::date::text) as since
     from move_ins mi left join profiles p on p.user_id = mi.seeker_id where mi.owner_id = ${ownerId} and mi.confirmed_at is not null
-      and not exists (select 1 from pg_beds b where b.tenant_id = mi.seeker_id and b.listing_id = mi.listing_id)`;
+      and not exists (select 1 from pg_beds b where b.tenant_id = mi.seeker_id and b.listing_id = mi.listing_id)
+    union
+    -- Residents who signed a move-in link but have no request-based move-in row yet.
+    select i.listing_id, i.tenant_id as user_id, coalesce(p.full_name, 'Resident') as name, i.start_date::text as since
+    from movein_invites i left join profiles p on p.user_id = i.tenant_id
+    where i.owner_id = ${ownerId} and i.status = 'SIGNED' and i.tenant_id is not null
+      and not exists (select 1 from move_ins m where m.seeker_id = i.tenant_id and m.listing_id = i.listing_id and m.confirmed_at is not null)
+      and not exists (select 1 from pg_beds b where b.tenant_id = i.tenant_id and b.listing_id = i.listing_id)`;
   return {
     summary: boardSummary(beds),
     listings: listings.map((l) => ({
