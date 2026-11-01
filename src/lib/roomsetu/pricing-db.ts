@@ -117,6 +117,13 @@ export async function applyPaidPayment(sql: Sql, paymentId: string) {
   } else if (p.kind === "FASTTRACK") {
     await sql`update profiles set fast_track_at = coalesce(fast_track_at, now()) where user_id = ${p.user_id}`;
     await notify(sql, p.user_id, "Fast track is on", "Your ID review moved to the front of the queue.", "/verification");
+  } else if (p.kind === "TRIAL_FEE") {
+    const { confirmTrialFromPayment } = await import("@/lib/roomsetu/trial-db");
+    const b = await confirmTrialFromPayment(sql, paymentId);
+    if (b) {
+      await notify(sql, b.seekerId, "Trial nights confirmed ✅", `Check in ${b.checkIn} for ${b.nights} night(s). Bring a photo ID. Pay the owner ₹${b.stayTotalInr} for the stay directly.`, "/applications");
+      await notify(sql, b.ownerId, "New trial guest", `A student checks in ${b.checkIn} for ${b.nights} night(s). Check their photo ID on arrival. They pay you ₹${b.stayTotalInr} directly.`, "/dashboard");
+    }
   } else if (p.kind === "SUCCESS_FEE") {
     const { createFeeInvoice } = await import("@/lib/roomsetu/agreement-db");
     const amt = await sql<{ amount_inr: number }>`select amount_inr from payments where id = ${paymentId}`;

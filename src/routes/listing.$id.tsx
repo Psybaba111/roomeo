@@ -1,3 +1,4 @@
+import { TrialNightsBooking } from "@/components/trial-nights";
 import { FEE_LINE } from "@/lib/roomsetu/money";
 import { listingHead } from "@/lib/seo";
 import { ContactGate } from "@/components/contact-gate";
@@ -365,6 +366,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
           </div>
         </div>
         <aside className="lg:col-span-5">
+          <TrialNightsBooking listingId={room.id} />
           <div className="rounded-3xl border border-line bg-card p-4">
             <p className="text-sm text-muted">Host</p>
             <h2 className="font-display text-2xl">{room.host.name}</h2>
