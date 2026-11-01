@@ -13,10 +13,11 @@ export function locationUnlocked(a: LocationAccess): boolean {
   return a.isOwner || a.isAdmin || (a.signed && a.paid);
 }
 
-/** Google Maps search link. Uses the street address text, which is more precise than stored coordinates. */
+/** Google Maps link. Prefers the exact pin (lat,lng); falls back to the street address text. */
 export function mapsUrl(address: string, pincode: string, lat?: number, lng?: number): string {
-  const q = [address, address.includes(pincode) ? "" : pincode].filter(Boolean).join(" ").trim();
-  const query = q || (Number.isFinite(lat) && Number.isFinite(lng) && (lat || lng) ? `${lat},${lng}` : "");
+  const hasPin = typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+  const text = [address, address.includes(pincode) ? "" : pincode].filter(Boolean).join(" ").trim();
+  const query = hasPin ? `${lat},${lng}` : text;
   return query ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}` : "";
 }
 
