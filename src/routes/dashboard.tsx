@@ -480,6 +480,14 @@ function Desk() {
             {data.notifications.map((n) => (
               <li key={n.id} className="rounded-2xl bg-card px-4 py-3 text-sm">
                 <span className="font-semibold">{n.title}.</span> {n.body}
+                {n.href && n.href.startsWith("/") && !n.href.startsWith("//") ? (
+                  <>
+                    {" "}
+                    <a href={n.href} className="font-semibold underline" data-testid="notice-link">
+                      {n.href.startsWith("/invoice/") ? "Get invoice" : "Open"}
+                    </a>
+                  </>
+                ) : null}
               </li>
             ))}
           </ul>

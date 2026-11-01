@@ -48,3 +48,66 @@ export function invoiceNumber(seq: number, d: Date): string {
 }
 
 export const rupees = (paise: number) => `₹${(paise / 100).toFixed(2)}`;
+
+const GST_STATE: Record<string, string> = {
+  "01": "Jammu and Kashmir", "02": "Himachal Pradesh", "03": "Punjab", "04": "Chandigarh", "05": "Uttarakhand", "06": "Haryana", "07": "Delhi", "08": "Rajasthan", "09": "Uttar Pradesh",
+  "10": "Bihar", "11": "Sikkim", "12": "Arunachal Pradesh", "13": "Nagaland", "14": "Manipur", "15": "Mizoram", "16": "Tripura", "17": "Meghalaya", "18": "Assam", "19": "West Bengal",
+  "20": "Jharkhand", "21": "Odisha", "22": "Chhattisgarh", "23": "Madhya Pradesh", "24": "Gujarat", "26": "Dadra and Nagar Haveli and Daman and Diu", "27": "Maharashtra",
+  "29": "Karnataka", "30": "Goa", "31": "Lakshadweep", "32": "Kerala", "33": "Tamil Nadu", "34": "Puducherry", "35": "Andaman and Nicobar Islands", "36": "Telangana", "37": "Andhra Pradesh", "38": "Ladakh",
+};
+/** 15-char GSTIN: 2-digit state, PAN (5 letters, 4 digits, 1 letter), entity, Z, check char. */
+export const GSTIN_RE = /^[0-3][0-9][A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+export function normalizeGstin(v: string | null | undefined): string | null {
+  const g = String(v ?? "").replace(/\s+/g, "").toUpperCase();
+  return g && GSTIN_RE.test(g) && GST_STATE[g.slice(0, 2)] ? g : null;
+}
+export function stateForGstin(g: string | null | undefined): string | null {
+  const n = normalizeGstin(g);
+  return n ? GST_STATE[n.slice(0, 2)] : null;
+}
+/** Buyer state: GSTIN wins, then profile city; unknown → null (place of supply defaults to Karnataka). */
+export function buyerState(gstin: string | null | undefined, city: string | null | undefined): string | null {
+  return stateForGstin(gstin) ?? stateForCity(city);
+}
+
+export type InvoiceView = {
+  number: string; issuedAt: string; buyerName: string; buyerEmail: string; buyerPhone: string; buyerGstin: string; buyerState: string; placeOfSupply: string;
+  taxable: number; cgst: number; sgst: number; igst: number; total: number; roundOff: number; paidInr: number; ref: string; utr: string; purpose: string;
+};
+
+/** Invoice date in IST, e.g. 01 Nov 2026. */
+export function istInvoiceDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" });
+}
+
+/** Lines for the downloadable PDF (pdf.ts swaps the rupee sign for Rs.). */
+export function invoicePdfLines(v: InvoiceView): { text: string; size?: number; bold?: boolean; gap?: number }[] {
+  const L: { text: string; size?: number; bold?: boolean; gap?: number }[] = [];
+  const amt = (label: string, p: number) => L.push({ text: `${label}: ${rupees(p)}` });
+  L.push({ text: "TAX INVOICE", size: 16, bold: true });
+  L.push({ text: `Invoice no.: ${v.number}`, bold: true, gap: 6 });
+  L.push({ text: `Invoice date: ${istInvoiceDate(v.issuedAt)} (IST)` });
+  L.push({ text: "Supplier", bold: true, gap: 10 });
+  L.push({ text: SELLER.name });
+  L.push({ text: SELLER.address });
+  L.push({ text: `GSTIN: ${SELLER.gstin} | State: ${SELLER.state} (${SELLER.stateCode})` });
+  L.push({ text: "Billed to", bold: true, gap: 10 });
+  L.push({ text: v.buyerName });
+  if (v.buyerEmail) L.push({ text: `Email: ${v.buyerEmail}` });
+  if (v.buyerPhone) L.push({ text: `Phone: ${v.buyerPhone}` });
+  L.push({ text: `GSTIN: ${v.buyerGstin || "Not provided (unregistered)"}` });
+  L.push({ text: `State: ${v.buyerState || "Not given"} | Place of supply: ${v.placeOfSupply}` });
+  L.push({ text: "Description", bold: true, gap: 10 });
+  L.push({ text: `Roomeo platform fee, one-time | SAC ${SELLER.sac} | Qty 1` });
+  amt("Taxable value", v.taxable);
+  if (v.igst) amt("IGST @ 18%", v.igst);
+  else { amt("CGST @ 9%", v.cgst); amt("SGST @ 9%", v.sgst); }
+  amt("Invoice total", v.total);
+  amt("Round off", v.roundOff);
+  L.push({ text: `Amount paid: ${rupees(v.paidInr * 100)}`, bold: true });
+  L.push({ text: `Paid by UPI | UTR: ${v.utr || "-"} | Roomeo ref: ${v.ref}`, gap: 6 });
+  L.push({ text: "Tax payable on reverse charge: No", gap: 6 });
+  L.push({ text: `Roomeo is a service of ${SELLER.name}. Computer-generated invoice, no signature needed.`, size: 8, gap: 14 });
+  return L;
+}

@@ -1,6 +1,6 @@
 import type { Sql } from "../db.ts";
 import { istDate, refundableOnVacate } from "./deal-agreement.ts";
-import { invoiceAmounts, invoiceNumber, stateForCity } from "./invoice.ts";
+import { buyerState as pickBuyerState, invoiceAmounts, invoiceNumber, normalizeGstin } from "./invoice.ts";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? "" : String(v));
@@ -100,22 +100,43 @@ export async function signSquadAgreement(sql: Sql, p: { requestId: string; userI
   return loadAgreement(sql, squadAgreementKey(p.requestId));
 }
 
+/** True once migration 0024 (buyer snapshot + GSTIN columns) has run. Cached per process. */
+let snapCols: Promise<boolean> | null = null;
+export function invoiceSnapshotReady(sql: Sql): Promise<boolean> {
+  snapCols ??= sql.query<{ n: string }>(
+    `select count(*)::text as n from information_schema.columns where table_schema = current_schema() and ((table_name = 'fee_invoices' and column_name in ('buyer_email','buyer_phone','buyer_gstin','utr')) or (table_name = 'payments' and column_name = 'buyer_gstin'))`,
+  ).then((r) => Number(r[0]?.n) === 5).catch(() => false);
+  return snapCols;
+}
+
 /** Creates the GST invoice for a PAID success-fee payment. Idempotent (one per payment). */
 export async function createFeeInvoice(sql: Sql, paymentId: string, baseInr: number, now: Date = new Date()) {
   const existing = await sql.query<Row>(`select id, number from fee_invoices where payment_id = $1`, [paymentId]);
   if (existing[0]) return existing[0];
+  const snap = await invoiceSnapshotReady(sql);
   const pay = (await sql.query<Row>(
-    `select p.user_id, p.amount_inr, p.agreement_id, p.kind, p.status, pr.full_name, pr.city from payments p left join profiles pr on pr.user_id = p.user_id where p.id = $1`, [paymentId]))[0];
+    `select p.user_id, p.amount_inr, p.agreement_id, p.kind, p.status, p.utr, ${snap ? "p.buyer_gstin" : "null::text as buyer_gstin"}, pr.full_name, pr.city, pr.phone_e164, u.email
+     from payments p left join profiles pr on pr.user_id = p.user_id left join "user" u on u.id = p.user_id where p.id = $1`, [paymentId]))[0];
   if (!pay || s(pay.kind) !== "SUCCESS_FEE" || s(pay.status) !== "PAID") return null;
-  const buyerState = stateForCity(s(pay.city));
+  const gstin = normalizeGstin(s(pay.buyer_gstin));
+  const buyerState = pickBuyerState(gstin, s(pay.city));
   const amt = invoiceAmounts(baseInr, buyerState, Number(pay.amount_inr));
   const seq = Number((await sql.query<{ n: string }>(`select nextval('fee_invoice_seq')::text as n`))[0].n);
   const number = invoiceNumber(seq, now);
   const id = crypto.randomUUID();
-  await sql.query(
-    `insert into fee_invoices (id, number, payment_id, user_id, agreement_id, issued_at, buyer_name, buyer_state, place_of_supply, taxable_paise, cgst_paise, sgst_paise, igst_paise, total_paise, round_off_paise, paid_inr)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) on conflict (payment_id) do nothing`,
-    [id, number, paymentId, s(pay.user_id), s(pay.agreement_id) || null, now.toISOString(), s(pay.full_name) || "Roomeo user", buyerState, amt.placeOfSupply, amt.taxable, amt.cgst, amt.sgst, amt.igst, amt.total, amt.roundOff, Number(pay.amount_inr)],
-  );
+  const base = [id, number, paymentId, s(pay.user_id), s(pay.agreement_id) || null, now.toISOString(), s(pay.full_name) || "Roomeo user", buyerState, amt.placeOfSupply, amt.taxable, amt.cgst, amt.sgst, amt.igst, amt.total, amt.roundOff, Number(pay.amount_inr)];
+  if (snap) {
+    await sql.query(
+      `insert into fee_invoices (id, number, payment_id, user_id, agreement_id, issued_at, buyer_name, buyer_state, place_of_supply, taxable_paise, cgst_paise, sgst_paise, igst_paise, total_paise, round_off_paise, paid_inr, buyer_email, buyer_phone, buyer_gstin, utr)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) on conflict (payment_id) do nothing`,
+      [...base, s(pay.email) || null, s(pay.phone_e164) || null, gstin, s(pay.utr) || null],
+    );
+  } else {
+    await sql.query(
+      `insert into fee_invoices (id, number, payment_id, user_id, agreement_id, issued_at, buyer_name, buyer_state, place_of_supply, taxable_paise, cgst_paise, sgst_paise, igst_paise, total_paise, round_off_paise, paid_inr)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) on conflict (payment_id) do nothing`,
+      base,
+    );
+  }
   return (await sql.query<Row>(`select id, number from fee_invoices where payment_id = $1`, [paymentId]))[0];
 }

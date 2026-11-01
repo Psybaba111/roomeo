@@ -128,7 +128,7 @@ export async function applyPaidPayment(sql: Sql, paymentId: string) {
     const { createFeeInvoice } = await import("@/lib/roomsetu/agreement-db");
     const amt = await sql<{ amount_inr: number }>`select amount_inr from payments where id = ${paymentId}`;
     const inv = await createFeeInvoice(sql, paymentId, Math.round(Number(amt[0]?.amount_inr ?? 0) / 1.18));
-    await notify(sql, p.user_id, "Success fee paid ✅", inv ? `Thanks! Your GST invoice ${String(inv.number)} is ready.` : "Thanks. You're all set.", inv ? `/invoice/${paymentId}` : "/applications");
+    await notify(sql, p.user_id, "Roomeo fee paid ✅", inv ? `Thanks! Your GST invoice ${String(inv.number)} is ready. Tap to download 🧾` : "Thanks. You're all set.", inv ? `/invoice/${paymentId}` : "/applications");
   }
 }
 

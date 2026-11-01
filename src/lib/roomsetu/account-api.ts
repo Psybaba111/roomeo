@@ -1368,6 +1368,10 @@ export const submitUtr = createServerFn({ method: "POST" })
       throw e;
     });
     if (!updated.length) throw new Error("This payment is not waiting for a UTR.");
+    if (data.gstin && kindRow[0]?.kind === "SUCCESS_FEE") {
+      const { invoiceSnapshotReady } = await import("@/lib/roomsetu/agreement-db");
+      if (await invoiceSnapshotReady(sql)) await sql.query(`update payments set buyer_gstin = $1 where id = $2`, [data.gstin, updated[0].id]);
+    }
     logEvent("payment.utr_submitted", {});
     return {
       ok: true,

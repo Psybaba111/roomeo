@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { cancelDealAgreement, getDealAgreement, signDealAgreement, startAgreementFee } from "@/lib/roomsetu/agreement-api";
+import { cancelDealAgreement, getDealAgreement, getFeeInvoicePdf, signDealAgreement, startAgreementFee } from "@/lib/roomsetu/agreement-api";
+import { downloadBase64 } from "@/components/download";
 import { successFeeHeadsUp } from "@/lib/roomsetu/pricing";
 import { errText } from "@/lib/ui-text";
 import { UpiCheckout, type UpiCheckoutData } from "@/components/upi-checkout";
@@ -86,7 +87,18 @@ export function DealAgreement({ dealRef }: { dealRef: DealRef }) {
             <li>Total: ₹{f.exact.toFixed(2)} → you pay ₹{f.total}</li>
           </ul>
           {a.feeStatus === "PAID" ? (
-            <p className="mt-2">Paid ✅ {a.feePaymentId ? <Link to="/invoice/$paymentId" params={{ paymentId: a.feePaymentId }} className="underline" data-testid="invoice-link">See GST invoice</Link> : null}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <span>Paid ✅ GST invoice ready 🧾</span>
+              {a.feePaymentId ? (
+                <>
+                  <button type="button" className={btnSmallPrimary} data-testid="invoice-download" disabled={busy}
+                    onClick={() => { const id = a.feePaymentId as string; setBusy(true); void getFeeInvoicePdf({ data: { paymentId: id } }).then((f) => downloadBase64(f.base64, f.filename)).catch((e) => setError(errText(e))).finally(() => setBusy(false)); }}>
+                    Download invoice (PDF)
+                  </button>
+                  <Link to="/invoice/$paymentId" params={{ paymentId: a.feePaymentId }} className="underline" data-testid="invoice-link">View</Link>
+                </>
+              ) : null}
+            </div>
           ) : a.feeStatus === "SUBMITTED" && !checkout ? (
             <p className="mt-2 text-muted">Got it. Roomeo is confirming your payment, then your invoice drops here.</p>
           ) : checkout ? (

@@ -1,7 +1,7 @@
 import { adminBeforeLoad } from "@/lib/roomsetu/admin-gate-api";
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { AdminFrame } from "@/components/admin-frame";
 import { errText } from "@/lib/ui-text";
@@ -72,6 +72,14 @@ function Payments() {
               Ref <span className="font-mono">{row.ref}</span> · UTR{" "}
               <span className="font-mono">{row.utr}</span> ·{" "}
               {row.submittedAt ? new Date(row.submittedAt).toLocaleString("en-IN") : ""}
+              {row.invoiceNo ? (
+                <>
+                  {" · "}
+                  <Link to="/invoice/$paymentId" params={{ paymentId: row.id }} className="underline" data-testid="admin-invoice-link">
+                    GST invoice {row.invoiceNo}
+                  </Link>
+                </>
+              ) : null}
             </p>
             {row.status === "SUBMITTED" ? (
               <div className="mt-2 flex gap-2">

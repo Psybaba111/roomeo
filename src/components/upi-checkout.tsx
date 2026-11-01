@@ -21,6 +21,8 @@ function isMobile() {
 export function UpiCheckout({ data, onClose }: { data: UpiCheckoutData; onClose: () => void }) {
   const [utr, setUtr] = useState("");
   const [payerVpa, setPayerVpa] = useState("");
+  const [gstin, setGstin] = useState("");
+  const isFee = /success fee/i.test(data.plan);
   const isContact = /contact unlock|squad share|pass/i.test(data.plan);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(
@@ -75,7 +77,7 @@ export function UpiCheckout({ data, onClose }: { data: UpiCheckoutData; onClose:
                 setError("");
                 setBusy(true);
                 void submitUtr({
-                  data: { ref: data.ref, utr, payerVpa: isContact ? payerVpa : undefined },
+                  data: { ref: data.ref, utr, payerVpa: isContact ? payerVpa : undefined, gstin: isFee && gstin.trim() ? gstin : undefined },
                 })
                   .then((res) => setMsg(res.message))
                   .catch((err) => setError(errText(err)))
@@ -116,6 +118,24 @@ export function UpiCheckout({ data, onClose }: { data: UpiCheckoutData; onClose:
                 placeholder="412345678901"
                 required
               />
+              {isFee ? (
+                <>
+                  <label className="block text-sm font-semibold" htmlFor="gstin">
+                    GSTIN for the invoice <span className="font-normal text-muted">(optional, only if you have one)</span>
+                  </label>
+                  <input
+                    id="gstin"
+                    autoComplete="off"
+                    maxLength={15}
+                    value={gstin}
+                    onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                    className={`${input} font-mono`}
+                    placeholder="29ABCDE1234F1Z5"
+                    data-testid="gstin-input"
+                  />
+                  <p className="text-xs text-muted">Your GST invoice lands here once we confirm the UTR 🧾</p>
+                </>
+              ) : null}
               {error ? <p className={errorBox} role="alert">{error}</p> : null}
               <button
                 type="submit"
