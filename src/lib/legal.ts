@@ -90,12 +90,12 @@ export const TERMS: LegalSection[] = [
     "Browsing, saving, listing, applying and chatting are free.",
     "Owner chats are free for renters once your phone is verified. There are no chat passes.",
     "Listing is free for owners. There are no paid boosts or paid fast-track reviews right now.",
-    "Roomeo charges a flat platform fee of ₹499, once, to the renter and ₹499, once, to the owner, per person, per stay, when the stay is confirmed. No monthly fee. Roomeo never takes a cut of rent or deposit.",
-    "Prices include or add GST as shown at checkout, and you get a GST invoice for platform fees. We may change prices for the future; we'll never change the price of something you already paid for.",
+    "Roomeo charges a flat platform fee of ₹499 plus 18% GST (₹589 in total), once, to the renter and ₹499 plus 18% GST (₹589), once, to the owner, per person, per stay, when the stay is confirmed. No monthly fee. Roomeo never takes a cut of rent or deposit.",
+    "GST is added on top of the ₹499 as shown at checkout, and you get a GST invoice for platform fees. We may change prices for the future; we'll never change the price of something you already paid for.",
   ] },
   { id: "refunds", title: "Refunds", body: [
     "Pass promise: if every owner you contact during a pass declines or doesn't reply within 48 hours, the full pass price goes back to your UPI ID automatically.",
-    "Success fee: if the tenant or the owner cancels the Roomeo agreement within 7 days of its issue date, everyone who paid the success fee on it gets a full refund. After 7 days, it's not refundable.",
+    "Platform fee: the ₹589 (₹499 + GST) fee is refunded in full only if the tenant vacates within 7 days of paying it. The owner's fee is refunded too if the stay ends within 7 days of the owner's payment. In every other case, including moving out later, the fee is not refundable. Deposits are paid directly to the owner and are never held or refunded by Roomeo.",
     "Refunds go back to the UPI ID that paid, usually within 7 working days after we approve them. Boost and fast-track aren't refundable once they've started.",
   ] },
   { id: "agreement", title: "Agreements signed in Roomeo", body: [

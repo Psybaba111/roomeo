@@ -9,7 +9,7 @@ export const Route = createFileRoute("/pricing")({
   head: () =>
     pageHead("Pricing: ₹499 once, not a broker's month", {
       description:
-        "₹499 once from the renter and ₹499 once from the owner, per person, per stay. Chat owners free, list free. No passes, no cut of rent. Deposit is paid directly to the owner.",
+        "₹499 + GST once from the renter and ₹499 + GST once from the owner, per person, per stay. Chat owners free, list free. No passes, no cut of rent. Deposit is paid directly to the owner.",
     }),
   component: Pricing,
 });
@@ -25,9 +25,10 @@ const TRUST_PROMISES: { icon: React.ReactNode; title: string; body: string }[] =
 
 function Pricing() {
   const faq: [string, string][] = [
-    ["What does Roomeo cost?", "₹499 once. The renter pays ₹499 once and the owner pays ₹499 once, per person, per stay. Not every month, and not a cut of the rent. Searching, chatting, squads and listing are free."],
+    ["What does Roomeo cost?", "₹499 + 18% GST (₹589) once. The renter pays it once and the owner pays it once, per person, per stay. Not every month, and not a cut of the rent. Searching, chatting, squads and listing are free."],
     ["Do I pay to message an owner?", "No. Verify your phone once (keeps bots and spam out) and message as many owners as you want."],
     ["Does Roomeo hold my deposit?", "No. Roomeo shows the deposit on the listing, but you pay it directly to the owner. Roomeo never holds or refunds deposits, and never takes a cut of rent."],
+    ["Is the fee refundable?", "Only if the renter moves out within 7 days of paying it. Then the renter's ₹589 is refunded to the UPI ID that paid, and the owner's fee too if the stay ended within 7 days of the owner's payment. After that, no refund."],
     ["Why ₹499?", "A broker usually takes a month's rent. ₹499 once beats that on any bed. The next months cost no fee."],
     ["What if the owner doesn't return my deposit?", "The deposit is between you and the owner. Report the owner from the listing and repeat offenders get removed."],
   ];
@@ -39,7 +40,7 @@ function Pricing() {
           ₹499 once. Not a broker's month.
         </h1>
         <p className="mx-auto mt-4 max-w-[680px] text-lg text-muted [text-wrap:pretty]">
-          ₹499 from the renter and ₹499 from the owner, once per stay. No chat passes. No cut of your rent.
+          ₹499 + GST from the renter and ₹499 + GST from the owner, once per stay. Refunded if the renter moves out within 7 days of paying. No chat passes. No cut of your rent.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-2">
           <Link to="/search" search={EMPTY_SEARCH} className={btnPrimary} data-testid="pricing-cta">
@@ -57,6 +58,7 @@ function Pricing() {
           <div className={card} data-testid="plan">
             <p className="flex items-center gap-2 text-base font-semibold"><ChatCircleDots size={24} aria-hidden="true" /> Renters</p>
             <p className="mt-4 text-4xl font-semibold tabular-nums">₹499 once</p>
+            <p className="mt-1 text-sm text-muted">plus 18% GST (₹589 total)</p>
             <ul className="mt-4 space-y-2 text-sm">
               <li>Search, map and listing pages</li>
               <li>Unlimited owner chats after a quick phone check</li>
@@ -66,6 +68,7 @@ function Pricing() {
           <div className={card} data-testid="plan">
             <p className="flex items-center gap-2 text-base font-semibold"><ShieldCheck size={24} aria-hidden="true" /> Owners</p>
             <p className="mt-4 text-4xl font-semibold tabular-nums">₹499 once</p>
+            <p className="mt-1 text-sm text-muted">plus 18% GST (₹589 total)</p>
             <ul className="mt-4 space-y-2 text-sm">
               <li>List every bed free</li>
               <li>Free ID check and Verified badge</li>

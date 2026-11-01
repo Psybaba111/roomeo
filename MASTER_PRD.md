@@ -63,7 +63,7 @@ Do not file it next to a co-living brand, a site for taking a whole flat, or a s
 
 **The group is finished when it says so,** even if a bed is empty. An empty bed is not a failed close, and it is not billed.
 
-**Waits.** Reviews. A written contract. A store app. A compatibility score. Booking a visit. A manager saying yes. Roomeo holding a deposit. A refund. A staff role.
+**Waits.** Reviews. A written contract. A store app. A compatibility score. Booking a visit. A manager saying yes. Roomeo holding a deposit. A staff role.
 
 ## 7. The path
 
@@ -91,7 +91,7 @@ On a ₹12,000 bed, month one: the seeker pays ₹12,499, the owner receives ₹
 
 "Free" later months means no second fee. The rent still moves. "One agreement" means that person's paid stay, not a written contract.
 
-No staff. No refund. If someone leaves after paying, the ₹499 stays. A failed check cannot be waived.
+No staff. The fee is refunded only if the renter vacates within 7 days of paying it (see Decisions, 1 November 2026). Leave later and the fee stays. A failed check cannot be waived.
 
 Rent moves by UPI or card, through a payments partner. roomeo does not build a bank.
 
@@ -99,7 +99,7 @@ Rent moves by UPI or card, through a payments partner. roomeo does not build a b
 
 A machine reads a photo of an ID. It keeps pass or fail, and deletes the photo and the number. The owner sees the result, not the ID. The full ID number is not stored.
 
-A fail stays a fail. One automatic second try is allowed. Still no human. A second fail stays a fail. A false fail never reaches the money, because the check is before the yes. A false pass can pay, and there is no refund.
+A fail stays a fail. One automatic second try is allowed. Still no human. A second fail stays a fail. A false fail never reaches the money, because the check is before the yes. A false pass can pay; the fee comes back only under the 7-day move-out rule.
 
 The owner is checked before their bed can be seen. Each seeker is checked before the owner says yes to that group.
 
@@ -145,3 +145,10 @@ Owners are assumed to say yes with no visit. Seekers are assumed to photograph a
 2. **City.** No particular city. Search and listings take any city a person types. No city is locked, preselected or featured (Bengaluru and Mangaluru included).
 3. **No score.** No compatibility or match score anywhere, in the screen or in the logic. A bed either fits the facts a seeker gave (city, budget, gender) or it doesn't.
 4. **Deposit.** roomeo shows the owner's deposit on the listing. The seeker pays it directly to the owner. roomeo never holds, tracks or refunds a deposit.
+
+## Decisions, 1 November 2026 (Rohith)
+
+5. **Fee is ₹499 plus GST.** ₹499 + 18% GST = ₹588.82, charged as ₹589, once per side, per person, per stay. Every screen that names the price says "plus GST" or shows ₹589.
+6. **Refund only on an early move-out.** The fee is refunded in full only if the renter vacates within 7 days of paying it (India dates: paid 1 Nov → moved out by 8 Nov). Cancelling the agreement counts as the stay ending that day. Any other case, no refund. This replaces "no refund" above and the old "cancel within 7 days of the agreement's issue date" rule. The operator records the move-out date on the admin Payments screen; refunds then go through the existing manual UPI refund list.
+7. **Owner's fee (open question).** Default for now: the owner's fee is refunded too if the stay ends within 7 days of the owner's own payment. Rohith to confirm.
+

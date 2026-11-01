@@ -40,7 +40,7 @@ const STEPS = [
     "Choose your own flatmates. No random allotment, no awkward surprises.",
   ],
   ["02", "Owner says yes once", "One clear yes or no. No endless calls, no ghosting."],
-  ["03", "Chat owners free", "Unlimited owner chats, free. Listing is free too. ₹499 once per side when the stay is confirmed."],
+  ["03", "Chat owners free", "Unlimited owner chats, free. Listing is free too. ₹499 + GST once per side when the stay is confirmed."],
 ];
 
 const TRUST: [typeof ShieldCheck, string, string][] = [

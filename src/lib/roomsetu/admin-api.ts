@@ -7,6 +7,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { bool, num, str } from "@/lib/roomsetu/map";
 import { notifyWhatsApp } from "@/lib/roomsetu/mappstore";
 import { unlockFromPayment } from "@/lib/roomsetu/squad-api";
+import { recordVacate } from "@/lib/roomsetu/agreement-db";
 
 function asRecord(input: unknown): Record<string, unknown> {
   return input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -670,4 +671,21 @@ export const adminMarkRefunded = createServerFn({ method: "POST" })
     await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${rows[0].user_id}, 'payment', 'Refund sent',
       ${`₹${num(rows[0].amount_inr)} was refunded to your UPI ID. Refund UTR ${data.utr}.`}, '/dashboard')`;
     return { ok: true };
+  });
+
+/** Operator records a renter's move-out. Fees paid within 7 days before it go to the refunds list. */
+export const adminRecordVacate = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => {
+    const r = asRecord(input);
+    const applicationId = str(r.applicationId).trim();
+    if (!/^[\w:.-]{1,120}$/.test(applicationId)) throw new Error("Enter the agreement's application ID (or squad:<request id>).");
+    return { applicationId, vacatedOn: str(r.vacatedOn).trim() };
+  })
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    const out = await recordVacate(sql, { applicationId: data.applicationId, vacatedOn: data.vacatedOn, actorId: context.userId });
+    await audit(sql, context.userId, "agreement.vacate", "agreement", data.applicationId, `vacated ${data.vacatedOn}: ${out.refunds} refund(s) due, ${out.kept} kept`);
+    return out;
   });

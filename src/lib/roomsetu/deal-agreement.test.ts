@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
-import { agreementBody, agreementState, feeBreakdownText, feeWithGst, refundableOnCancel, validSignName } from "./deal-agreement.ts";
-import { cancelAgreement, signAgreement } from "./agreement-db.ts";
+import { agreementBody, agreementState, feeBreakdownText, feeWithGst, refundableOnVacate, refundDeadline, validSignName } from "./deal-agreement.ts";
+import { cancelAgreement, recordVacate, signAgreement } from "./agreement-db.ts";
 
 test("₹999 + 18% GST = ₹1,178.82, charged ₹1,179", () => {
   assert.deepEqual(feeWithGst(999), { base: 999, gst: 179.82, exact: 1178.82, total: 1179 });
@@ -11,10 +11,18 @@ test("₹999 + 18% GST = ₹1,178.82, charged ₹1,179", () => {
   assert.equal(feeWithGst(0).total, 0);
 });
 
-test("refund window is 7 days from issue", () => {
-  const issued = "2026-10-01T10:00:00Z";
-  assert.equal(refundableOnCancel(issued, new Date("2026-10-08T09:59:00Z")), true);
-  assert.equal(refundableOnCancel(issued, new Date("2026-10-08T10:01:00Z")), false);
+test("₹499 + 18% GST = ₹588.82, charged ₹589 per side", () => {
+  assert.deepEqual(feeWithGst(499), { base: 499, gst: 89.82, exact: 588.82, total: 589 });
+});
+
+test("refund only if vacated within 7 days of payment (India dates)", () => {
+  const paid = "2026-11-01T04:30:00Z"; // 10:00 IST, 1 Nov
+  assert.equal(refundDeadline(paid), "2026-11-08");
+  assert.equal(refundableOnVacate(paid, "2026-11-08"), true);
+  assert.equal(refundableOnVacate(paid, "2026-11-09"), false);
+  assert.equal(refundableOnVacate(paid, "2026-11-01"), true);
+  assert.equal(refundableOnVacate("2026-10-31T19:00:00Z", "2026-11-08"), true); // 00:30 IST 1 Nov
+  assert.equal(refundableOnVacate(null, "2026-11-02"), false);
 });
 
 test("agreement state + sign name + body", () => {
@@ -60,7 +68,30 @@ test("both sign → issued with name + IP; strangers can't sign", async () => {
   await pg.close();
 });
 
-test("cancel within 7 days refunds BOTH sides' paid fees; unpaid checkouts closed", async () => {
+const payAt = (pg: PGlite, id: string, user: string, at: string) =>
+  pg.query(`insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, kind, listing_id, agreement_id, reviewed_at) values ($1,$2,'fee',589,'PAID','UPI',$1,'SUCCESS_FEE','l1','ag1',$3::timestamptz)`, [id, user, at]);
+
+test("move-out within 7 days of payment refunds renter + owner fees; admin can't record twice", async () => {
+  const pg = await db(); const sql = sqlOf(pg); await seed(pg);
+  await payAt(pg, "t1", "ten", "2026-11-01T05:00:00Z"); await payAt(pg, "o1", "own", "2026-10-20T05:00:00Z");
+  const out = await recordVacate(sql, { applicationId: "app1", vacatedOn: "2026-11-07", actorId: "adm", today: new Date("2026-11-10T00:00:00Z") });
+  assert.deepEqual(out, { refunds: 1, kept: 1 }); // owner paid 18 days earlier: kept
+  const st = Object.fromEntries((await pg.query<{ id: string; status: string }>(`select id, status from payments order by id`)).rows.map((x) => [x.id, x.status]));
+  assert.deepEqual(st, { o1: "PAID", t1: "REFUND_DUE" });
+  await assert.rejects(recordVacate(sql, { applicationId: "app1", vacatedOn: "2026-11-07", actorId: "adm", today: new Date("2026-11-10T00:00:00Z") }), /already recorded/);
+  await pg.close();
+});
+
+test("move-out after 7 days: no refund; future dates refused", async () => {
+  const pg = await db(); const sql = sqlOf(pg); await seed(pg);
+  await payAt(pg, "t1", "ten", "2026-11-01T05:00:00Z");
+  await assert.rejects(recordVacate(sql, { applicationId: "app1", vacatedOn: "2026-12-01", actorId: "adm", today: new Date("2026-11-10T00:00:00Z") }), /future/);
+  const out = await recordVacate(sql, { applicationId: "app1", vacatedOn: "2026-11-09", actorId: "adm", today: new Date("2026-11-10T00:00:00Z") });
+  assert.deepEqual(out, { refunds: 0, kept: 1 });
+  await pg.close();
+});
+
+test("cancel within 7 days of payment refunds BOTH sides' paid fees; unpaid checkouts closed", async () => {
   const pg = await db(); const sql = sqlOf(pg); await seed(pg);
   await pg.query(`update deal_agreements set seeker_signed_at=now(), owner_signed_at=now(), issued_at=now() where id='ag1'`);
   await pay(pg, "p1", "ten", "PAID"); await pay(pg, "p2", "own", "PAID"); await pay(pg, "p3", "ten", "PENDING");
@@ -71,10 +102,11 @@ test("cancel within 7 days refunds BOTH sides' paid fees; unpaid checkouts close
   await pg.close();
 });
 
-test("cancel after 7 days: no refund", async () => {
+test("cancel more than 7 days after payment: no refund", async () => {
   const pg = await db(); const sql = sqlOf(pg); await seed(pg);
   await pg.query(`update deal_agreements set seeker_signed_at=now(), owner_signed_at=now(), issued_at=now() - interval '8 days' where id='ag1'`);
   await pay(pg, "p1", "ten", "PAID");
+  await pg.query(`update payments set created_at = now() - interval '9 days', reviewed_at = now() - interval '9 days' where id='p1'`);
   const out = await cancelAgreement(sql, { applicationId: "app1", userId: "ten", reason: "" });
   assert.deepEqual(out, { refunds: 0, refundable: false });
   assert.equal((await pg.query<{ status: string }>(`select status from payments where id='p1'`)).rows[0].status, "PAID");

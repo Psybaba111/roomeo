@@ -48,7 +48,7 @@ export function DealAgreement({ dealRef }: { dealRef: DealRef }) {
         <p className="mt-2" data-testid="deal-now">{a.steps.find((s) => s.state === "now")?.hint ?? "All done 🎉"}</p>
       )}
       <p className="mt-1 text-xs text-muted">
-        {who}. {a.feeEnabled ? `Tenant${a.kind === "squad" ? " (each squad member)" : ""} pays ₹${f.total} once and the owner pays ₹${f.total} once (₹${f.base} + 18% GST each), after everyone signs and before move in. Cancel within 7 days of the issue date → full refund to everyone who paid. After 7 days, no refund.` : "No Roomeo fee right now. Rent and deposit go straight to the owner."}
+        {who}. {a.feeEnabled ? `Tenant${a.kind === "squad" ? " (each squad member)" : ""} pays ₹${f.total} once and the owner pays ₹${f.total} once (₹${f.base} + 18% GST each), after everyone signs and before move in. Refund only if the tenant moves out within 7 days of paying${a.refundBy ? ` (yours: move out by ${a.refundBy})` : ""}. After that, no refund. The deposit goes straight to the owner.` : "No Roomeo fee right now. Rent and deposit go straight to the owner."}
       </p>
 
       <div className="mt-3 border-t border-line pt-3">
@@ -94,7 +94,7 @@ export function DealAgreement({ dealRef }: { dealRef: DealRef }) {
           ) : (
             <button type="button" disabled={busy} className={`mt-2 ${btnSmallPrimary}`} data-testid="pay-success-fee"
               onClick={() => { setBusy(true); void startAgreementFee({ data: dealRef }).then(setCheckout).catch((e) => setError(errText(e))).finally(() => setBusy(false)); }}>
-              Pay ₹{f.total} (incl. GST)
+              Pay ₹{f.total} (₹{f.base} + GST)
             </button>
           )}
         </div>
@@ -103,7 +103,7 @@ export function DealAgreement({ dealRef }: { dealRef: DealRef }) {
       {a.state !== "CANCELLED" && (a.state === "ISSUED" || a.iSigned) ? (
         <button type="button" disabled={busy} className="mt-3 text-xs underline" data-testid="cancel-agreement"
           onClick={() => {
-            const msg = a.state === "ISSUED" ? (a.canRefund ? "Cancel the agreement? You're inside 7 days, so every fee paid on it (both sides) gets refunded." : "Cancel the agreement? It's past 7 days, so fees already paid aren't refundable.") : "Cancel the agreement?";
+            const msg = a.state === "ISSUED" && a.feeStatus === "PAID" ? (a.canRefund ? "Cancel the agreement? The stay ends today, which is within 7 days of the fee payment, so fees paid in the last 7 days (both sides) get refunded." : "Cancel the agreement? It's more than 7 days since the fee was paid, so it isn't refundable.") : "Cancel the agreement?";
             if (!window.confirm(msg)) return;
             setBusy(true);
             void cancelDealAgreement({ data: { ...dealRef, reason: "" } })
