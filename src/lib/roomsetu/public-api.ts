@@ -1,3 +1,4 @@
+import { locationAccess, locationUnlocked, mapsUrl } from "@/lib/roomsetu/location-gate";
 import { readPhotoDates, readTrust } from "@/lib/roomsetu/trust-db";
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { notFound } from "@tanstack/react-router";
@@ -248,7 +249,7 @@ export const getListing = createServerFn({ method: "POST" })
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `select l.*, l.available_from::text as available_from,
-              p.property_type, p.lat, p.lng, p.verification_status as property_verification,
+              p.property_type, p.lat, p.lng, p.address as exact_address, p.pincode as exact_pincode, p.verification_status as property_verification,
               pr.full_name as host_name, pr.occupation as host_occupation, pr.about as host_about,
               pr.verification_status as host_verification, pr.identity_status as host_identity, pr.identity_source as host_identity_source, pr.phone_verified_at as host_phone_verified_at, pr.city as host_city,
               pr.show_occupation, pr.show_city, pr.is_demo as host_demo,
@@ -277,7 +278,21 @@ export const getListing = createServerFn({ method: "POST" })
       [id],
     );
     const card = listingCard({ ...row, photo: images[0] ? str(images[0].url) : null });
-    const [trust, photoDates] = await Promise.all([readTrust(sql, id), readPhotoDates(sql, id)]);
+    const [trust, photoDates, access] = await Promise.all([
+      readTrust(sql, id),
+      readPhotoDates(sql, id),
+      locationAccess(sql, id, str(row.owner_id), context.userId),
+    ]);
+    // Exact address / pin / coordinates only leave the server once the gate opens.
+    const exactLocation = locationUnlocked(access)
+      ? {
+          address: str(row.exact_address),
+          pincode: str(row.exact_pincode),
+          lat: num(row.lat),
+          lng: num(row.lng),
+          mapsUrl: mapsUrl(str(row.exact_address), str(row.exact_pincode), num(row.lat), num(row.lng)),
+        }
+      : null;
     return {
       held: false as const,
       onlyYou: !visible,
@@ -307,8 +322,8 @@ export const getListing = createServerFn({ method: "POST" })
       kind: str(row.listing_kind) || "BED",
       bedrooms: num(row.bedrooms),
       ownerId: str(row.owner_id),
-      lat: num(row.lat),
-      lng: num(row.lng),
+      exactLocation,
+      locationLock: exactLocation ? null : { signed: access.signed, paid: access.paid },
       images: images.map((img) => ({ url: str(img.url), category: str(img.category), uploadedAt: photoDates.get(str(img.url)) ?? "" })),
       trust: { allInInr: trust.allInInr, allInIncludes: trust.allInIncludes, videoTourUrl: trust.videoTourUrl, depositRefundDays: trust.depositRefundDays },
       amenities: amenities.map((a) => str(a.name)),
