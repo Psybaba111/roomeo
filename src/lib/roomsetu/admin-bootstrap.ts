@@ -34,7 +34,7 @@ export function parseIdentifier(raw: unknown): Identifier {
 export async function findUser(q: Query, id: Identifier): Promise<{ userId: string; name: string }> {
   const rows =
     id.kind === "email"
-      ? await q(`select u.id as user_id, coalesce(p.full_name, u.name) as name from "user" u join profiles p on p.user_id = u.id where lower(u.email) = $1`, [id.value])
+      ? await q(`select u.id as user_id, coalesce(p.full_name, u.name) as name from "user" u left join profiles p on p.user_id = u.id where lower(u.email) = $1`, [id.value])
       : await q(`select user_id, full_name as name from profiles where phone_e164 = $1 and phone_verified_at is not null`, [id.value]);
   if (rows.length === 0) throw new Error(id.kind === "email" ? "No Roomeo account with that email. Sign up on the site first." : "No account with that verified phone. Sign up and verify the phone first.");
   if (rows.length > 1) throw new Error("More than one account matches. Use the email instead.");
@@ -48,6 +48,8 @@ export async function adminCount(q: Query): Promise<number> {
 
 /** Grant the admin role. Idempotent. Returns whether it was newly granted. */
 export async function grantAdmin(q: Query, userId: string): Promise<{ granted: boolean }> {
+  // Signed up but never finished onboarding: give them a bare profile so the role row has a parent.
+  await q(`insert into profiles (user_id, full_name) select id, coalesce(nullif(name, ''), 'Roomeo user') from "user" where id = $1 on conflict (user_id) do nothing`, [userId]);
   const r = await q(`insert into profile_roles (user_id, role) values ($1, $2) on conflict do nothing returning user_id`, [userId, ADMIN_ROLE]);
   return { granted: r.length > 0 };
 }

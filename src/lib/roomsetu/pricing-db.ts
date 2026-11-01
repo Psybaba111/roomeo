@@ -127,7 +127,8 @@ export async function applyPaidPayment(sql: Sql, paymentId: string) {
   } else if (p.kind === "SUCCESS_FEE") {
     const { createFeeInvoice } = await import("@/lib/roomsetu/agreement-db");
     const amt = await sql<{ amount_inr: number }>`select amount_inr from payments where id = ${paymentId}`;
-    const inv = await createFeeInvoice(sql, paymentId, Math.round(Number(amt[0]?.amount_inr ?? 0) / 1.18));
+    // Base to the paisa (₹490 → 415.25); credited payments are split GST-inclusive in createFeeInvoice.
+    const inv = await createFeeInvoice(sql, paymentId, Math.round((Number(amt[0]?.amount_inr ?? 0) / 1.18) * 100) / 100);
     await notify(sql, p.user_id, "Roomeo fee paid ✅", inv ? `Thanks! Your GST invoice ${String(inv.number)} is ready. Tap to download 🧾` : "Thanks. You're all set.", inv ? `/invoice/${paymentId}` : "/applications");
   }
 }

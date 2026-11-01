@@ -1,12 +1,11 @@
 import { pageHead } from "@/lib/seo";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
 import { control } from "@/components/cards";
 import { FURNISHED, GENDER_PREFS, ROOM_TYPES } from "@/lib/roomsetu/constants";
-import { OPEN_CITIES } from "@/lib/roomsetu/open-cities";
 import { listCities } from "@/lib/roomsetu/public-api";
 import { createRoomWanted } from "@/lib/roomsetu/account-api";
 
@@ -23,6 +22,8 @@ function Form() {
   const navigate = useNavigate();
   const [cities, setCities] = useState<string[]>([]);
   const [error, setError] = useState("");
+  const [cityError, setCityError] = useState("");
+  const cityRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     city: "",
     localities: "",
@@ -41,7 +42,7 @@ function Form() {
   });
 
   useEffect(() => {
-    void listCities().then((rows) => setCities(rows.map((c) => c.name).filter((n) => OPEN_CITIES.includes(n))));
+    void listCities().then((rows) => setCities(rows.map((c) => c.name)));
   }, []);
 
   return (
@@ -52,9 +53,17 @@ function Form() {
         className="mt-6 grid max-w-2xl gap-3"
         onSubmit={(e) => {
           e.preventDefault();
+          if (!form.city.trim()) {
+            setCityError("Choose or type the city you need a room in.");
+            cityRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+            cityRef.current?.focus();
+            return;
+          }
+          setCityError("");
           void createRoomWanted({
             data: {
               ...form,
+              city: form.city.trim(),
               budget: Number(form.budget),
               duration: Number(form.duration),
               people: Number(form.people),
@@ -64,9 +73,25 @@ function Form() {
             .catch((err) => setError(errText(err)));
         }}
       >
-        <select className={control} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}>
-          {cities.map((c) => <option key={c}>{c}</option>)}
-        </select>
+        <label>
+          <span className="mb-1 block text-sm text-muted">City</span>
+          <input
+            ref={cityRef}
+            className={control}
+            list="room-wanted-cities"
+            placeholder="Choose a city, or type yours"
+            maxLength={60}
+            value={form.city}
+            aria-invalid={cityError ? true : undefined}
+            aria-describedby={cityError ? "city-error" : undefined}
+            onChange={(e) => { setForm({ ...form, city: e.target.value }); if (cityError) setCityError(""); }}
+            data-testid="room-wanted-city"
+          />
+          <datalist id="room-wanted-cities">
+            {cities.map((c) => <option key={c} value={c} />)}
+          </datalist>
+          {cityError ? <p id="city-error" role="alert" className="mt-1 text-sm text-danger">{cityError}</p> : null}
+        </label>
         <input className={control} placeholder="Preferred localities" value={form.localities} onChange={(e) => setForm({ ...form, localities: e.target.value })} />
         <input className={control} placeholder="Budget" value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value.replace(/[^\d]/g, "") })} />
         <input className={control} type="date" value={form.moveIn} onChange={(e) => setForm({ ...form, moveIn: e.target.value })} />
