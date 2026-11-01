@@ -1,3 +1,4 @@
+import { readableDate } from "@/lib/roomsetu/dates";
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -81,7 +82,7 @@ function Apps() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <Link to="/listing/$id" params={{ id: row.listingId }} className="font-semibold">{row.title}</Link>
-                <p className="text-sm text-muted">{row.city} · {inr(row.rent)} rent · {inr(row.deposit)} deposit · {row.createdOn}</p>
+                <p className="text-sm text-muted">{row.city} · {inr(row.rent)} rent · {inr(row.deposit)} deposit · {readableDate(row.createdOn)}</p>
                 <p className="mt-2 text-sm">{row.note}</p>
                 <p className="mt-1 text-sm">{row.mine ? "You asked" : row.seekerName} · {row.status}</p>
                 {row.status === "ACCEPTED" && !row.demo ? (

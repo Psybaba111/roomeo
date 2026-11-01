@@ -1,3 +1,4 @@
+import { readableDate } from "@/lib/roomsetu/dates";
 import { pageHead, SITE_URL } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -148,11 +149,11 @@ function Squad() {
       <h1 className="mt-2 text-4xl font-semibold tracking-tight [text-wrap:balance]">{s.name}</h1>
       <p className="mt-2 text-base text-muted [text-wrap:pretty]">
         {s.area} · {inr(s.budget)} per person · {inr(s.budget * s.members.length)} combined each
-        month{s.moveIn ? ` · move in ${s.moveIn}` : ""}
+        month{s.moveIn ? ` · move in ${readableDate(s.moveIn)}` : ""}
       </p>
       {s.passEndsAt ? (
         <p className={`mt-4 text-sm font-semibold ${inner}`} data-testid="squad-pass-active">
-          Squad pass active until {s.passEndsAt.slice(0, 10)}. Every joint request opens a chat with the owner.
+          Squad pass active until {readableDate(s.passEndsAt)}. Every joint request opens a chat with the owner.
         </p>
       ) : null}
       {error ? (

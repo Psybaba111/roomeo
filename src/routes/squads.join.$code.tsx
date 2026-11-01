@@ -1,3 +1,4 @@
+import { readableDate } from "@/lib/roomsetu/dates";
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -41,7 +42,7 @@ function Join({ code }: { code: string }) {
             <h1 className="mt-2 text-3xl font-semibold [text-wrap:balance]">Join “{p.name}”</h1>
             <p className="mt-2 text-base text-muted">
               {p.area} · ₹{p.budget.toLocaleString("en-IN")} per person · {p.members.length}/
-              {p.size} in{p.moveIn ? ` · move in ${p.moveIn.slice(0, 10)}` : ""}
+              {p.size} in{p.moveIn ? ` · move in ${readableDate(p.moveIn)}` : ""}
             </p>
             <p className="mt-2 text-sm">With {p.members.join(", ")}</p>
             {p.alreadyMember ? (

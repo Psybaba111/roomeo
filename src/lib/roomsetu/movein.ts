@@ -188,7 +188,7 @@ export function policeFormLines(f: PoliceFormInput) {
     { text: "To be submitted by the owner at the jurisdictional police station.", size: 9 },
     { text: "A. RESIDENT", bold: true, gap: 10 },
     { text: `Full name: ${d.fullName}` },
-    { text: `Date of birth: ${d.dateOfBirth ?? "________"}` },
+    { text: `Date of birth: ${d.dateOfBirth ? readableDate(d.dateOfBirth) : "________"}` },
     { text: `Mobile: ${d.phone}    Email: ${d.email || "-"}` },
     { text: `Occupation: ${d.occupation || "-"}    Employer / college: ${d.employer || "-"}` },
     { text: `Permanent home address: ${d.homeAddress}, ${d.homeCity}, ${d.homeState} - ${d.homePincode}` },
