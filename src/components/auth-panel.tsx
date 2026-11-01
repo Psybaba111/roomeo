@@ -1,4 +1,3 @@
-import { OPEN_CITIES } from "@/lib/roomsetu/open-cities";
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { authClient, signIn } from "@/lib/auth/client";
@@ -32,7 +31,7 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
     const picked = sessionStorage.getItem("roomsetu-intent");
     if (picked === "LOOKING" || picked === "OFFERING" || picked === "BOTH") setIntent(picked);
     void listCities()
-      .then((rows) => setCities(rows.map((r) => r.name).filter((n) => OPEN_CITIES.includes(n))))
+      .then((rows) => setCities(rows.map((r) => r.name)))
       .catch(() => undefined);
   }, []);
 
@@ -79,13 +78,12 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
           <>
             <input className={control} placeholder="Your name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} required />
             <input className={control} placeholder="Mobile (10 digits)" type="tel" inputMode="numeric" autoComplete="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} required />
-            {cities.length > 1 ? (
-              <select className={control} value={city} onChange={(e) => setCity(e.target.value)} aria-label="City">
-                {cities.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            ) : null}
+            <input className={control} list="signup-cities" placeholder="Your city" aria-label="City" maxLength={60} value={city} onChange={(e) => setCity(e.target.value)} />
+            <datalist id="signup-cities">
+              {cities.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
             <select className={control} aria-label="I am" value={intent} onChange={(e) => setIntent(e.target.value)}>
               <option value="LOOKING">Looking for a room</option>
               <option value="OFFERING">Offering a room</option>

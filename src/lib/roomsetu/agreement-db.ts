@@ -1,6 +1,6 @@
 import type { Sql } from "../db.ts";
 import { istDate, refundableOnVacate } from "./deal-agreement.ts";
-import { buyerState as pickBuyerState, invoiceAmounts, invoiceNumber, normalizeGstin } from "./invoice.ts";
+import { buyerState as pickBuyerState, invoiceAmounts, invoiceAmountsInclusive, invoiceNumber, normalizeGstin } from "./invoice.ts";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? "" : String(v));
@@ -30,19 +30,21 @@ export async function signAgreement(sql: Sql, p: { applicationId: string; userId
 }
 
 /**
- * The stay on this agreement ended on `endedOn` (India date). Each PAID/SUBMITTED fee (both sides) whose
+ * The stay on this agreement ended on `endedOn` (India date). Each admin-approved (PAID) fee (both sides) whose
  * payment was within 7 days before that date becomes REFUND_DUE for the admin UPI refund flow.
  * Payment time = when the operator approved it, else when it was submitted.
  */
 export async function refundFeesForStayEnd(sql: Sql, agreementId: string, endedOn: string, reason: string) {
   const paid = await sql.query<Row>(
     `select id, user_id, coalesce(reviewed_at, created_at)::text as paid_at from payments
-      where agreement_id = $1 and kind = 'SUCCESS_FEE' and status in ('PAID','SUBMITTED')`,
+      where agreement_id = $1 and kind = 'SUCCESS_FEE' and status = 'PAID'`,
     [agreementId],
   );
+  // Never refund money we did not receive: unapproved fees are closed instead.
+  await sql.query(`update payments set status = 'CANCELLED' where agreement_id = $1 and kind = 'SUCCESS_FEE' and status in ('PENDING','SUBMITTED')`, [agreementId]);
   const due = paid.filter((r) => refundableOnVacate(s(r.paid_at), endedOn)).map((r) => s(r.id));
   if (due.length) {
-    await sql.query(`update payments set status = 'REFUND_DUE', refund_due_at = now(), refund_reason = $2 where id = any($1::text[]) and status in ('PAID','SUBMITTED')`, [due, reason]);
+    await sql.query(`update payments set status = 'REFUND_DUE', refund_due_at = now(), refund_reason = $2 where id = any($1::text[]) and status = 'PAID'`, [due, reason]);
   }
   return { refunds: due.length, kept: paid.length - due.length };
 }
@@ -115,12 +117,12 @@ export async function createFeeInvoice(sql: Sql, paymentId: string, baseInr: num
   if (existing[0]) return existing[0];
   const snap = await invoiceSnapshotReady(sql);
   const pay = (await sql.query<Row>(
-    `select p.user_id, p.amount_inr, p.agreement_id, p.kind, p.status, p.utr, ${snap ? "p.buyer_gstin" : "null::text as buyer_gstin"}, pr.full_name, pr.city, pr.phone_e164, u.email
+    `select p.user_id, p.amount_inr, coalesce(p.trial_credit_inr, 0) as trial_credit_inr, p.agreement_id, p.kind, p.status, p.utr, ${snap ? "p.buyer_gstin" : "null::text as buyer_gstin"}, pr.full_name, pr.city, pr.phone_e164, u.email
      from payments p left join profiles pr on pr.user_id = p.user_id left join "user" u on u.id = p.user_id where p.id = $1`, [paymentId]))[0];
   if (!pay || s(pay.kind) !== "SUCCESS_FEE" || s(pay.status) !== "PAID") return null;
   const gstin = normalizeGstin(s(pay.buyer_gstin));
   const buyerState = pickBuyerState(gstin, s(pay.city));
-  const amt = invoiceAmounts(baseInr, buyerState, Number(pay.amount_inr));
+  const amt = Number(pay.trial_credit_inr) > 0 ? invoiceAmountsInclusive(Number(pay.amount_inr), buyerState) : invoiceAmounts(baseInr, buyerState, Number(pay.amount_inr));
   const seq = Number((await sql.query<{ n: string }>(`select nextval('fee_invoice_seq')::text as n`))[0].n);
   const number = invoiceNumber(seq, now);
   const id = crypto.randomUUID();

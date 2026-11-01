@@ -139,7 +139,7 @@ export const cancelDealAgreement = createServerFn({ method: "POST" })
     return cancelAgreement(sql, { applicationId: d.key, userId: context.userId, reason: data.reason, parties: [d.ownerId, ...d.tenantIds] });
   });
 
-/** ₹999 + GST per person, once per agreement, payable after everyone signs and before move in. */
+/** ₹499 + GST (₹589) per person, once per agreement, payable after everyone signs and before move in. */
 export const startAgreementFee = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((i: unknown) => dealRef(i))
@@ -185,7 +185,7 @@ const invoiceIdInput = (i: unknown) => {
 async function loadInvoiceView(sql: Sql, paymentId: string, userId: string): Promise<InvoiceView> {
   const snap = await invoiceSnapshotReady(sql);
   const inv = (await sql.query<Record<string, unknown>>(
-    `select i.*, i.issued_at::text as issued, p.ref, p.purpose, p.utr as pay_utr, pr.phone_e164 as live_phone, u.email as live_email
+    `select i.*, i.issued_at::text as issued, p.ref, p.purpose, p.utr as pay_utr, coalesce(p.trial_credit_inr, 0) as trial_credit_inr, pr.phone_e164 as live_phone, u.email as live_email
      ${snap ? "" : ", null::text as buyer_email, null::text as buyer_phone, null::text as buyer_gstin, null::text as utr"}
      from fee_invoices i join payments p on p.id = i.payment_id left join profiles pr on pr.user_id = i.user_id left join "user" u on u.id = i.user_id
      where i.payment_id = $1`, [paymentId]))[0];
@@ -200,7 +200,7 @@ async function loadInvoiceView(sql: Sql, paymentId: string, userId: string): Pro
     buyerEmail: str(inv.buyer_email) || str(inv.live_email), buyerPhone: str(inv.buyer_phone) || str(inv.live_phone), buyerGstin: str(inv.buyer_gstin),
     buyerState: str(inv.buyer_state), placeOfSupply: str(inv.place_of_supply),
     taxable: num(inv.taxable_paise), cgst: num(inv.cgst_paise), sgst: num(inv.sgst_paise), igst: num(inv.igst_paise), total: num(inv.total_paise), roundOff: num(inv.round_off_paise),
-    paidInr: num(inv.paid_inr), ref: str(inv.ref), utr: str(inv.utr) || str(inv.pay_utr), purpose: str(inv.purpose),
+    paidInr: num(inv.paid_inr), ref: str(inv.ref), utr: str(inv.utr) || str(inv.pay_utr), purpose: str(inv.purpose), trialCreditInr: num(inv.trial_credit_inr),
   };
 }
 

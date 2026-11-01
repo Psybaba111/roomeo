@@ -34,6 +34,21 @@ export function invoiceAmounts(baseInr: number, buyerState: string | null, paidI
   return { taxable, cgst, sgst, igst, total, roundOff: paid - total, paid, intraState, placeOfSupply: intraState ? SELLER.state : (buyerState as string) };
 }
 
+/**
+ * GST-inclusive split for an amount that is not base + 18% of a round base (e.g. ₹490 after the ₹99 trial
+ * credit): taxable = paid / 1.18 to the paisa, tax = the rest, so there is no round-off.
+ */
+export function invoiceAmountsInclusive(paidInr: number, buyerState: string | null): InvoiceAmounts {
+  const paid = Math.round(paidInr * 100);
+  const taxable = Math.round(paid / 1.18);
+  const tax = paid - taxable;
+  const intraState = !buyerState || buyerState === SELLER.state;
+  const cgst = intraState ? Math.floor(tax / 2) : 0;
+  const sgst = intraState ? tax - cgst : 0;
+  const igst = intraState ? 0 : tax;
+  return { taxable, cgst, sgst, igst, total: paid, roundOff: 0, paid, intraState, placeOfSupply: intraState ? SELLER.state : (buyerState as string) };
+}
+
 /** Indian financial year label in IST, e.g. 2026-27. */
 export function financialYear(d: Date): string {
   const ist = new Date(d.getTime() + 330 * 60_000);
@@ -72,7 +87,7 @@ export function buyerState(gstin: string | null | undefined, city: string | null
 
 export type InvoiceView = {
   number: string; issuedAt: string; buyerName: string; buyerEmail: string; buyerPhone: string; buyerGstin: string; buyerState: string; placeOfSupply: string;
-  taxable: number; cgst: number; sgst: number; igst: number; total: number; roundOff: number; paidInr: number; ref: string; utr: string; purpose: string;
+  taxable: number; cgst: number; sgst: number; igst: number; total: number; roundOff: number; paidInr: number; ref: string; utr: string; purpose: string; trialCreditInr?: number;
 };
 
 /** Invoice date in IST, e.g. 01 Nov 2026. */
@@ -104,7 +119,8 @@ export function invoicePdfLines(v: InvoiceView): { text: string; size?: number; 
   if (v.igst) amt("IGST @ 18%", v.igst);
   else { amt("CGST @ 9%", v.cgst); amt("SGST @ 9%", v.sgst); }
   amt("Invoice total", v.total);
-  amt("Round off", v.roundOff);
+  if (v.roundOff) amt("Round off", v.roundOff);
+  if (v.trialCreditInr) L.push({ text: `Trial credit applied: -${rupees(v.trialCreditInr * 100)} (₹99 trial fee already paid and invoiced separately)` });
   L.push({ text: `Amount paid: ${rupees(v.paidInr * 100)}`, bold: true });
   L.push({ text: `Paid by UPI | UTR: ${v.utr || "-"} | Roomeo ref: ${v.ref}`, gap: 6 });
   L.push({ text: "Tax payable on reverse charge: No", gap: 6 });
