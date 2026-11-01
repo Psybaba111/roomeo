@@ -16,6 +16,13 @@ export const utrSchema = z
   .pipe(z.string().regex(/^\d{12}$/, "Enter the 12-digit UTR from your UPI app."));
 
 export const submitUtrInput = z.object({
+  /** Optional buyer GSTIN for the Roomeo fee tax invoice. */
+  gstin: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v ? v.replace(/\s+/g, "").toUpperCase() : undefined))
+    .pipe(z.string().regex(/^[0-3][0-9][A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, "That GSTIN doesn't look right (15 characters, like 29ABCDE1234F1Z5).").optional()),
   ref: z.string().regex(/^RM[A-Z0-9]{8}$/, "Unknown payment."),
   utr: utrSchema,
   /** Payer's own UPI ID, collected for contact-fee refunds. */

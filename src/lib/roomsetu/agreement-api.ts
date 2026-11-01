@@ -8,7 +8,9 @@ import { pricingConfig } from "@/lib/roomsetu/pricing";
 import { tenantFeeWithTrialCredit } from "@/lib/roomsetu/trial-db";
 import { agreementBody, agreementBodyForView, agreementState, feeWithGst, refundableOnVacate, refundDeadline, validSignName } from "@/lib/roomsetu/deal-agreement";
 import { dealSteps } from "@/lib/roomsetu/deal-steps";
-import { cancelAgreement, loadAgreement, signAgreement, signSquadAgreement, squadAgreementKey, squadSigners } from "@/lib/roomsetu/agreement-db";
+import { pdfBase64 } from "@/lib/roomsetu/pdf";
+import { invoicePdfLines, type InvoiceView } from "@/lib/roomsetu/invoice";
+import { cancelAgreement, invoiceSnapshotReady, loadAgreement, signAgreement, signSquadAgreement, squadAgreementKey, squadSigners } from "@/lib/roomsetu/agreement-db";
 
 /** A deal is either a 1:1 request (applications.id) or a squad request (squad_requests.id). */
 type DealRef = { kind: "app" | "squad"; id: string };
@@ -173,25 +175,46 @@ export const startAgreementFee = createServerFn({ method: "POST" })
     return { ref: str(row.ref), status: str(row.status), amount: num(row.amount_inr), plan: "the one-time success fee (incl. GST)", payee: payee.name, vpa: payee.vpa, link, qr };
   });
 
+const invoiceIdInput = (i: unknown) => {
+  const v = i && typeof i === "object" ? (i as Record<string, unknown>).paymentId : undefined;
+  if (typeof v !== "string" || !/^[0-9A-Za-z_-]{6,80}$/.test(v)) throw new Error("Unknown invoice.");
+  return v;
+};
+
+/** Loads one invoice for the payer or an admin. Uses the 0024 snapshot when present, else live profile data. */
+async function loadInvoiceView(sql: Sql, paymentId: string, userId: string): Promise<InvoiceView> {
+  const snap = await invoiceSnapshotReady(sql);
+  const inv = (await sql.query<Record<string, unknown>>(
+    `select i.*, i.issued_at::text as issued, p.ref, p.purpose, p.utr as pay_utr, pr.phone_e164 as live_phone, u.email as live_email
+     ${snap ? "" : ", null::text as buyer_email, null::text as buyer_phone, null::text as buyer_gstin, null::text as utr"}
+     from fee_invoices i join payments p on p.id = i.payment_id left join profiles pr on pr.user_id = i.user_id left join "user" u on u.id = i.user_id
+     where i.payment_id = $1`, [paymentId]))[0];
+  const none = "No invoice yet. It shows up once Roomeo confirms the payment.";
+  if (!inv) throw new Error(none);
+  if (inv.user_id !== userId) {
+    const roles = (await sql.query<{ role: string }>(`select role from profile_roles where user_id = $1`, [userId])).map((r) => r.role);
+    if (!roles.includes("ADMIN") && !roles.includes("SUPER_ADMIN")) throw new Error(none);
+  }
+  return {
+    number: str(inv.number), issuedAt: str(inv.issued), buyerName: str(inv.buyer_name),
+    buyerEmail: str(inv.buyer_email) || str(inv.live_email), buyerPhone: str(inv.buyer_phone) || str(inv.live_phone), buyerGstin: str(inv.buyer_gstin),
+    buyerState: str(inv.buyer_state), placeOfSupply: str(inv.place_of_supply),
+    taxable: num(inv.taxable_paise), cgst: num(inv.cgst_paise), sgst: num(inv.sgst_paise), igst: num(inv.igst_paise), total: num(inv.total_paise), roundOff: num(inv.round_off_paise),
+    paidInr: num(inv.paid_inr), ref: str(inv.ref), utr: str(inv.utr) || str(inv.pay_utr), purpose: str(inv.purpose),
+  };
+}
+
 /** Invoice for one PAID success-fee payment. Visible to the payer and to admins. */
 export const getFeeInvoice = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
-  .validator((i: unknown) => {
-    const v = i && typeof i === "object" ? (i as Record<string, unknown>).paymentId : undefined;
-    if (typeof v !== "string" || !/^[0-9A-Za-z_-]{6,80}$/.test(v)) throw new Error("Unknown invoice.");
-    return v;
-  })
+  .validator(invoiceIdInput)
+  .handler(async ({ context, data }) => loadInvoiceView(await getSql(), data, context.userId));
+
+/** Same invoice as a PDF (base64), for the download button. */
+export const getFeeInvoicePdf = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator(invoiceIdInput)
   .handler(async ({ context, data }) => {
-    const sql = await getSql();
-    const inv = (await sql.query<Record<string, unknown>>(`select i.*, i.issued_at::text as issued, p.ref, p.purpose from fee_invoices i join payments p on p.id = i.payment_id where i.payment_id = $1`, [data]))[0];
-    if (!inv) throw new Error("No invoice yet. It shows up once Roomeo confirms the payment.");
-    if (inv.user_id !== context.userId) {
-      const roles = (await sql.query<{ role: string }>(`select role from profile_roles where user_id = $1`, [context.userId])).map((r) => r.role);
-      if (!roles.includes("ADMIN") && !roles.includes("SUPER_ADMIN")) throw new Error("No invoice yet. It shows up once Roomeo confirms the payment.");
-    }
-    return {
-      number: str(inv.number), issuedAt: str(inv.issued), buyerName: str(inv.buyer_name), buyerState: str(inv.buyer_state), placeOfSupply: str(inv.place_of_supply),
-      taxable: num(inv.taxable_paise), cgst: num(inv.cgst_paise), sgst: num(inv.sgst_paise), igst: num(inv.igst_paise), total: num(inv.total_paise), roundOff: num(inv.round_off_paise),
-      paidInr: num(inv.paid_inr), ref: str(inv.ref), purpose: str(inv.purpose),
-    };
+    const v = await loadInvoiceView(await getSql(), data, context.userId);
+    return { filename: `roomeo-invoice-${v.number.replace(/\//g, "-")}.pdf`, base64: pdfBase64(invoicePdfLines(v)) };
   });
