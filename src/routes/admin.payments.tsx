@@ -7,6 +7,7 @@ import { AdminFrame } from "@/components/admin-frame";
 import { errText } from "@/lib/ui-text";
 import {
   adminMarkRefunded,
+  adminRecordVacate,
   adminPayments,
   adminRefunds,
   adminReviewPayment,
@@ -30,6 +31,8 @@ function Payments() {
   const [error, setError] = useState("");
   const [refunds, setRefunds] = useState<Awaited<ReturnType<typeof adminRefunds>>>([]);
   const [refundUtr, setRefundUtr] = useState<Record<string, string>>({});
+  const [vacate, setVacate] = useState({ applicationId: "", vacatedOn: "" });
+  const [vacateNote, setVacateNote] = useState("");
   function load() {
     void adminPayments()
       .then(setRows)
@@ -87,14 +90,56 @@ function Payments() {
         ))}
       </ul>
       {rows.length === 0 ? <p className="mt-4 text-muted">No UPI submissions yet.</p> : null}
+      <section className="mt-10" aria-labelledby="vacate-h">
+        <h2 className="text-2xl font-semibold" id="vacate-h">
+          Record a move-out
+        </h2>
+        <p className="mt-2 text-sm text-muted [text-wrap:pretty]">
+          The ₹499 + GST fee is refunded only if the renter vacates within 7 days of paying it. Enter the agreement
+          and the move-out date: fees paid within 7 days before that date (renter and owner) move to Refunds below.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2" data-testid="vacate-form">
+          <input
+            className={`${input} h-10 min-w-0 flex-1 text-sm`}
+            placeholder="Application ID or squad:<request id>"
+            aria-label="Agreement application ID"
+            value={vacate.applicationId}
+            onChange={(e) => setVacate({ ...vacate, applicationId: e.target.value })}
+          />
+          <input
+            className={`${input} h-10 text-sm`}
+            type="date"
+            aria-label="Move-out date"
+            value={vacate.vacatedOn}
+            onChange={(e) => setVacate({ ...vacate, vacatedOn: e.target.value })}
+          />
+          <button
+            type="button"
+            className={btnSmallPrimary}
+            onClick={() => {
+              setError("");
+              setVacateNote("");
+              void adminRecordVacate({ data: vacate })
+                .then((r) => {
+                  setVacateNote(r.refunds ? `${r.refunds} fee payment(s) moved to Refunds.` : "Recorded. No fee was paid within 7 days of that date, so no refund.");
+                  load();
+                })
+                .catch((e) => setError(errText(e)));
+            }}
+          >
+            Record move-out
+          </button>
+        </div>
+        {vacateNote ? <p className="mt-2 text-sm font-semibold" data-testid="vacate-note">{vacateNote}</p> : null}
+      </section>
       <section className="mt-10" aria-labelledby="refunds-h">
         <h2 className="text-2xl font-semibold" id="refunds-h">
           Refunds
         </h2>
         <p className="mt-2 text-sm text-muted [text-wrap:pretty]">
-          Money owed back: passes covered by the refund promise, and old contact fees where the owner declined. Send the amount to the payer's UPI ID
+          Money owed back: platform fees where the renter vacated within 7 days of paying, passes covered by the refund promise, and old contact fees where the owner declined. Send the amount to the payer's UPI ID
           from roomeo's UPI app, then record the refund UTR here. No refund is owed once the owner
-          accepted, or when the seeker withdrew or left.
+          accepted, or for a fee once the stay lasted past 7 days from payment.
         </p>
         <ul className="mt-4 space-y-4" data-testid="refunds">
           {refunds.map((r) => (

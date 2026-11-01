@@ -1,4 +1,4 @@
-/** Pure helpers for the success fee (₹999 + GST) and the click-to-sign deal agreement. */
+/** Pure helpers for the one-time fee (₹499 + 18% GST) and the click-to-sign deal agreement. */
 export const GST_RATE = 0.18;
 export const REFUND_WINDOW_DAYS = 7;
 
@@ -14,11 +14,27 @@ export function feeBreakdownText(baseInr: number): string {
   return `₹${f.base} + ₹${f.gst.toFixed(2)} GST (18%) = ₹${f.exact.toFixed(2)}, rounded to ₹${f.total}`;
 }
 
-/** Cancel within 7 days of issue → every paid success fee on that agreement is refunded (both sides). */
-export function refundableOnCancel(issuedAt: string | Date | null | undefined, now: Date = new Date()): boolean {
-  if (!issuedAt) return true; // never issued: nothing could have been charged, treat as refundable
-  const t = typeof issuedAt === "string" ? Date.parse(issuedAt) : issuedAt.getTime();
-  return now.getTime() - t <= REFUND_WINDOW_DAYS * 86_400_000;
+/** Calendar date (YYYY-MM-DD) in India for an instant. */
+export function istDate(at: string | Date): string {
+  const t = typeof at === "string" ? Date.parse(at) : at.getTime();
+  return new Date(t + 330 * 60_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Refund rule (Rohith, 1 Nov 2026): a paid fee is refunded only if the renter vacates (the stay ends)
+ * within 7 days of that fee's payment. Compared as India calendar dates: paid on 1 Nov → vacate by 8 Nov.
+ * A move-out on or before the payment date also counts (the stay never really started).
+ */
+export function refundableOnVacate(paidAt: string | Date | null | undefined, vacatedOn: string | Date): boolean {
+  if (!paidAt) return false;
+  const v = typeof vacatedOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(vacatedOn) ? vacatedOn : istDate(vacatedOn);
+  const days = (Date.parse(v) - Date.parse(istDate(paidAt))) / 86_400_000;
+  return days <= REFUND_WINDOW_DAYS;
+}
+
+/** Last India date a move-out still earns a refund, for a fee paid at `paidAt`. */
+export function refundDeadline(paidAt: string | Date): string {
+  return new Date(Date.parse(istDate(paidAt)) + REFUND_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10);
 }
 
 export type AgreementState = "DRAFT" | "WAITING" | "ISSUED" | "CANCELLED";
@@ -60,7 +76,7 @@ export function agreementBody(t: DealTerms): string {
     ``,
     `1. The tenant takes the room above at the rent and deposit shown. Rent and deposit are paid directly to the owner; Roomeo never holds them or takes a cut.`,
     `2. Both sides pay Roomeo a one-time platform success fee of ${fee} each, once this agreement is issued and before move in.`,
-    `3. Either side can cancel this agreement in the app within ${REFUND_WINDOW_DAYS} days of the issue date. If cancelled in that window, Roomeo refunds the success fee to everyone who paid it. After ${REFUND_WINDOW_DAYS} days the fee is not refundable.`,
+    `3. Roomeo's fee is refunded only if the tenant vacates within ${REFUND_WINDOW_DAYS} days of paying it. The owner's fee is refunded too if the stay ends within ${REFUND_WINDOW_DAYS} days of the owner's payment. Otherwise the fee is not refundable. The deposit is paid directly to the owner and Roomeo never holds or refunds it.`,
     `4. House rules, notice period and anything else are between tenant and owner. A full stamped rental agreement may still be needed under local law.`,
     `5. This agreement is signed by each side clicking "Sign" in Roomeo. Roomeo records the typed name, time and IP address of each signature. The issue date is when the second side signs.`,
   ].join("\n");

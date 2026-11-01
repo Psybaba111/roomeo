@@ -178,7 +178,7 @@ export const SUCCESS_FEE_INR = 499;
 export function successFeeHeadsUp(feeInr: number, role: "tenant" | "owner"): string {
   const total = Math.round(feeInr * 1.18);
   const other = role === "tenant" ? "the owner" : "the tenant";
-  return `Heads up: once you and ${other} both sign, it's a one-time ₹${feeInr} + 18% GST (₹${total}) success fee, paid before move in. Cancel within 7 days and you get it back. No cut of the rent, ever.`;
+  return `Heads up: once you and ${other} both sign, it's a one-time ₹${feeInr} + 18% GST (₹${total}) success fee, paid before move in. Refunded only if the tenant moves out within 7 days of paying. No cut of the rent, ever.`;
 }
 
 /** A fee payment counts for this deal only if it was made after this deal was confirmed. */

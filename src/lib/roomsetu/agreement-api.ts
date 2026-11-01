@@ -5,7 +5,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { num, str } from "@/lib/roomsetu/map";
 import { buildUpiLink, makeRef, upiPayee } from "@/lib/roomsetu/upi";
 import { pricingConfig } from "@/lib/roomsetu/pricing";
-import { agreementBody, agreementState, feeWithGst, refundableOnCancel, validSignName } from "@/lib/roomsetu/deal-agreement";
+import { agreementBody, agreementState, feeWithGst, refundableOnVacate, refundDeadline, validSignName } from "@/lib/roomsetu/deal-agreement";
 import { dealSteps } from "@/lib/roomsetu/deal-steps";
 import { cancelAgreement, loadAgreement, signAgreement, signSquadAgreement, squadAgreementKey, squadSigners } from "@/lib/roomsetu/agreement-db";
 
@@ -83,7 +83,7 @@ export const getDealAgreement = createServerFn({ method: "GET" })
     const signers = data.kind === "squad" ? await squadSigners(sql, str(a.id)) : [];
     const iSigned = data.kind === "squad" ? signers.some((x) => x.user_id === context.userId) : Boolean(isOwner ? a.owner_signed_at : a.seeker_signed_at);
     const base = isOwner ? cfg.successFeeOwnerInr : cfg.successFeeTenantInr;
-    const fee = (await sql.query<{ id: string; status: string }>(`select id, status from payments where agreement_id = $1 and kind = 'SUCCESS_FEE' and user_id = $2 order by created_at desc limit 1`, [str(a.id), context.userId]))[0];
+    const fee = (await sql.query<{ id: string; status: string; paid_at: string }>(`select id, status, coalesce(reviewed_at, created_at)::text as paid_at from payments where agreement_id = $1 and kind = 'SUCCESS_FEE' and user_id = $2 order by created_at desc limit 1`, [str(a.id), context.userId]))[0];
     const state = agreementState({ seekerSignedAt: str(a.seeker_signed_at) || (signers.some((x) => x.role === "TENANT") ? "x" : null), ownerSignedAt: str(a.owner_signed_at) || null, issuedAt: str(a.issued_at) || null, cancelledAt: str(a.cancelled_at) || null });
     const feeOn = cfg.successFeeEnabled && base > 0;
     const f = feeWithGst(base);
@@ -98,7 +98,8 @@ export const getDealAgreement = createServerFn({ method: "GET" })
       squad: data.kind === "squad" ? { members: d.tenantIds.length, signed: signers.filter((x) => x.role === "TENANT").length, names: signers.map((x) => x.name) } : null,
       issuedAt: str(a.issued_at),
       cancelledAt: str(a.cancelled_at),
-      canRefund: refundableOnCancel(str(a.issued_at) || null),
+      canRefund: fee?.status === "PAID" && refundableOnVacate(fee.paid_at, new Date()),
+      refundBy: fee?.status === "PAID" ? refundDeadline(fee.paid_at) : "",
       feeEnabled: feeOn,
       fee: f,
       feeStatus: str(fee?.status),

@@ -242,7 +242,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
               {inr(room.rent)} rent + {inr(room.deposit)} deposit
             </p>
             <p className="mt-1 text-sm text-brand-soft">
-              Rent and deposit are paid directly to the owner. Roomeo never holds your deposit and takes no cut. ₹499 once, chat free.
+              Rent and deposit are paid directly to the owner. Roomeo never holds your deposit and takes no cut. ₹499 + GST once, chat free.
             </p>
             <p className="mt-2 text-sm font-semibold" data-testid="deposit-terms">
               {depositTerms(room.deposit)}

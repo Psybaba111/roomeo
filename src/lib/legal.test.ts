@@ -22,7 +22,9 @@ test("terms fees match pricing defaults", () => {
   assert.equal(c.successFeeEnabled, false);
   assert.equal(c.passesEnabled, false);
   assert.ok(T.includes("Owner chats are free"));
-  assert.ok(T.includes("₹499, once"));
+  assert.ok(T.includes("₹499 plus 18% GST (₹589 in total), once"));
+  assert.ok(T.includes("vacates within 7 days of paying"));
+  assert.ok(!T.includes("issue date"));
   assert.ok(T.includes(`₹${SUCCESS_FEE_INR}`));
   assert.ok(T.includes(`within ${c.noReplyHours} hours`));
   for (const k of ["not the owner, landlord", "within 7 days", "acceptable use", "Mangaluru, Karnataka", "Limitation of liability", "Indemnity", "Intermediary Rules, 2021", "broker"]) assert.ok(T.includes(k), k);

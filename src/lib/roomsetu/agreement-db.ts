@@ -1,5 +1,5 @@
 import type { Sql } from "../db.ts";
-import { refundableOnCancel } from "./deal-agreement.ts";
+import { istDate, refundableOnVacate } from "./deal-agreement.ts";
 import { invoiceAmounts, invoiceNumber, stateForCity } from "./invoice.ts";
 
 type Row = Record<string, unknown>;
@@ -30,27 +30,50 @@ export async function signAgreement(sql: Sql, p: { applicationId: string; userId
 }
 
 /**
- * Either side cancels. Within 7 days of issue every PAID success fee on this agreement (both sides)
- * becomes REFUND_DUE for the admin UPI refund flow; unpaid checkouts are closed. After 7 days, no refund.
+ * The stay on this agreement ended on `endedOn` (India date). Each PAID/SUBMITTED fee (both sides) whose
+ * payment was within 7 days before that date becomes REFUND_DUE for the admin UPI refund flow.
+ * Payment time = when the operator approved it, else when it was submitted.
+ */
+export async function refundFeesForStayEnd(sql: Sql, agreementId: string, endedOn: string, reason: string) {
+  const paid = await sql.query<Row>(
+    `select id, user_id, coalesce(reviewed_at, created_at)::text as paid_at from payments
+      where agreement_id = $1 and kind = 'SUCCESS_FEE' and status in ('PAID','SUBMITTED')`,
+    [agreementId],
+  );
+  const due = paid.filter((r) => refundableOnVacate(s(r.paid_at), endedOn)).map((r) => s(r.id));
+  if (due.length) {
+    await sql.query(`update payments set status = 'REFUND_DUE', refund_due_at = now(), refund_reason = $2 where id = any($1::text[]) and status in ('PAID','SUBMITTED')`, [due, reason]);
+  }
+  return { refunds: due.length, kept: paid.length - due.length };
+}
+
+/**
+ * Either side cancels. The stay ends today, so any fee paid within the last 7 days is refunded
+ * (same rule as an early move-out); older fees stay. Unpaid checkouts are closed.
  */
 export async function cancelAgreement(sql: Sql, p: { applicationId: string; userId: string; reason: string; now?: Date; parties?: string[] }) {
   const a = await loadAgreement(sql, p.applicationId);
   const allowed = p.parties ?? [s(a?.seeker_id), s(a?.owner_id)];
   if (!a || !allowed.includes(p.userId)) throw new Error("Agreement not found.");
   if (a.cancelled_at) return { refunds: 0, refundable: false };
-  const refundable = refundableOnCancel(s(a.issued_at) || null, p.now ?? new Date());
   await sql.query(`update deal_agreements set cancelled_at = now(), cancelled_by = $2, cancel_reason = $3 where id = $1`, [a.id, p.userId, p.reason.slice(0, 300)]);
   await sql.query(`update payments set status = 'CANCELLED' where agreement_id = $1 and kind = 'SUCCESS_FEE' and status = 'PENDING'`, [a.id]);
-  let refunds = 0;
-  if (refundable) {
-    const r = await sql.query<Row>(
-      `update payments set status = 'REFUND_DUE', refund_due_at = now(), refund_reason = 'Agreement cancelled within 7 days of issue.'
-        where agreement_id = $1 and kind = 'SUCCESS_FEE' and status in ('PAID','SUBMITTED') returning user_id`,
-      [a.id],
-    );
-    refunds = r.length;
-  }
-  return { refunds, refundable };
+  const { refunds } = await refundFeesForStayEnd(sql, s(a.id), istDate(p.now ?? new Date()), "Stay ended within 7 days of paying the fee (agreement cancelled).");
+  return { refunds, refundable: refunds > 0 };
+}
+
+/**
+ * Operator records the renter's move-out date. Fees paid within 7 days before that date are refunded
+ * (both sides); later move-outs keep the fee. Recording twice is refused so refunds are not doubled.
+ */
+export async function recordVacate(sql: Sql, p: { applicationId: string; vacatedOn: string; actorId: string; today?: Date }) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(p.vacatedOn) || Number.isNaN(Date.parse(p.vacatedOn))) throw new Error("Enter the move-out date as YYYY-MM-DD.");
+  if (p.vacatedOn > istDate(p.today ?? new Date())) throw new Error("The move-out date can't be in the future.");
+  const a = (await sql.query<Row>(`select id, vacated_on::text as vacated_on from deal_agreements where application_id = $1`, [p.applicationId]))[0];
+  if (!a) throw new Error("Agreement not found.");
+  if (a.vacated_on) throw new Error(`Move-out already recorded on ${s(a.vacated_on)}.`);
+  await sql.query(`update deal_agreements set vacated_on = $2::date, vacate_recorded_by = $3, vacate_recorded_at = now() where id = $1`, [a.id, p.vacatedOn, p.actorId]);
+  return refundFeesForStayEnd(sql, s(a.id), p.vacatedOn, `Renter vacated on ${p.vacatedOn}, within 7 days of paying the fee.`);
 }
 
 /** Squad agreements live under application_id = "squad:<requestId>". */
