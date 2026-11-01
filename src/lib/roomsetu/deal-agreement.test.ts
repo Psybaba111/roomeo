@@ -112,3 +112,14 @@ test("cancel more than 7 days after payment: no refund", async () => {
   assert.equal((await pg.query<{ status: string }>(`select status from payments where id='p1'`)).rows[0].status, "PAID");
   await pg.close();
 });
+
+test("agreement text hides the street until everyone signs", async () => {
+  const { agreementBodyForView } = await import("./deal-agreement.ts");
+  const t = { address: "ZZ 1 Test Lane", locality: "Bunder", city: "Mangaluru" };
+  const body = "ROOMEO DEAL AGREEMENT\nRoom: Test PG, ZZ 1 Test Lane, Bunder, Mangaluru\nRent: ₹6,001";
+  const draft = agreementBodyForView(body, t, false);
+  assert.ok(!draft.includes("Test Lane"));
+  assert.ok(draft.includes("Bunder, Mangaluru"));
+  assert.equal(agreementBodyForView(body, t, true), body);
+  assert.equal(agreementBodyForView(body, { ...t, address: "" }, false), body);
+});

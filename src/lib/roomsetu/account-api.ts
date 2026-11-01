@@ -1082,7 +1082,7 @@ export const applyToListing = createServerFn({ method: "POST" })
     const existing =
       await sql`select id from applications where listing_id = ${data.id} and seeker_id = ${context.userId} and status in ('PENDING','ACCEPTED')`;
     if (existing.length) throw new Error("You already have a request on this room.");
-    const note = data.note || `${str(profile.full_name)} would like to visit.`;
+    const note = data.note || `${str(profile.full_name)} wants to lock this bed.`;
     await sql.query(
       `insert into applications (id, listing_id, seeker_id, host_id, note) values ($1,$2,$3,$4,$5)`,
       [crypto.randomUUID(), data.id, context.userId, listing[0].owner_id, note],

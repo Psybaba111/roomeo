@@ -23,7 +23,7 @@ export function TrialNightsOwner({ listingId }: { listingId: string }) {
     try {
       await saveListingTrial({ data: { listingId, enabled, nightlyInr: price } });
       setS((x) => (x ? { ...x, enabled } : x));
-      setMsg(enabled ? "Trial nights are on for this room." : "Trial nights are off.");
+      setMsg(enabled ? (s?.live ? "Trial nights are on for this room 🌙" : "Saved. Renters see it once trial nights go live.") : "Trial nights are off.");
     } catch (e) {
       setMsg(errText(e));
     }
@@ -35,8 +35,12 @@ export function TrialNightsOwner({ listingId }: { listingId: string }) {
       </label>
       <p className="mt-1 text-sm text-muted">
         Students can stay 1 to {TRIAL_MAX_NIGHTS} nights before signing up. They pay you the nightly price directly; check their photo ID on arrival. Roomeo charges the student {feeLine(s.fee)} per trial booking.
-        {s.live ? "" : " Bookings open once trial nights launch."}
       </p>
+      {s.live ? null : (
+        <p className="mt-2 rounded-xl border border-line bg-paper p-3 text-sm" data-testid="trial-not-live">
+          Heads up: trial nights aren't live for renters yet. Set it up now and it switches on at launch.
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <label>
           <span className="mb-1 block text-sm text-muted">Nightly price (₹)</span>

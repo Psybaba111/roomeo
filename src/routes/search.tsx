@@ -334,6 +334,7 @@ function SearchPage() {
                   role="tab"
                   type="button"
                   aria-selected={view === v}
+                  aria-controls="search-map-panel"
                   onClick={() => setView(v)}
                   className={`rounded-full px-4 py-2 ${view === v ? "bg-ink text-card" : "text-muted"}`}
                 >
@@ -343,7 +344,7 @@ function SearchPage() {
             </div>
           </div>
           {view === "map" && rooms ? (
-            <div className="mb-4">
+            <div className="mb-4" id="search-map-panel" role="tabpanel" aria-label="Map of beds by area">
               <AreaMap
                 pins={areaPins(rooms.listings, centroids)}
                 center={info.center}

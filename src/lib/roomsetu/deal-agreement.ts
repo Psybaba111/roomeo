@@ -81,3 +81,19 @@ export function agreementBody(t: DealTerms): string {
     `5. This agreement is signed by each side clicking "Sign" in Roomeo. Roomeo records the typed name, time and IP address of each signature. The issue date is when the second side signs.`,
   ].join("\n");
 }
+
+/**
+ * Until the agreement is issued (everyone signed), the street address stays out of the text.
+ * People see the area ("Bunder, Mangaluru"); the issued copy carries the full address.
+ */
+export function agreementBodyForView(body: string, t: { address: string; locality: string; city: string }, issued: boolean): string {
+  if (issued) return body;
+  const street = (t.address || "").trim();
+  if (!street) return body;
+  const area = [t.locality, t.city].filter(Boolean).join(", ") || "Area shown after signing";
+  // The room line is "Room: <title>, <address>, <locality>, <city>". Drop the street, keep the area once.
+  const full = [street, t.locality, t.city].filter(Boolean).join(", ");
+  let out = body.split(full).join(`${area} (street address shared once the agreement is signed)`);
+  out = out.split(street).join(area);
+  return out;
+}

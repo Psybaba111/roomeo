@@ -4,6 +4,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
 import { control } from "@/components/cards";
+import { OPEN_CITIES } from "@/lib/roomsetu/open-cities";
 import { listCities, listRoomWanted } from "@/lib/roomsetu/public-api";
 import { openConversation } from "@/lib/roomsetu/account-api";
 import { inr, whenLabel } from "@/lib/roomsetu/map";
@@ -23,7 +24,7 @@ function WantedPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    void listCities().then((c) => setCities(c.map((x) => x.name)));
+    void listCities().then((c) => setCities(c.map((x) => x.name).filter((n) => OPEN_CITIES.includes(n))));
   }, []);
 
   useEffect(() => {

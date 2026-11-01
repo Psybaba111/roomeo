@@ -244,7 +244,7 @@ function CreateListing() {
         </label>
         <label className="md:col-span-2">
           <span className="mb-1 block text-sm text-muted">
-            Street address (shown only after you sign in)
+            Street address (renters see it only after they sign and pay)
           </span>
           <input
             className={control}
