@@ -14,7 +14,7 @@ export const Route = createFileRoute("/")({
   head: () =>
     pageHead("Spare beds for students & first jobbers", {
       description:
-        "Shared rooms and PG beds in Mangaluru. Real photos, one all-in price, deposit paid to the owner. ₹499 once, not a broker's month.",
+        "Shared rooms and PG beds in Mangaluru. Real photos, one all-in price, deposit paid to the owner. Chat free, ₹589 once when you lock a bed.",
     }),
   loader: () => getHome({ data: { city: DEFAULT_CITY } }),
   component: Home,

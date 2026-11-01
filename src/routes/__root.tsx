@@ -11,7 +11,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "roomeo · spare beds for students & first jobbers" },
-      { name: "description", content: "Spare PG beds in Mangaluru. People choose their own group. ₹499 once, not a broker's month. Zero commission on rent." },
+      { name: "description", content: "Spare PG beds in Mangaluru. People choose their own group. Chat free, ₹589 once when you lock a bed. Zero commission on rent." },
       { name: "theme-color", content: "var(--color-brand)" },
     ],
     scripts: [{ children: THEME_INIT_SCRIPT }],
