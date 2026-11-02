@@ -1,4 +1,5 @@
 /** GST invoice maths + seller details for the one-time success fee. Pure, no DB. */
+import { trialFeeBreakdown } from "./trial-nights.ts";
 export const SELLER = {
   name: "Athiti Hospitality Services Private Limited",
   gstin: "29ABFCA1830K1ZM",
@@ -120,7 +121,14 @@ export function invoicePdfLines(v: InvoiceView): { text: string; size?: number; 
   else { amt("CGST @ 9%", v.cgst); amt("SGST @ 9%", v.sgst); }
   amt("Invoice total", v.total);
   if (v.roundOff) amt("Round off", v.roundOff);
-  if (v.trialCreditInr) L.push({ text: `Trial credit applied: -${rupees(v.trialCreditInr * 100)} (₹99 trial fee already paid and invoiced separately)` });
+  if (v.trialCreditInr) {
+    // Truthful (2 Nov 2026): the ₹99 trial fee was paid earlier on its own UPI payment; it is NOT part of this invoice's taxable value.
+    const t = trialFeeBreakdown();
+    L.push({ text: "Trial night credit", bold: true, gap: 6 });
+    L.push({ text: `Platform fee before credit: ${rupees((v.total + v.trialCreditInr * 100))} (incl. GST)` });
+    L.push({ text: `Less trial nights service fee already paid: -${rupees(v.trialCreditInr * 100)} (${rupees(Math.round(t.base * 100))} + ${rupees(Math.round(t.gst * 100))} GST, separate UPI payment)` });
+    L.push({ text: `This invoice covers the balance of ${rupees(v.total)}; the ₹${v.trialCreditInr} trial fee is not included in the taxable value above.` });
+  }
   L.push({ text: `Amount paid: ${rupees(v.paidInr * 100)}`, bold: true });
   L.push({ text: `Paid by UPI | UTR: ${v.utr || "-"} | Roomeo ref: ${v.ref}`, gap: 6 });
   L.push({ text: "Tax payable on reverse charge: No", gap: 6 });

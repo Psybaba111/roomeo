@@ -311,8 +311,12 @@ export const getDesk = createServerFn({ method: "GET" })
        join properties p on p.id = l.property_id
        where l.status = 'ACTIVE' and l.owner_id <> $1 and pr.account_status = 'ACTIVE'
          and (l.is_demo = true or pr.identity_status = 'VERIFIED')
+         and ($2 = '' or lower(trim(l.city_name)) = lower(trim($2)))
+         and ($3::int is null or l.monthly_rent <= $3::int)
+       order by l.is_demo asc, l.quality_score desc nulls last, l.created_at desc
        limit 80`,
-        [userId],
+        // Filter by saved city/budget in SQL (2 Nov 2026): an unfiltered "limit 80" could return 80 rooms from other cities.
+        [userId, facts.city, facts.budget && facts.budget > 0 ? Math.round(facts.budget) : null],
       )
     )
       .filter((listing) =>
@@ -370,6 +374,8 @@ export const getDesk = createServerFn({ method: "GET" })
         at: str(n.at),
       })),
       recommended,
+      matchCity: facts.city,
+      matchBudget: facts.budget ?? null,
       completion,
       isAdmin: roles.includes("ADMIN") || roles.includes("SUPER_ADMIN"),
     };

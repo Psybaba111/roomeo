@@ -4,6 +4,9 @@ import { pageHead } from "@/lib/seo";
 import { Shell } from "@/components/shell";
 import { TaglineReveal } from "@/components/tagline-reveal";
 import { btnPrimary, btnSecondary, card } from "@/components/ui-tokens";
+import { TRIAL_CREDIT_WINDOW_DAYS, TRIAL_FEE_INR, TRIAL_MAX_NIGHTS, TRIAL_MIN_NIGHTS, trialFeeBreakdown } from "@/lib/roomsetu/trial-nights";
+
+const tf = trialFeeBreakdown();
 
 export const Route = createFileRoute("/pricing")({
   head: () =>
@@ -75,6 +78,21 @@ function Pricing() {
               <li>Chats only from phone-verified renters</li>
             </ul>
           </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="trial-h" className="py-12" data-testid="pricing-trial">
+        <h2 id="trial-h" className="text-3xl font-semibold tracking-tight [text-wrap:balance]">Try a bed first: trial nights</h2>
+        <div className={`${card} mt-6`}>
+          <p className="text-4xl font-semibold tabular-nums">₹{TRIAL_FEE_INR} per booking</p>
+          <p className="mt-1 text-sm text-muted">GST included (₹{tf.base.toFixed(2)} + ₹{tf.gst.toFixed(2)} GST), once per booking, not per night</p>
+          <ul className="mt-4 list-disc space-y-2 pl-5 text-sm">
+            <li>Owners choose to offer it. Look for "Try a trial night" on the room page.</li>
+            <li>Stay {TRIAL_MIN_NIGHTS} to {TRIAL_MAX_NIGHTS} nights at the owner's nightly price, paid directly to the owner. Roomeo never holds it.</li>
+            <li>Pay the ₹{TRIAL_FEE_INR} by UPI and enter the UTR. Your trial is confirmed once Roomeo approves the payment.</li>
+            <li>Carry a photo ID. The owner checks it when you arrive.</li>
+            <li>Sign the full deal within {TRIAL_CREDIT_WINDOW_DAYS} days of your trial and the ₹{TRIAL_FEE_INR} comes off your ₹589 fee, so you pay ₹{589 - TRIAL_FEE_INR}.</li>
+          </ul>
         </div>
       </section>
 

@@ -537,8 +537,10 @@ export const adminPayments = createServerFn({ method: "GET" })
     const sql = await getSql();
     await assertAdmin(sql, context.userId);
     const rows = await sql.query<Record<string, unknown>>(
-      `select p.id, p.ref, p.utr, p.amount_inr, p.status, p.purpose, p.submitted_at, coalesce(pr.full_name, p.user_id) as name, fi.number as invoice_no
+      `select p.id, p.ref, p.utr, p.amount_inr, p.status, p.purpose, p.submitted_at, coalesce(pr.full_name, p.user_id) as name, fi.number as invoice_no,
+              p.kind, da.application_id as agreement_key, l.title as listing_title
        from payments p left join profiles pr on pr.user_id = p.user_id left join fee_invoices fi on fi.payment_id = p.id
+       left join deal_agreements da on da.id = p.agreement_id left join listings l on l.id = p.listing_id
        where p.provider = 'UPI' and p.status in ('SUBMITTED','PAID','REJECTED')
        order by (p.status = 'SUBMITTED') desc, p.submitted_at desc nulls last limit 200`,
     );
@@ -552,6 +554,9 @@ export const adminPayments = createServerFn({ method: "GET" })
       name: str(r.name),
       submittedAt: str(r.submitted_at),
       invoiceNo: str(r.invoice_no),
+      kind: str(r.kind),
+      agreementKey: str(r.agreement_key),
+      listingTitle: str(r.listing_title),
     }));
   });
 

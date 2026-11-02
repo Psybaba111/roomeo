@@ -61,6 +61,7 @@ function Apps() {
   const [rows, setRows] = useState<Awaited<ReturnType<typeof listApplications>>>([]);
   const [error, setError] = useState("");
   const [moves, setMoves] = useState<MoveInfo | null>(null);
+  const [rowErr, setRowErr] = useState<{ id: string; msg: string } | null>(null);
   function loadMoves() {
     void myMoveIns().then(setMoves).catch(() => undefined);
   }
@@ -98,12 +99,12 @@ function Apps() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {row.mine && row.status === "PENDING" ? (
-                  <button type="button" className="h-10 rounded-full border border-line px-3 text-sm" onClick={() => void setApplication({ data: { id: row.id, status: "WITHDRAWN" } }).then(load)}>Withdraw</button>
+                  <button type="button" className="h-10 rounded-full border border-line px-3 text-sm" onClick={() => { setRowErr(null); void setApplication({ data: { id: row.id, status: "WITHDRAWN" } }).then(load).catch((e) => setRowErr({ id: row.id, msg: errText(e) })); }}>Withdraw</button>
                 ) : null}
                 {!row.mine && row.status === "PENDING" ? (
                   <>
-                    <button type="button" className="h-10 rounded-full bg-brand px-3 text-sm text-card" onClick={() => void setApplication({ data: { id: row.id, status: "ACCEPTED" } }).then(load)}>Accept</button>
-                    <button type="button" className="h-10 rounded-full border border-line px-3 text-sm" onClick={() => void setApplication({ data: { id: row.id, status: "DECLINED" } }).then(load)}>Decline</button>
+                    <button type="button" className="h-10 rounded-full bg-brand px-3 text-sm text-card" onClick={() => { setRowErr(null); void setApplication({ data: { id: row.id, status: "ACCEPTED" } }).then(load).catch((e) => setRowErr({ id: row.id, msg: errText(e) })); }}>Accept</button>
+                    <button type="button" className="h-10 rounded-full border border-line px-3 text-sm" onClick={() => { setRowErr(null); void setApplication({ data: { id: row.id, status: "DECLINED" } }).then(load).catch((e) => setRowErr({ id: row.id, msg: errText(e) })); }}>Decline</button>
                   </>
                 ) : null}
                 {!row.mine ? (
@@ -119,6 +120,7 @@ function Apps() {
                     Message
                   </button>
                 ) : null}
+                {rowErr?.id === row.id ? <p className={`w-full ${errorBox}`} role="alert" data-testid="application-action-error">{rowErr.msg}</p> : null}
               </div>
             </div>
           </li>

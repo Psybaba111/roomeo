@@ -54,7 +54,7 @@ test("₹490 credited fee: taxable 415.25 exact, no round-off, trial credit line
   await pg.close();
   const lines = invoicePdfLines({ number: "N", issuedAt: "2026-11-01", buyerName: "B", buyerEmail: "", buyerPhone: "", buyerGstin: "", buyerState: "Karnataka", placeOfSupply: "Karnataka",
     taxable: 41525, cgst: 3737, sgst: 3738, igst: 0, total: 49000, roundOff: 0, paidInr: 490, ref: "R", utr: "", purpose: "", trialCreditInr: 99 }).map((l) => l.text);
-  assert.ok(lines.some((t) => /Trial credit applied: -₹99\.00/.test(t)));
+  assert.ok(lines.some((t) => /Less trial nights service fee already paid: -₹99\.00/.test(t)));
   assert.ok(!lines.some((t) => /Round off/.test(t)));
   assert.match(src("lib/roomsetu/pricing-db.ts"), /\* 100\) \/ 100/);
 });

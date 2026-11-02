@@ -5,7 +5,7 @@ export type DealStep = { key: "accepted" | "sign" | "pay" | "movein"; label: str
 export function dealSteps(p: { role: "tenant" | "owner"; squad?: boolean; iSigned: boolean; issued: boolean; cancelled: boolean; feeOn: boolean; feePaid: boolean; feeTotal: number; movedIn: boolean }): DealStep[] {
   const other = p.role === "tenant" ? (p.squad ? "the owner and your squad" : "the owner") : p.squad ? "every squad member" : "the tenant";
   const signHint = p.issued ? "Signed by everyone. Agreement issued." : p.iSigned ? `You signed. Waiting on ${other}.` : `Read it, type your name, sign. ${other[0].toUpperCase() + other.slice(1)} signs too.`;
-  const payHint = !p.feeOn ? "No fee right now. Skip ahead 🙌" : p.feePaid ? "Paid. Invoice is ready." : `You pay ₹${p.feeTotal} once (₹999 + 18% GST), before move in. Cancel within 7 days of issue and everyone gets it back.`;
+  const payHint = !p.feeOn ? "No fee right now. Skip ahead 🙌" : p.feePaid ? "Paid. Invoice is ready." : `You pay ₹${p.feeTotal} once (₹499 + 18% GST = ₹589${p.feeTotal < 589 ? ", less your trial credit" : ""}), before move in. If the stay ends within 7 days of paying, both sides get their fee back.`;
   const steps: Omit<DealStep, "state">[] = [
     { key: "accepted", label: "Accepted", hint: "Owner said yes 🎉" },
     { key: "sign", label: "Sign agreement", hint: signHint },

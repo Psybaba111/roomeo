@@ -152,3 +152,33 @@ export async function adminTrialBookings(sql: Sql) {
     feeRef: s(r.ref), feeStatus: s(r.fee_status), seeker: s(r.seeker), owner: s(r.owner), creditedOn: s(r.credited_on),
   }));
 }
+
+/** Student's open (fee pending / confirmed) trial at this listing, so a reload shows it again. */
+export async function myOpenTrial(sql: Sql, p: { listingId: string; seekerId: string }) {
+  const r = (await sql.query<Row>(
+    `select b.id, b.status, b.check_in::text as check_in, b.nights, b.nightly_inr, b.stay_total_inr, b.id_checked_at::text as id_checked_at,
+            p.ref, p.status as pay_status, p.amount_inr
+     from trial_bookings b left join payments p on p.id = b.fee_payment_id
+     where b.listing_id = $1 and b.seeker_id = $2 and b.status in ('FEE_PENDING','CONFIRMED')
+     order by b.created_at desc limit 1`,
+    [p.listingId, p.seekerId],
+  ))[0];
+  if (!r) return null;
+  return {
+    bookingId: s(r.id), status: s(r.status), checkIn: s(r.check_in), nights: Number(r.nights), nightlyInr: Number(r.nightly_inr),
+    stayTotalInr: Number(r.stay_total_inr), paymentRef: s(r.ref), paymentStatus: s(r.pay_status), feeInr: Number(r.amount_inr ?? TRIAL_FEE_INR),
+  };
+}
+
+/** Owner: confirmed trials at their listing (upcoming or arrived), for the "Mark ID checked" button. */
+export async function ownerTrialBookings(sql: Sql, p: { listingId: string; ownerId: string }) {
+  const rows = await sql.query<Row>(
+    `select b.id, b.check_in::text as check_in, b.nights, b.stay_total_inr, b.id_checked_at::text as id_checked_at,
+            coalesce(sp.full_name, 'Student') as seeker
+     from trial_bookings b left join profiles sp on sp.user_id = b.seeker_id
+     where b.listing_id = $1 and b.owner_id = $2 and b.status = 'CONFIRMED'
+     order by b.check_in asc limit 50`,
+    [p.listingId, p.ownerId],
+  );
+  return rows.map((r) => ({ id: s(r.id), checkIn: s(r.check_in), nights: Number(r.nights), stayTotalInr: Number(r.stay_total_inr), idCheckedAt: s(r.id_checked_at), seeker: s(r.seeker) }));
+}
