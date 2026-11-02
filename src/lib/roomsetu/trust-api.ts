@@ -5,8 +5,9 @@ import { bool, num, str } from "@/lib/roomsetu/map";
 import { callbackUrlFrom, digilockerAuthorizeUrl, judgeDigilockerUser, nextIdentityAttempt } from "@/lib/roomsetu/identity";
 import { FEE_INR, rentQuote } from "@/lib/roomsetu/money";
 import { classifyOtpFailure, RESEND_COOLDOWN_SECONDS, type VerifyOtpResult } from "@/lib/roomsetu/otp-result";
-import { canPublish, generateOtp, hashOtp, normalizeIndianMobile, OTP_MAX_ATTEMPTS, otpMatches, otpTtlMinutes, otpProviderFromEnv } from "@/lib/roomsetu/otp";
+import { canPublish, generateOtp, hashOtp, normalizeIndianMobile, OTP_MAX_ATTEMPTS, otpMatches, otpTtlMinutes, otpProviderFromEnv, FallbackOtpProvider } from "@/lib/roomsetu/otp";
 import { hitLimit } from "@/lib/roomsetu/rate-limit";
+import { ID_DOC_TYPES, idGate, idProviderFromEnv, idVerificationEnabled, type GatedAction, type IdDocType } from "@/lib/roomsetu/id-verify";
 
 function asRecord(input: unknown): Record<string, unknown> {
   return input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -332,7 +333,8 @@ export const startPhoneOtp = createServerFn({ method: "POST" })
       values (${context.userId}, ${data}, ${hashOtp(context.userId, data, code)}, 0, now() + make_interval(mins => ${ttl}::int))
       on conflict (user_id) do update set phone_e164 = excluded.phone_e164, code_hash = excluded.code_hash, attempts = 0, expires_at = excluded.expires_at, created_at = now()`;
     await provider.send(data, `${code} is your roomeo code. It expires in ${ttl} minutes. Don't share it.`, code);
-    return { ok: true, phone: data, ttlMinutes: ttl };
+    const channel = provider instanceof FallbackOtpProvider ? provider.lastChannel : provider.name.includes("whatsapp") ? "whatsapp" : "sms";
+    return { ok: true, phone: data, ttlMinutes: ttl, channel };
   });
 
 export const verifyPhoneOtp = createServerFn({ method: "POST" })
@@ -366,4 +368,74 @@ export const verifyPhoneOtp = createServerFn({ method: "POST" })
       [context.userId, otp.phone_e164, crypto.randomUUID()],
     );
     return { ok: true } as VerifyOtpResult;
+  });
+
+/** Throws the gate message when ROOMEO_ID_VERIFICATION_ENABLED is on and this user isn't ID-verified. */
+export async function assertIdVerified(sql: Sql, userId: string, action: GatedAction) {
+  if (!idVerificationEnabled()) return;
+  const r = await sql<{ identity_status: string }>`select identity_status from profiles where user_id = ${userId}`;
+  const msg = idGate({ enabled: true, identityStatus: r[0]?.identity_status, action });
+  if (msg) throw new Error(msg);
+}
+
+/** Prototype status for the Verification page. */
+export const getIdVerification = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const enabled = idVerificationEnabled();
+    const provider = idProviderFromEnv();
+    if (!enabled) return { enabled, ready: false, provider: "", latest: null };
+    const sql = await getSql();
+    const r = (await sql.query<Record<string, unknown>>(
+      `select doc_type, status, verified_name, id_last4, failure_reason, completed_at::text as completed_at from identity_verifications where user_id = $1 order by created_at desc limit 1`,
+      [context.userId],
+    ))[0];
+    return {
+      enabled, ready: Boolean(provider), provider: provider?.name ?? "",
+      latest: r ? { docType: str(r.doc_type), status: str(r.status), name: str(r.verified_name), last4: str(r.id_last4), reason: str(r.failure_reason), at: str(r.completed_at) } : null,
+    };
+  });
+
+export const startIdVerification = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((i: unknown) => {
+    const d = str(asRecord(i).docType);
+    if (!(ID_DOC_TYPES as readonly string[]).includes(d)) throw new Error("Pick Aadhaar or student ID.");
+    return d as IdDocType;
+  })
+  .handler(async ({ context, data }) => {
+    if (!idVerificationEnabled()) throw new Error("ID verification isn't switched on yet.");
+    const provider = idProviderFromEnv();
+    if (!provider) throw new Error("ID verification provider isn't set up on this deployment yet.");
+    const sql = await getSql();
+    await hitLimit(sql, context.userId, "id_submit");
+    const id = crypto.randomUUID();
+    await sql`insert into identity_verifications (id, user_id, provider, doc_type) values (${id}, ${context.userId}, ${provider.name}, ${data})`;
+    return { url: provider.startUrl({ verificationId: id, docType: data, returnUrl: "/verification" }) };
+  });
+
+export const completeIdVerification = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((i: unknown) => {
+    const r = asRecord(i);
+    const v = str(r.verificationId);
+    if (!/^[0-9a-f-]{36}$/i.test(v)) throw new Error("Unknown verification.");
+    return { verificationId: v, payload: r };
+  })
+  .handler(async ({ context, data }) => {
+    const provider = idProviderFromEnv();
+    if (!idVerificationEnabled() || !provider) throw new Error("ID verification isn't switched on yet.");
+    const sql = await getSql();
+    const row = (await sql<{ user_id: string; status: string; doc_type: string }>`select user_id, status, doc_type from identity_verifications where id = ${data.verificationId}`)[0];
+    if (!row || row.user_id !== context.userId || row.status !== "STARTED") throw new Error("This verification link has expired. Start again.");
+    const res = await provider.complete({ verificationId: data.verificationId, payload: data.payload });
+    if (!res.ok) {
+      await sql`update identity_verifications set status = 'FAILED', failure_reason = ${res.reason}, completed_at = now() where id = ${data.verificationId}`;
+      await upsertCheck(sql, context.userId, "IDENTITY", "REJECTED", `${row.doc_type} check failed: ${res.reason}`);
+      return { ok: false as const, reason: res.reason };
+    }
+    await sql`update identity_verifications set status = 'VERIFIED', verified_name = ${res.name}, id_last4 = ${res.idLast4 || null}, provider_ref = ${res.providerRef}, completed_at = now() where id = ${data.verificationId}`;
+    await sql`update profiles set identity_status = 'VERIFIED', identity_source = ${provider.name === "mock" ? "MOCK" : "DIGILOCKER"}, updated_at = now() where user_id = ${context.userId}`;
+    await upsertCheck(sql, context.userId, "IDENTITY", "VERIFIED", `${row.doc_type === "STUDENT_ID" ? "Student ID" : "Aadhaar"} via ${provider.name}${res.idLast4 ? `, ending ${res.idLast4}` : ""}.`);
+    return { ok: true as const, name: res.name };
   });

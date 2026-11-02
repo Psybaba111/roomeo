@@ -11,6 +11,7 @@ import {
   startPhoneOtp,
   verifyPhoneOtp,
 } from "@/lib/roomsetu/trust-api";
+import { IdVerifyPanel } from "@/components/id-verify-panel";
 import { digilockerLine, showDigilockerButton, VERIFICATION_INTRO } from "@/lib/roomsetu/verification-copy";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { resendSecondsLeft, verifyOtpMessage, type VerifyMessage } from "@/lib/roomsetu/otp-result";
@@ -50,7 +51,7 @@ function Verify() {
         setCode("");
         setLastSentAt(Date.now());
         setNow(Date.now());
-        setPhoneMsg({ text: `Code sent to ${r.phone}. It expires in ${r.ttlMinutes} minutes.`, tone: "success" });
+        setPhoneMsg({ text: `Code sent to ${r.phone}${r.channel === "whatsapp" ? " on WhatsApp" : r.channel === "sms" ? " by SMS" : ""}. It expires in ${r.ttlMinutes} minutes.`, tone: "success" });
       })
       .catch((err) => setPhoneMsg({ text: errText(err), tone: "error" }))
       .finally(() => setBusy(false));
@@ -187,6 +188,7 @@ function Verify() {
           Continue with DigiLocker
         </button>
       ) : null}
+      <IdVerifyPanel verified={data?.identityStatus === "VERIFIED"} />
       <HostIdReview digilockerReady={data?.digilockerReady} phoneVerified={Boolean(data?.phoneVerified)} onChange={load} />
     </Shell>
   );

@@ -46,6 +46,7 @@ import { Route as RCodeRouteImport } from './routes/r.$code'
 import { Route as SquadsIndexRouteImport } from './routes/squads.index'
 import { Route as SquadsIdRouteImport } from './routes/squads.$id'
 import { Route as VerifyDigilockerRouteImport } from './routes/verify.digilocker'
+import { Route as VerifyIdMockRouteImport } from './routes/verify.id-mock'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronPricingRouteImport } from './routes/api/cron/pricing'
 import { Route as ApiWebhooksMappstoreRouteImport } from './routes/api/webhooks/mappstore'
@@ -237,6 +238,11 @@ const VerifyDigilockerRoute = VerifyDigilockerRouteImport.update({
   path: '/verify/digilocker',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VerifyIdMockRoute = VerifyIdMockRouteImport.update({
+  id: '/verify/id-mock',
+  path: '/verify/id-mock',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -299,6 +305,7 @@ export interface FileRoutesByFullPath {
   '/r/$code': typeof RCodeRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
+  '/verify/id-mock': typeof VerifyIdMockRoute
   '/admin/': typeof AdminIndexRoute
   '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -343,6 +350,7 @@ export interface FileRoutesByTo {
   '/r/$code': typeof RCodeRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
+  '/verify/id-mock': typeof VerifyIdMockRoute
   '/admin': typeof AdminIndexRoute
   '/squads': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -388,6 +396,7 @@ export interface FileRoutesById {
   '/r/$code': typeof RCodeRoute
   '/squads/$id': typeof SquadsIdRoute
   '/verify/digilocker': typeof VerifyDigilockerRoute
+  '/verify/id-mock': typeof VerifyIdMockRoute
   '/admin/': typeof AdminIndexRoute
   '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -434,6 +443,7 @@ export interface FileRouteTypes {
     | '/r/$code'
     | '/squads/$id'
     | '/verify/digilocker'
+    | '/verify/id-mock'
     | '/admin/'
     | '/squads/'
     | '/api/auth/$'
@@ -478,6 +488,7 @@ export interface FileRouteTypes {
     | '/r/$code'
     | '/squads/$id'
     | '/verify/digilocker'
+    | '/verify/id-mock'
     | '/admin'
     | '/squads'
     | '/api/auth/$'
@@ -522,6 +533,7 @@ export interface FileRouteTypes {
     | '/r/$code'
     | '/squads/$id'
     | '/verify/digilocker'
+    | '/verify/id-mock'
     | '/admin/'
     | '/squads/'
     | '/api/auth/$'
@@ -567,6 +579,7 @@ export interface RootRouteChildren {
   RCodeRoute: typeof RCodeRoute
   SquadsIdRoute: typeof SquadsIdRoute
   VerifyDigilockerRoute: typeof VerifyDigilockerRoute
+  VerifyIdMockRoute: typeof VerifyIdMockRoute
   AdminIndexRoute: typeof AdminIndexRoute
   SquadsIndexRoute: typeof SquadsIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -837,6 +850,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerifyDigilockerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/verify/id-mock': {
+      id: '/verify/id-mock'
+      path: '/verify/id-mock'
+      fullPath: '/verify/id-mock'
+      preLoaderRoute: typeof VerifyIdMockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -911,6 +931,7 @@ const rootRouteChildren: RootRouteChildren = {
   RCodeRoute: RCodeRoute,
   SquadsIdRoute: SquadsIdRoute,
   VerifyDigilockerRoute: VerifyDigilockerRoute,
+  VerifyIdMockRoute: VerifyIdMockRoute,
   AdminIndexRoute: AdminIndexRoute,
   SquadsIndexRoute: SquadsIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
