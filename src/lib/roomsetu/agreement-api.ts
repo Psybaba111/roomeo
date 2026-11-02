@@ -137,6 +137,14 @@ export const signDealAgreement = createServerFn({ method: "POST" })
         await sql.query(`insert into notifications (id, user_id, kind, title, body, href) values ($1,$2,'application','Agreement signed by everyone 🎉','Your Roomeo agreement is issued. Next up: the one-time fee, then move in.',$3)`,
           [crypto.randomUUID(), u, data.ref.kind === "squad" ? "/squads" : "/applications"]);
       }
+      // WhatsApp (best effort, no-op unless MAPPSTORE_NOTIFY_ENABLED + MAPPSTORE_TPL_AGREEMENT_SIGNED are set):
+      // every signer, verified phones only.
+      const { notifyWhatsApp, agreementSignedParams } = await import("@/lib/roomsetu/mappstore");
+      const people = await sql.query<{ full_name: string | null; phone_e164: string | null }>(
+        `select full_name, phone_e164 from profiles where user_id = any($1) and phone_verified_at is not null and phone_e164 is not null`,
+        [[d.ownerId, ...d.tenantIds]],
+      );
+      for (const p of people) await notifyWhatsApp("agreementSigned", p.phone_e164, agreementSignedParams(p.full_name, d.terms.listingTitle));
     }
     return { issued: Boolean(a?.issued_at) };
   });
