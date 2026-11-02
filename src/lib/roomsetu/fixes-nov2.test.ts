@@ -50,7 +50,7 @@ test("#5 deal steps copy: ₹499 + GST = ₹589, 7 days of paying, no ₹999", (
   assert.match(pay.hint, /₹589 once \(₹499 \+ 18% GST = ₹589\)/);
   assert.match(pay.hint, /within 7 days of paying, both sides get their fee back/);
   assert.doesNotMatch(pay.hint, /999/);
-  assert.match(dealSteps({ role: "tenant", iSigned: true, issued: true, cancelled: false, feeOn: true, feePaid: false, feeTotal: 490, movedIn: false })[2].hint, /₹490 once.*less your trial credit/);
+  assert.match(dealSteps({ role: "tenant", iSigned: true, issued: true, cancelled: false, feeOn: true, feePaid: false, feeTotal: 490, movedIn: false })[2].hint, /₹490 once.*less your ₹99 trial credit, which is non-refundable/);
 });
 
 test("#6 admin payments list shows the agreement ID used by the move-out form", () => {

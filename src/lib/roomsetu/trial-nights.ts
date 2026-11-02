@@ -96,5 +96,6 @@ export const TRIAL_ARRIVAL_CHECKLIST = [
   "Carry a government photo ID (Aadhaar, passport, driving licence or college ID). The owner checks it on arrival.",
   "Pay the nightly stay amount directly to the owner. Roomeo never holds it.",
   `Up to ${TRIAL_MAX_NIGHTS} nights per trial.`,
-  `Sign the full deal within ${TRIAL_CREDIT_WINDOW_DAYS} days of your trial and the ₹${TRIAL_FEE_INR} comes off your ₹589 fee.`,
+  `The ₹${TRIAL_FEE_INR} trial fee is non-refundable.`,
+  `Stay on: sign the full deal within ${TRIAL_CREDIT_WINDOW_DAYS} days of your trial and the ₹${TRIAL_FEE_INR} comes off your ₹589 fee (one time only, not given back if that fee is later refunded).`,
 ] as const;

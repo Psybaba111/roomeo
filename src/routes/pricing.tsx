@@ -31,7 +31,8 @@ function Pricing() {
     ["What does Roomeo cost?", "₹499 + 18% GST (₹589) once. The renter pays it once and the owner pays it once, per person, per stay. Not every month, and not a cut of the rent. Searching, chatting, squads and listing are free."],
     ["Do I pay to message an owner?", "No. Verify your phone once (keeps bots and spam out) and message as many owners as you want."],
     ["Does Roomeo hold my deposit?", "No. Roomeo shows the deposit on the listing, but you pay it directly to the owner. Roomeo never holds or refunds deposits, and never takes a cut of rent."],
-    ["Is the fee refundable?", "Only if the renter moves out within 7 days of paying it. Then the renter's ₹589 is refunded to the UPI ID that paid, and the owner's fee too if the stay ended within 7 days of the owner's payment. After that, no refund."],
+    ["Is the fee refundable?", "Only if the renter moves out within 7 days of paying it. Then the renter's ₹589 (or ₹490 after a trial credit) is refunded to the UPI ID that paid, and the owner's fee too if the stay ended within 7 days of the owner's payment. After that, no refund."],
+    ["Is the ₹99 trial night fee refundable?", "No. The ₹99 trial fee is never refunded. If you stay on and sign within 14 days of your trial, it comes off your ₹589 fee once, so you pay ₹490, then monthly rent goes straight to the owner."],
     ["Why ₹499?", "A broker usually takes a month's rent. ₹499 once beats that on any bed. The next months cost no fee."],
     ["What if the owner doesn't return my deposit?", "The deposit is between you and the owner. Report the owner from the listing and repeat offenders get removed."],
   ];
@@ -89,9 +90,9 @@ function Pricing() {
           <ul className="mt-4 list-disc space-y-2 pl-5 text-sm">
             <li>Owners choose to offer it. Look for "Try a trial night" on the room page.</li>
             <li>Stay {TRIAL_MIN_NIGHTS} to {TRIAL_MAX_NIGHTS} nights at the owner's nightly price, paid directly to the owner. Roomeo never holds it.</li>
-            <li>Pay the ₹{TRIAL_FEE_INR} by UPI and enter the UTR. Your trial is confirmed once Roomeo approves the payment.</li>
+            <li>Pay the ₹{TRIAL_FEE_INR} by UPI and enter the UTR. Your trial is confirmed once Roomeo approves the payment. The ₹{TRIAL_FEE_INR} is non-refundable.</li>
             <li>Carry a photo ID. The owner checks it when you arrive.</li>
-            <li>Sign the full deal within {TRIAL_CREDIT_WINDOW_DAYS} days of your trial and the ₹{TRIAL_FEE_INR} comes off your ₹589 fee, so you pay ₹{589 - TRIAL_FEE_INR}.</li>
+            <li>Sign the full deal within {TRIAL_CREDIT_WINDOW_DAYS} days of your trial and the ₹{TRIAL_FEE_INR} comes off your ₹589 fee, so you pay ₹{589 - TRIAL_FEE_INR}. Then pay your monthly rent straight to the owner. The credit is used once; if the ₹589 fee is later refunded under the 7-day rule, you get the ₹{589 - TRIAL_FEE_INR} you paid back, not the ₹{TRIAL_FEE_INR}.</li>
           </ul>
         </div>
       </section>

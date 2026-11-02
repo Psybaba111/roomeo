@@ -162,7 +162,7 @@ function Payments() {
         </h2>
         <p className="mt-2 text-sm text-muted [text-wrap:pretty]">
           ₹99 incl. GST (₹83.90 + ₹15.10 GST) per trial booking, approved above like any UPI payment. Stay money goes to the
-          owner directly. A trial earns ₹99 off the ₹589 fee if the deal is issued within 14 days of check-out.
+          owner directly. A trial earns ₹99 off the ₹589 fee if the deal is issued within 14 days of check-out. The ₹99 is never refunded, and a credit used on a fee that is later refunded is not given again.
         </p>
         <ul className="mt-4 space-y-2" data-testid="trial-bookings">
           {trials.map((t) => (
