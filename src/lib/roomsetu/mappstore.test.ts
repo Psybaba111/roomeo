@@ -108,3 +108,17 @@ test("parseMappstoreEvents handles Meta-shaped and flat bodies", () => {
   assert.deepEqual(parseMappstoreEvents({ event: "message.inbound", from: "91", text: "hi" }), [{ kind: "inbound", from: "91", text: "hi", optOut: false }]);
   assert.deepEqual(parseMappstoreEvents("x"), [{ kind: "unknown" }]);
 });
+
+test("agreement signed alert: template env, params, skipped when off", async () => {
+  const { agreementSignedParams } = await import("./mappstore.ts");
+  assert.deepEqual(agreementSignedParams("Asha Rao", "Mud Home, Bunder"), ["Asha", "Mud Home, Bunder"]);
+  assert.deepEqual(agreementSignedParams("", null), ["there", "your Roomeo bed"]);
+  const m = mockFetch();
+  assert.equal(await notifyWhatsApp("agreementSigned", "+919876543210", ["Asha", "Mud Home"], ENV, m.fn), "skipped");
+  assert.equal(await notifyWhatsApp("agreementSigned", "+919876543210", ["Asha", "Mud Home"], { ...ENV, MAPPSTORE_NOTIFY_ENABLED: "false", MAPPSTORE_TPL_AGREEMENT_SIGNED: "roomeo_agreement_signed" }, m.fn), "skipped");
+  assert.equal(m.calls.length, 0);
+  assert.equal(await notifyWhatsApp("agreementSigned", "+919876543210", ["Asha", "Mud Home"], { ...ENV, MAPPSTORE_NOTIFY_ENABLED: "true", MAPPSTORE_TPL_AGREEMENT_SIGNED: "roomeo_agreement_signed" }, m.fn), "sent");
+  const body = JSON.parse(String(m.calls[0].init.body));
+  assert.equal(body.templateName, "roomeo_agreement_signed");
+  assert.deepEqual(body.templateParams, ["Asha", "Mud Home"]);
+});

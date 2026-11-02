@@ -89,7 +89,16 @@ export const NOTIFY_EVENTS = {
   applicationReceived: "MAPPSTORE_TPL_APPLICATION_RECEIVED",
   applicationAccepted: "MAPPSTORE_TPL_APPLICATION_ACCEPTED",
   paymentApproved: "MAPPSTORE_TPL_PAYMENT_APPROVED",
+  /** roomeo_agreement_signed: {{1}} person's name, {{2}} property/bed label. */
+  agreementSigned: "MAPPSTORE_TPL_AGREEMENT_SIGNED",
 } as const;
+
+/** Body params for roomeo_agreement_signed. Falls back to neutral words so Meta never gets an empty variable. */
+export function agreementSignedParams(name: string | null | undefined, place: string | null | undefined): [string, string] {
+  const n = String(name ?? "").trim().split(/\s+/)[0] || "there";
+  const p = String(place ?? "").trim().slice(0, 60) || "your Roomeo bed";
+  return [n, p];
+}
 export type NotifyEvent = keyof typeof NOTIFY_EVENTS;
 
 /**
