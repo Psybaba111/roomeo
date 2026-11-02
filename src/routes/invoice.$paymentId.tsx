@@ -76,13 +76,18 @@ function Invoice({ paymentId }: { paymentId: string }) {
       <table className="mt-6 w-full text-sm">
         <thead><tr className="border-b"><th className="py-1 text-left">Description</th><th className="py-1 text-right">Amount</th></tr></thead>
         <tbody>
-          <tr><td className="py-1">Roomeo platform success fee, one-time (SAC {SELLER.sac})<br /><span className="text-xs">{inv.purpose} · Roomeo ref {inv.ref}</span></td><td className="py-1 text-right tabular-nums">{rupees(inv.taxable)}</td></tr>
+          {inv.kind === "TRIAL_FEE" ? (
+            <tr data-testid="trial-invoice-line"><td className="py-1">Roomeo service fee for a trial night stay, non-refundable (SAC {SELLER.sac})<br /><span className="text-xs">{inv.trial ? `${inv.trial.listingTitle} · check-in ${inv.trial.checkIn} · ${inv.trial.nights} night(s) · trial booking ${inv.trial.bookingId} · ` : ""}Roomeo ref {inv.ref}. Nightly stay amount is paid directly to the owner and is not part of this invoice.</span></td><td className="py-1 text-right tabular-nums">{rupees(inv.taxable)}</td></tr>
+          ) : (
+            <tr><td className="py-1">Roomeo platform success fee, one-time (SAC {SELLER.sac})<br /><span className="text-xs">{inv.purpose} · Roomeo ref {inv.ref}</span></td><td className="py-1 text-right tabular-nums">{rupees(inv.taxable)}</td></tr>
+          )}
+          <tr><td className="py-1 text-xs">Taxable value · GST rate 18% · tax amount</td><td className="py-1 text-right text-xs tabular-nums">{rupees(inv.taxable)} · {rupees(inv.cgst + inv.sgst + inv.igst)}</td></tr>
           {row("CGST @ 9%", inv.cgst)}
           {row("SGST @ 9%", inv.sgst)}
           {row("IGST @ 18%", inv.igst)}
           <tr className="border-t font-semibold"><td className="py-1">Total</td><td className="py-1 text-right tabular-nums">{rupees(inv.total)}</td></tr>
           {inv.roundOff ? <tr><td className="py-1">Round off</td><td className="py-1 text-right tabular-nums">{rupees(inv.roundOff)}</td></tr> : null}
-          {inv.trialCreditInr ? <tr><td className="py-1 text-xs" colSpan={2}>Trial night credit: ₹{inv.trialCreditInr.toFixed(2)} off the ₹589 fee (your trial nights fee, ₹83.90 + ₹15.10 GST, paid earlier on a separate UPI payment and not included in this invoice's taxable value)</td></tr> : null}
+          {inv.trialCreditInr ? <tr><td className="py-1 text-xs" colSpan={2}>Trial night credit: ₹{inv.trialCreditInr.toFixed(2)} off the ₹589 fee (your trial nights fee, ₹83.90 + ₹15.10 GST, {inv.trialInvoiceNo ? `invoiced on ${inv.trialInvoiceNo}` : "paid earlier on a separate UPI payment"}, not included in this invoice's taxable value)</td></tr> : null}
           <tr className="font-semibold"><td className="py-1">Amount paid (UPI)</td><td className="py-1 text-right tabular-nums">₹{inv.paidInr.toFixed(2)}</td></tr>
           <tr><td className="py-1 text-xs" colSpan={2}>UTR: <span className="font-mono">{inv.utr || "-"}</span> · Reverse charge: No</td></tr>
         </tbody>

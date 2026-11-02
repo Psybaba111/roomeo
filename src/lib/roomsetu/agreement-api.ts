@@ -196,9 +196,12 @@ const invoiceIdInput = (i: unknown) => {
 async function loadInvoiceView(sql: Sql, paymentId: string, userId: string): Promise<InvoiceView> {
   const snap = await invoiceSnapshotReady(sql);
   const inv = (await sql.query<Record<string, unknown>>(
-    `select i.*, i.issued_at::text as issued, p.ref, p.purpose, p.utr as pay_utr, coalesce(p.trial_credit_inr, 0) as trial_credit_inr, pr.phone_e164 as live_phone, u.email as live_email
+    `select i.*, i.issued_at::text as issued, p.ref, p.purpose, p.utr as pay_utr, coalesce(p.trial_credit_inr, 0) as trial_credit_inr, pr.phone_e164 as live_phone, u.email as live_email,
+            p.kind as pay_kind, tb.id as tb_id, tb.check_in::text as tb_check_in, tb.nights as tb_nights, tl.title as tb_title,
+            (select fi2.number from trial_bookings cb join fee_invoices fi2 on fi2.payment_id = cb.fee_payment_id where cb.id = p.trial_credit_booking_id limit 1) as trial_invoice_no
      ${snap ? "" : ", null::text as buyer_email, null::text as buyer_phone, null::text as buyer_gstin, null::text as utr"}
      from fee_invoices i join payments p on p.id = i.payment_id left join profiles pr on pr.user_id = i.user_id left join "user" u on u.id = i.user_id
+     left join trial_bookings tb on tb.id = p.trial_booking_id and p.kind = 'TRIAL_FEE' left join listings tl on tl.id = tb.listing_id
      where i.payment_id = $1`, [paymentId]))[0];
   const none = "No invoice yet. It shows up once Roomeo confirms the payment.";
   if (!inv) throw new Error(none);
@@ -212,6 +215,9 @@ async function loadInvoiceView(sql: Sql, paymentId: string, userId: string): Pro
     buyerState: str(inv.buyer_state), placeOfSupply: str(inv.place_of_supply),
     taxable: num(inv.taxable_paise), cgst: num(inv.cgst_paise), sgst: num(inv.sgst_paise), igst: num(inv.igst_paise), total: num(inv.total_paise), roundOff: num(inv.round_off_paise),
     paidInr: num(inv.paid_inr), ref: str(inv.ref), utr: str(inv.utr) || str(inv.pay_utr), purpose: str(inv.purpose), trialCreditInr: num(inv.trial_credit_inr),
+    kind: str(inv.pay_kind) === "TRIAL_FEE" ? "TRIAL_FEE" : "SUCCESS_FEE",
+    trialInvoiceNo: str(inv.trial_invoice_no),
+    trial: inv.tb_id ? { bookingId: str(inv.tb_id), listingTitle: str(inv.tb_title), checkIn: str(inv.tb_check_in), nights: num(inv.tb_nights) } : undefined,
   };
 }
 

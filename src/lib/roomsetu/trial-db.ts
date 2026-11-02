@@ -159,7 +159,7 @@ export async function adminTrialBookings(sql: Sql) {
 export async function myOpenTrial(sql: Sql, p: { listingId: string; seekerId: string }) {
   const r = (await sql.query<Row>(
     `select b.id, b.status, b.check_in::text as check_in, b.nights, b.nightly_inr, b.stay_total_inr, b.id_checked_at::text as id_checked_at,
-            p.ref, p.status as pay_status, p.amount_inr
+            p.ref, p.id as pay_id, (select fi.number from fee_invoices fi where fi.payment_id = p.id) as invoice_no, p.status as pay_status, p.amount_inr
      from trial_bookings b left join payments p on p.id = b.fee_payment_id
      where b.listing_id = $1 and b.seeker_id = $2 and b.status in ('FEE_PENDING','CONFIRMED')
      order by b.created_at desc limit 1`,
@@ -169,6 +169,7 @@ export async function myOpenTrial(sql: Sql, p: { listingId: string; seekerId: st
   return {
     bookingId: s(r.id), status: s(r.status), checkIn: s(r.check_in), nights: Number(r.nights), nightlyInr: Number(r.nightly_inr),
     stayTotalInr: Number(r.stay_total_inr), paymentRef: s(r.ref), paymentStatus: s(r.pay_status), feeInr: Number(r.amount_inr ?? TRIAL_FEE_INR),
+    paymentId: s(r.pay_id), invoiceNo: s(r.invoice_no),
   };
 }
 

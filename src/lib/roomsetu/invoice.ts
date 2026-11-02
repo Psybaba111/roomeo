@@ -63,6 +63,11 @@ export function invoiceNumber(seq: number, d: Date): string {
   return `RMO/${financialYear(d)}/${String(seq).padStart(6, "0")}`;
 }
 
+/** RMT/2026-27/000001 — trial nights fee invoices, own sequence (trial_invoice_seq), never clashes with RMO/… */
+export function trialInvoiceNumber(seq: number, d: Date): string {
+  return `RMT/${financialYear(d)}/${String(seq).padStart(6, "0")}`;
+}
+
 export const rupees = (paise: number) => `₹${(paise / 100).toFixed(2)}`;
 
 const GST_STATE: Record<string, string> = {
@@ -89,6 +94,7 @@ export function buyerState(gstin: string | null | undefined, city: string | null
 export type InvoiceView = {
   number: string; issuedAt: string; buyerName: string; buyerEmail: string; buyerPhone: string; buyerGstin: string; buyerState: string; placeOfSupply: string;
   taxable: number; cgst: number; sgst: number; igst: number; total: number; roundOff: number; paidInr: number; ref: string; utr: string; purpose: string; trialCreditInr?: number;
+  kind?: string; trialInvoiceNo?: string; trial?: { bookingId: string; listingTitle: string; checkIn: string; nights: number };
 };
 
 /** Invoice date in IST, e.g. 01 Nov 2026. */
@@ -115,8 +121,18 @@ export function invoicePdfLines(v: InvoiceView): { text: string; size?: number; 
   L.push({ text: `GSTIN: ${v.buyerGstin || "Not provided (unregistered)"}` });
   L.push({ text: `State: ${v.buyerState || "Not given"} | Place of supply: ${v.placeOfSupply}` });
   L.push({ text: "Description", bold: true, gap: 10 });
-  L.push({ text: `Roomeo platform fee, one-time | SAC ${SELLER.sac} | Qty 1` });
+  if (v.kind === "TRIAL_FEE") {
+    L.push({ text: `Roomeo service fee for a trial night stay (non-refundable) | SAC ${SELLER.sac} | Qty 1` });
+    if (v.trial) {
+      L.push({ text: `Room: ${v.trial.listingTitle}` });
+      L.push({ text: `Check-in ${v.trial.checkIn} | ${v.trial.nights} night(s) | Trial booking ${v.trial.bookingId}` });
+    }
+    L.push({ text: "Nightly stay amount is paid directly to the owner and is not part of this invoice." });
+  } else {
+    L.push({ text: `Roomeo platform fee, one-time | SAC ${SELLER.sac} | Qty 1` });
+  }
   amt("Taxable value", v.taxable);
+  if (v.kind === "TRIAL_FEE") L.push({ text: "Tax rate: GST 18% | Tax amount: " + rupees(v.cgst + v.sgst + v.igst) });
   if (v.igst) amt("IGST @ 18%", v.igst);
   else { amt("CGST @ 9%", v.cgst); amt("SGST @ 9%", v.sgst); }
   amt("Invoice total", v.total);
@@ -126,7 +142,7 @@ export function invoicePdfLines(v: InvoiceView): { text: string; size?: number; 
     const t = trialFeeBreakdown();
     L.push({ text: "Trial night credit", bold: true, gap: 6 });
     L.push({ text: `Platform fee before credit: ${rupees((v.total + v.trialCreditInr * 100))} (incl. GST)` });
-    L.push({ text: `Less trial nights service fee already paid: -${rupees(v.trialCreditInr * 100)} (${rupees(Math.round(t.base * 100))} + ${rupees(Math.round(t.gst * 100))} GST, separate UPI payment)` });
+    L.push({ text: `Less trial nights service fee already paid: -${rupees(v.trialCreditInr * 100)} (${rupees(Math.round(t.base * 100))} + ${rupees(Math.round(t.gst * 100))} GST, ${v.trialInvoiceNo ? `invoiced on ${v.trialInvoiceNo}` : "separate UPI payment"})` });
     L.push({ text: `This invoice covers the balance of ${rupees(v.total)}; the ₹${v.trialCreditInr} trial fee is not included in the taxable value above.` });
   }
   L.push({ text: `Amount paid: ${rupees(v.paidInr * 100)}`, bold: true });

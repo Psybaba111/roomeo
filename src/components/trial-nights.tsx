@@ -76,7 +76,7 @@ export function TrialNightsBooking({ listingId }: { listingId: string }) {
   const [t, setT] = useState<Awaited<ReturnType<typeof getListingTrial>> | null>(null);
   const [checkIn, setCheckIn] = useState("");
   const [nights, setNights] = useState(1);
-  const [pay, setPay] = useState<{ paymentRef: string; paymentStatus: string; feeInr: number; payee: string; vpa: string; link: string; qr: string; checkIn: string; nights: number; status?: string } | null>(null);
+  const [pay, setPay] = useState<{ paymentRef: string; paymentStatus: string; feeInr: number; payee: string; vpa: string; link: string; qr: string; checkIn: string; nights: number; status?: string; paymentId?: string; invoiceNo?: string } | null>(null);
   const [err, setErr] = useState("");
   useEffect(() => {
     void getListingTrial({ data: listingId }).then(setT).catch(() => setT(null));
@@ -121,6 +121,9 @@ export function TrialNightsBooking({ listingId }: { listingId: string }) {
             Your trial: check-in <strong>{pay.checkIn}</strong>, {pay.nights} night{pay.nights > 1 ? "s" : ""}.{" "}
             {pay.status === "CONFIRMED" ? "Confirmed ✓ Bring your photo ID." : pay.paymentStatus === "SUBMITTED" ? "UTR received, waiting for operator approval." : "Pay the fee and enter the UTR to confirm."}
           </p>
+          {pay.invoiceNo && pay.paymentId ? (
+            <p className="mt-1"><a className="underline" href={`/invoice/${pay.paymentId}`} data-testid="trial-invoice-link">GST invoice {pay.invoiceNo} 🧾</a></p>
+          ) : null}
           {pay.status !== "CONFIRMED" && pay.qr ? (
             <UpiCheckout
               data={{ ref: pay.paymentRef, status: pay.paymentStatus, amount: pay.feeInr, plan: "trial nights service fee", payee: pay.payee, vpa: pay.vpa, link: pay.link, qr: pay.qr }}

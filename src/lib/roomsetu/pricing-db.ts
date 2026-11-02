@@ -120,8 +120,11 @@ export async function applyPaidPayment(sql: Sql, paymentId: string) {
   } else if (p.kind === "TRIAL_FEE") {
     const { confirmTrialFromPayment } = await import("@/lib/roomsetu/trial-db");
     const b = await confirmTrialFromPayment(sql, paymentId);
+    // GST invoice for the ₹99 (RMT/… series). Never blocks the approval if the 0025 migration isn't there yet.
+    const { createTrialInvoice } = await import("@/lib/roomsetu/agreement-db");
+    await createTrialInvoice(sql, paymentId).catch((e: unknown) => console.error("[trial-invoice]", String(e).slice(0, 200)));
     if (b) {
-      await notify(sql, b.seekerId, "Trial nights confirmed ✅", `Check in ${b.checkIn} for ${b.nights} night(s). Bring a photo ID. Pay the owner ₹${b.stayTotalInr} for the stay directly.`, "/applications");
+      await notify(sql, b.seekerId, "Trial nights confirmed ✅", `Check in ${b.checkIn} for ${b.nights} night(s). Bring a photo ID. Pay the owner ₹${b.stayTotalInr} for the stay directly. Your GST invoice for the ₹99 is ready.`, `/invoice/${paymentId}`);
       await notify(sql, b.ownerId, "New trial guest", `A student checks in ${b.checkIn} for ${b.nights} night(s). Check their photo ID on arrival. They pay you ₹${b.stayTotalInr} directly.`, "/dashboard");
     }
   } else if (p.kind === "SUCCESS_FEE") {
