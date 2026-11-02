@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { buildUpiLink, makeRef, upiPayee } from "@/lib/roomsetu/upi";
-import { bookTrial, listingTrial, markTrialIdChecked, setListingTrial } from "@/lib/roomsetu/trial-db";
+import { bookTrial, listingTrial, markTrialIdChecked, myOpenTrial, ownerTrialBookings, setListingTrial } from "@/lib/roomsetu/trial-db";
 import { TRIAL_ARRIVAL_CHECKLIST, TRIAL_MAX_NIGHTS, trialFeeBreakdown, trialNightsEnabled } from "@/lib/roomsetu/trial-nights";
 
 function rec(i: unknown): Record<string, unknown> {
@@ -66,3 +66,23 @@ export const getOwnerListingTrial = createServerFn({ method: "POST" })
     if (!r || r.owner_id !== context.userId) return null;
     return { enabled: Boolean(r.trial_nights_enabled), nightlyInr: Number(r.trial_nightly_inr ?? 0), live: trialNightsEnabled(), fee: trialFeeBreakdown() };
   });
+
+/** Student: their open trial at this listing (with a fresh UPI QR while the fee is unpaid), or null. */
+export const getMyTrialBooking = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((i: unknown) => id(rec(i).listingId, "listing"))
+  .handler(async ({ context, data }) => {
+    const b = await myOpenTrial(await getSql(), { listingId: data, seekerId: context.userId });
+    if (!b) return null;
+    const payee = upiPayee();
+    if (!payee.ready || !b.paymentRef) return { ...b, payee: "", vpa: "", link: "", qr: "" };
+    const link = buildUpiLink({ vpa: payee.vpa, name: payee.name, amountInr: b.feeInr, ref: b.paymentRef });
+    const qr = await QRCode.toDataURL(link, { margin: 1, width: 320, errorCorrectionLevel: "M" });
+    return { ...b, payee: payee.name, vpa: payee.vpa, link, qr };
+  });
+
+/** Owner: confirmed trial guests at their listing. */
+export const getOwnerTrialBookings = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((i: unknown) => id(rec(i).listingId, "listing"))
+  .handler(async ({ context, data }) => ownerTrialBookings(await getSql(), { listingId: data, ownerId: context.userId }));

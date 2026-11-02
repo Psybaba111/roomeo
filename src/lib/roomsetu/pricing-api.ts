@@ -245,7 +245,7 @@ export const adminRevenue = createServerFn({ method: "GET" })
       [d],
     );
     const label = (k: string, c: string | null) =>
-      k === "PASS" ? (c === "MONTHLY" ? "Monthly pass" : "Weekly pass") : k === "CONTACT" ? (c === "SQUAD" ? "Squad pass" : "Contact fee (old)") : k === "BOOST" ? "Host boost" : k === "FASTTRACK" ? "Fast track" : k === "SUCCESS_FEE" ? "Move in fee" : "Plans";
+      k === "PASS" ? (c === "MONTHLY" ? "Monthly pass" : "Weekly pass") : k === "CONTACT" ? (c === "SQUAD" ? "Squad pass" : "Contact fee (old)") : k === "BOOST" ? "Host boost" : k === "FASTTRACK" ? "Fast track" : k === "SUCCESS_FEE" ? "Move in fee" : k === "TRIAL_FEE" ? "Trial fees" : "Plans";
     const byType = new Map<string, { label: string; count: number; inr: number }>();
     for (const r of revenue) {
       const l = label(r.kind, r.pass_code);

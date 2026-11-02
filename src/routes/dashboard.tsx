@@ -300,7 +300,14 @@ function Desk() {
           ))}
         </div>
         {data.recommended.length === 0 ? (
-          <p className="mt-3 text-muted">Add a city and budget on your profile to see matches.</p>
+          data.matchCity ? (
+            <p className="mt-3 text-muted" data-testid="no-matches">
+              No rooms in {data.matchCity}{data.matchBudget ? ` under ₹${data.matchBudget}` : ""} yet.{" "}
+              <a href="/search" className="underline">Browse all beds</a>
+            </p>
+          ) : (
+            <p className="mt-3 text-muted">Add a city and budget on your profile to see matches.</p>
+          )
         ) : null}
       </section>
 

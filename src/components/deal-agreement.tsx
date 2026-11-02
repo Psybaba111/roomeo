@@ -84,9 +84,21 @@ export function DealAgreement({ dealRef }: { dealRef: DealRef }) {
           <ul className="mt-1 tabular-nums">
             <li>Platform fee: ₹{f.base.toFixed(2)}</li>
             <li>GST (18%): ₹{f.gst.toFixed(2)}</li>
-            <li>Total: ₹{f.exact.toFixed(2)} → you pay ₹{f.total}</li>
+            {a.trialCredit > 0 ? (
+              <>
+                <li>Total: ₹{f.exact.toFixed(2)} → ₹{f.total}</li>
+                <li data-testid="trial-credit-line">Trial night credit: −₹{a.trialCredit}</li>
+                <li><strong>You pay ₹{a.payable}</strong></li>
+              </>
+            ) : (
+              <li>Total: ₹{f.exact.toFixed(2)} → you pay ₹{a.payable}</li>
+            )}
           </ul>
-          {a.feeStatus === "PAID" ? (
+          {a.refundState ? (
+            <p className="mt-2" data-testid="fee-refund-state">
+              {a.refundState === "REFUND_DUE" ? "Refund pending admin approval. Your fee goes back to your UPI ID, nothing to pay 🙏" : "Refunded ✅ Nothing to pay."}
+            </p>
+          ) : a.feeStatus === "PAID" ? (
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <span>Paid ✅ GST invoice ready 🧾</span>
               {a.feePaymentId ? (
@@ -106,7 +118,7 @@ export function DealAgreement({ dealRef }: { dealRef: DealRef }) {
           ) : (
             <button type="button" disabled={busy} className={`mt-2 ${btnSmallPrimary}`} data-testid="pay-success-fee"
               onClick={() => { setBusy(true); void startAgreementFee({ data: dealRef }).then(setCheckout).catch((e) => setError(errText(e))).finally(() => setBusy(false)); }}>
-              Pay ₹{f.total} (₹{f.base} + GST)
+              Pay ₹{a.payable}{a.trialCredit > 0 ? ` (₹${f.total} less ₹${a.trialCredit} trial credit)` : ` (₹${f.base} + GST)`}
             </button>
           )}
         </div>

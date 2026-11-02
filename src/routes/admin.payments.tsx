@@ -81,6 +81,17 @@ function Payments() {
                 </>
               ) : null}
             </p>
+            {row.agreementKey ? (
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-sm" data-testid="payment-agreement-id">
+                <span className="text-muted">{row.listingTitle ? `${row.listingTitle} · ` : ""}Agreement ID</span>
+                <span className="font-mono break-all">{row.agreementKey}</span>
+                {row.status === "PAID" ? (
+                  <button type="button" className="underline" onClick={() => { setVacate((v) => ({ ...v, applicationId: row.agreementKey })); document.getElementById("vacate-h")?.scrollIntoView({ behavior: "smooth" }); }}>
+                    Use for move-out
+                  </button>
+                ) : null}
+              </p>
+            ) : null}
             {row.status === "SUBMITTED" ? (
               <div className="mt-2 flex gap-2">
                 <button
@@ -108,8 +119,8 @@ function Payments() {
           Record a move-out
         </h2>
         <p className="mt-2 text-sm text-muted [text-wrap:pretty]">
-          The ₹499 + GST fee is refunded only if the renter vacates within 7 days of paying it. Enter the agreement
-          and the move-out date: fees paid within 7 days before that date (renter and owner) move to Refunds below.
+          The ₹499 + GST fee is refunded only if the renter vacates within 7 days of paying it. Tap "Use for move-out" on a
+          paid success fee above (it shows the Agreement ID), or paste the ID, then pick the move-out date: fees paid within 7 days before that date (renter and owner) move to Refunds below.
         </p>
         <div className="mt-4 flex flex-wrap gap-2" data-testid="vacate-form">
           <input

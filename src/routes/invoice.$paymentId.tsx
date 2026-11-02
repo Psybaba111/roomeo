@@ -82,7 +82,7 @@ function Invoice({ paymentId }: { paymentId: string }) {
           {row("IGST @ 18%", inv.igst)}
           <tr className="border-t font-semibold"><td className="py-1">Total</td><td className="py-1 text-right tabular-nums">{rupees(inv.total)}</td></tr>
           {inv.roundOff ? <tr><td className="py-1">Round off</td><td className="py-1 text-right tabular-nums">{rupees(inv.roundOff)}</td></tr> : null}
-          {inv.trialCreditInr ? <tr><td className="py-1 text-xs" colSpan={2}>Trial credit applied: ₹{inv.trialCreditInr.toFixed(2)} off the ₹589 fee (your ₹99 trial fee, already paid)</td></tr> : null}
+          {inv.trialCreditInr ? <tr><td className="py-1 text-xs" colSpan={2}>Trial night credit: ₹{inv.trialCreditInr.toFixed(2)} off the ₹589 fee (your trial nights fee, ₹83.90 + ₹15.10 GST, paid earlier on a separate UPI payment and not included in this invoice's taxable value)</td></tr> : null}
           <tr className="font-semibold"><td className="py-1">Amount paid (UPI)</td><td className="py-1 text-right tabular-nums">₹{inv.paidInr.toFixed(2)}</td></tr>
           <tr><td className="py-1 text-xs" colSpan={2}>UTR: <span className="font-mono">{inv.utr || "-"}</span> · Reverse charge: No</td></tr>
         </tbody>

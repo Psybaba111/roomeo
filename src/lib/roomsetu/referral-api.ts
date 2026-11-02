@@ -85,3 +85,19 @@ export const claimReferral = createServerFn({ method: "POST" })
   });
 
 export { completeReferralOnMoveIn } from "@/lib/roomsetu/movein-confirm";
+
+/** Public: is this a real, live invite? The /r/CODE page only shows the ₹ offer when the program is on and the code exists. */
+export const getInviteStatus = createServerFn({ method: "GET" })
+  .validator((i: unknown) => (typeof i === "string" ? i : ""))
+  .handler(async ({ data }) => {
+    const code = normalizeCode(data);
+    if (!referralsEnabled() || !code) return { live: false as const };
+    try {
+      const sql = await getSql();
+      const r = await sql<{ code: string }>`select code from referral_codes where code = ${code}`;
+      return r[0] ? { live: true as const, perPerson: REFERRAL_CREDIT_INR } : { live: false as const };
+    } catch (e) {
+      if (isMissingTable(e)) return { live: false as const };
+      throw e;
+    }
+  });

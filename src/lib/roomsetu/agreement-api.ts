@@ -86,10 +86,16 @@ export const getDealAgreement = createServerFn({ method: "GET" })
     const signers = data.kind === "squad" ? await squadSigners(sql, str(a.id)) : [];
     const iSigned = data.kind === "squad" ? signers.some((x) => x.user_id === context.userId) : Boolean(isOwner ? a.owner_signed_at : a.seeker_signed_at);
     const base = isOwner ? cfg.successFeeOwnerInr : cfg.successFeeTenantInr;
-    const fee = (await sql.query<{ id: string; status: string; paid_at: string }>(`select id, status, coalesce(reviewed_at, created_at)::text as paid_at from payments where agreement_id = $1 and kind = 'SUCCESS_FEE' and user_id = $2 order by created_at desc limit 1`, [str(a.id), context.userId]))[0];
+    const fee = (await sql.query<{ id: string; status: string; paid_at: string; amount_inr: number; trial_credit_inr: number }>(`select id, status, coalesce(reviewed_at, created_at)::text as paid_at, amount_inr, coalesce(trial_credit_inr, 0) as trial_credit_inr from payments where agreement_id = $1 and kind = 'SUCCESS_FEE' and user_id = $2 order by created_at desc limit 1`, [str(a.id), context.userId]))[0];
     const state = agreementState({ seekerSignedAt: str(a.seeker_signed_at) || (signers.some((x) => x.role === "TENANT") ? "x" : null), ownerSignedAt: str(a.owner_signed_at) || null, issuedAt: str(a.issued_at) || null, cancelledAt: str(a.cancelled_at) || null });
     const feeOn = cfg.successFeeEnabled && base > 0;
     const f = feeWithGst(base);
+    // What this person actually pays: the open/paid payment row if any, else ₹589 less a ₹99 trial credit if one applies.
+    let trialCredit = 0;
+    if (fee) trialCredit = num(fee.trial_credit_inr);
+    else if (!isOwner && feeOn && a.issued_at) trialCredit = (await tenantFeeWithTrialCredit(sql, context.userId, f.total, str(a.issued_at))).credit;
+    const payable = fee && ["PENDING", "SUBMITTED", "PAID"].includes(fee.status) ? num(fee.amount_inr) : f.total - trialCredit;
+    const refundState = fee?.status === "REFUND_DUE" || fee?.status === "REFUNDED" ? fee.status : "";
     return {
       kind: data.kind,
       body: agreementBodyForView(str(a.body), d.terms, Boolean(a.issued_at)),
@@ -105,9 +111,12 @@ export const getDealAgreement = createServerFn({ method: "GET" })
       refundBy: fee?.status === "PAID" ? refundDeadline(fee.paid_at) : "",
       feeEnabled: feeOn,
       fee: f,
+      trialCredit,
+      payable,
+      refundState,
       feeStatus: str(fee?.status),
       feePaymentId: fee?.status === "PAID" ? str(fee.id) : "",
-      steps: dealSteps({ role: isOwner ? "owner" : "tenant", squad: data.kind === "squad", iSigned, issued: Boolean(a.issued_at), cancelled: Boolean(a.cancelled_at), feeOn, feePaid: fee?.status === "PAID", feeTotal: f.total, movedIn: d.movedIn }),
+      steps: dealSteps({ role: isOwner ? "owner" : "tenant", squad: data.kind === "squad", iSigned, issued: Boolean(a.issued_at), cancelled: Boolean(a.cancelled_at), feeOn, feePaid: fee?.status === "PAID" || Boolean(refundState), feeTotal: payable, movedIn: d.movedIn }),
     };
   });
 
@@ -161,6 +170,8 @@ export const startAgreementFee = createServerFn({ method: "POST" })
       where agreement_id = $1 and kind = 'SUCCESS_FEE' and user_id = $2 and status in ('PENDING','SUBMITTED','PAID') order by created_at desc limit 1`, [str(a.id), context.userId]);
     let row = (await find())[0];
     if (row?.status === "PAID") throw new Error("Already paid. Thanks!");
+    const refunded = (await sql.query<{ status: string }>(`select status from payments where agreement_id = $1 and kind = 'SUCCESS_FEE' and user_id = $2 and status in ('REFUND_DUE','REFUNDED') limit 1`, [str(a.id), context.userId]))[0];
+    if (!row && refunded) throw new Error(refunded.status === "REFUND_DUE" ? "Your fee refund is pending admin approval. Nothing to pay." : "Your fee was refunded. Nothing to pay.");
     if (!row) {
       // Trial nights (1 Nov 2026): a tenant whose paid trial ended within 14 days of this deal gets ₹99 off.
       const credit = isOwner ? { amount: fee.total, credit: 0, bookingId: null } : await tenantFeeWithTrialCredit(sql, context.userId, fee.total, str(a.issued_at));
