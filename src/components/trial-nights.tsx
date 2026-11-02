@@ -39,7 +39,7 @@ export function TrialNightsOwner({ listingId }: { listingId: string }) {
         <input type="checkbox" checked={s.enabled} onChange={(e) => void save(e.target.checked)} /> Offer trial nights
       </label>
       <p className="mt-1 text-sm text-muted">
-        Students can stay 1 to {TRIAL_MAX_NIGHTS} nights before signing up. They pay you the nightly price directly; check their photo ID on arrival. Roomeo charges the student {feeLine(s.fee)} per trial booking.
+        Students can stay 1 to {TRIAL_MAX_NIGHTS} nights before signing up. They pay you the nightly price directly; check their photo ID on arrival. Roomeo charges the student {feeLine(s.fee)} per trial booking (non-refundable).
       </p>
       {s.live ? null : (
         <p className="mt-2 rounded-xl border border-line bg-paper p-3 text-sm" data-testid="trial-not-live">
@@ -97,7 +97,7 @@ export function TrialNightsBooking({ listingId }: { listingId: string }) {
       <h3 className="font-display text-xl">Try a trial night</h3>
       <p className="text-sm text-muted">₹{t.nightlyInr}/night, paid to the owner. 1 to {t.maxNights} nights.</p>
       <div className={`${inner} mt-2 text-sm`}>
-        <p>Roomeo service fee: <strong>₹{t.fee.total}</strong> once per booking, not per night</p>
+        <p>Roomeo service fee: <strong>₹{t.fee.total}</strong> once per booking, not per night. Non-refundable.</p>
         <p className="text-muted">₹{t.fee.base.toFixed(2)} + ₹{t.fee.gst.toFixed(2)} GST (18%) = ₹{t.fee.total.toFixed(2)}</p>
         <p className="mt-1">Stay: ₹{t.nightlyInr} × {pay?.nights ?? nights} = ₹{t.nightlyInr * (pay?.nights ?? nights)}, paid directly to the owner</p>
       </div>

@@ -110,6 +110,8 @@ export async function markTrialIdChecked(sql: Sql, p: { bookingId: string; owner
 }
 
 /**
+ * Rohith, 2 Nov 2026: the ₹99 is never refunded and its credit is single-use. A credit used on a fee that was later
+ * refunded (REFUND_DUE/REFUNDED) stays used; only a never-paid (CANCELLED) checkout frees it.
  * The newest paid trial of this seeker whose credit is still unused and which falls in the 14-day
  * window before `dealIssuedAt`. Any listing counts: the trial led to a deal on Roomeo.
  */
@@ -118,7 +120,7 @@ export async function findTrialCredit(sql: Sql, seekerId: string, dealIssuedAt: 
   const rows = await sql.query<Row>(
     `select b.id, b.check_in::text as check_in, b.nights, b.created_at::text as created_at from trial_bookings b
      where b.seeker_id = $1 and b.status in ('CONFIRMED','COMPLETED')
-       and not exists (select 1 from payments x where x.trial_credit_booking_id = b.id and x.status in ('PENDING','SUBMITTED','PAID'))
+       and not exists (select 1 from payments x where x.trial_credit_booking_id = b.id and x.status in ('PENDING','SUBMITTED','PAID','REFUND_DUE','REFUNDED'))
      order by b.check_in desc limit 10`,
     [seekerId],
   );
@@ -141,7 +143,7 @@ export async function adminTrialBookings(sql: Sql) {
     `select b.id, b.listing_id, l.title, b.check_in::text as check_in, b.nights, b.nightly_inr, b.stay_total_inr, b.status,
             b.id_checked_at::text as id_checked_at, p.ref, p.status as fee_status, coalesce(sp.full_name, b.seeker_id) as seeker,
             coalesce(op.full_name, b.owner_id) as owner,
-            (select x.ref from payments x where x.trial_credit_booking_id = b.id and x.status in ('PENDING','SUBMITTED','PAID') limit 1) as credited_on
+            (select x.ref from payments x where x.trial_credit_booking_id = b.id and x.status in ('PENDING','SUBMITTED','PAID','REFUND_DUE','REFUNDED') limit 1) as credited_on
      from trial_bookings b left join listings l on l.id = b.listing_id left join payments p on p.id = b.fee_payment_id
      left join profiles sp on sp.user_id = b.seeker_id left join profiles op on op.user_id = b.owner_id
      order by b.created_at desc limit 200`,
