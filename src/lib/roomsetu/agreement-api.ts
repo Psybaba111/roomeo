@@ -125,6 +125,8 @@ export const signDealAgreement = createServerFn({ method: "POST" })
   .validator((i: unknown) => ({ ref: dealRef(i), name: validSignName((i as Record<string, unknown>)?.name) }))
   .handler(async ({ context, data }) => {
     const sql = await getSql();
+    const { assertIdVerified } = await import("@/lib/roomsetu/trust-api");
+    await assertIdVerified(sql, context.userId, "DEAL_SIGN");
     const d = await resolveDeal(sql, data.ref, context.userId);
     const ip = await clientIp();
     const a = data.ref.kind === "squad"

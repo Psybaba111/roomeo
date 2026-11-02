@@ -1179,6 +1179,10 @@ export const setApplication = createServerFn({ method: "POST" })
       throw new Error("Only the seeker can withdraw.");
     if (data.status !== "WITHDRAWN" && row.host_id !== context.userId)
       throw new Error("Only the host can decide.");
+    if (data.status === "ACCEPTED") {
+      const { assertIdVerified } = await import("@/lib/roomsetu/trust-api");
+      await assertIdVerified(sql, context.userId, "DEAL_ACCEPT");
+    }
     await sql`update applications set status = ${data.status}, updated_at = now() where id = ${data.id}`;
     if (contactRefundDue({ decision: data.status, previousStatus: row.status })) {
       await markContactRefundDue(sql, {

@@ -4,6 +4,7 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { buildUpiLink, makeRef, upiPayee } from "@/lib/roomsetu/upi";
 import { bookTrial, listingTrial, markTrialIdChecked, myOpenTrial, ownerTrialBookings, setListingTrial } from "@/lib/roomsetu/trial-db";
+import { idVerificationEnabled } from "@/lib/roomsetu/id-verify";
 import { TRIAL_ARRIVAL_CHECKLIST, TRIAL_MAX_NIGHTS, trialFeeBreakdown, trialNightsEnabled } from "@/lib/roomsetu/trial-nights";
 
 function rec(i: unknown): Record<string, unknown> {
@@ -21,7 +22,7 @@ export const getListingTrial = createServerFn({ method: "GET" })
     if (!trialNightsEnabled()) return { available: false as const };
     const t = await listingTrial(await getSql(), data);
     if (!t?.enabled) return { available: false as const };
-    return { available: true as const, nightlyInr: t.nightlyInr, maxNights: TRIAL_MAX_NIGHTS, fee: trialFeeBreakdown(), checklist: [...TRIAL_ARRIVAL_CHECKLIST] };
+    return { available: true as const, idRequired: idVerificationEnabled(), nightlyInr: t.nightlyInr, maxNights: TRIAL_MAX_NIGHTS, fee: trialFeeBreakdown(), checklist: [...TRIAL_ARRIVAL_CHECKLIST] };
   });
 
 /** Owner: switch trial nights on/off with a nightly price. Saving works even while the flag is off. */
@@ -42,6 +43,8 @@ export const startTrialBooking = createServerFn({ method: "POST" })
   })
   .handler(async ({ context, data }) => {
     if (!trialNightsEnabled()) throw new Error("Trial nights aren't open yet.");
+    const { assertIdVerified } = await import("@/lib/roomsetu/trust-api");
+    await assertIdVerified(await getSql(), context.userId, "TRIAL_BOOKING");
     const payee = upiPayee();
     if (!payee.ready) throw new Error("UPI payments are not set up yet.");
     const b = await bookTrial(await getSql(), { ...data, seekerId: context.userId, ref: makeRef() });

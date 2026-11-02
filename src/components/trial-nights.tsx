@@ -101,6 +101,11 @@ export function TrialNightsBooking({ listingId }: { listingId: string }) {
         <p className="text-muted">₹{t.fee.base.toFixed(2)} + ₹{t.fee.gst.toFixed(2)} GST (18%) = ₹{t.fee.total.toFixed(2)}</p>
         <p className="mt-1">Stay: ₹{t.nightlyInr} × {pay?.nights ?? nights} = ₹{t.nightlyInr * (pay?.nights ?? nights)}, paid directly to the owner</p>
       </div>
+      {!pay && t.idRequired ? (
+        <p className="mt-3 rounded-xl border border-line bg-paper p-3 text-sm" data-testid="trial-id-required">
+          Trial nights need a verified ID (DigiLocker, Aadhaar or student ID). Not verified yet? <a className="underline" href="/verification">Verify now</a>, it takes about a minute.
+        </p>
+      ) : null}
       {!pay ? (
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <label>
