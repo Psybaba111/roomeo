@@ -1,6 +1,6 @@
 import type { Sql } from "../db.ts";
 import { istDate, refundableOnVacate } from "./deal-agreement.ts";
-import { buyerState as pickBuyerState, invoiceAmounts, invoiceAmountsInclusive, invoiceNumber, normalizeGstin } from "./invoice.ts";
+import { buyerState as pickBuyerState, invoiceAmounts, invoiceAmountsInclusive, invoiceNumber, normalizeGstin, trialInvoiceNumber } from "./invoice.ts";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? "" : String(v));
@@ -140,5 +140,29 @@ export async function createFeeInvoice(sql: Sql, paymentId: string, baseInr: num
       base,
     );
   }
+  return (await sql.query<Row>(`select id, number from fee_invoices where payment_id = $1`, [paymentId]))[0];
+}
+
+/**
+ * GST invoice for a PAID ₹99 trial nights fee (migration 0025). Own series RMT/<FY>/NNNNNN.
+ * Only after admin approval (status PAID). Idempotent (one per payment).
+ */
+export async function createTrialInvoice(sql: Sql, paymentId: string, now: Date = new Date()) {
+  const existing = await sql.query<Row>(`select id, number from fee_invoices where payment_id = $1`, [paymentId]);
+  if (existing[0]) return existing[0];
+  const pay = (await sql.query<Row>(
+    `select p.user_id, p.amount_inr, p.kind, p.status, p.utr, p.trial_booking_id, pr.full_name, pr.city, pr.phone_e164, u.email
+     from payments p left join profiles pr on pr.user_id = p.user_id left join "user" u on u.id = p.user_id where p.id = $1`, [paymentId]))[0];
+  if (!pay || s(pay.kind) !== "TRIAL_FEE" || s(pay.status) !== "PAID") return null;
+  const buyerState = pickBuyerState(null, s(pay.city));
+  const amt = invoiceAmountsInclusive(Number(pay.amount_inr), buyerState);
+  const seq = Number((await sql.query<{ n: string }>(`select nextval('trial_invoice_seq')::text as n`))[0].n);
+  const number = trialInvoiceNumber(seq, now);
+  await sql.query(
+    `insert into fee_invoices (id, number, payment_id, user_id, agreement_id, issued_at, buyer_name, buyer_state, place_of_supply, taxable_paise, cgst_paise, sgst_paise, igst_paise, total_paise, round_off_paise, paid_inr, buyer_email, buyer_phone, buyer_gstin, utr, kind, trial_booking_id)
+     values ($1,$2,$3,$4,null,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,null,$18,'TRIAL_FEE',$19) on conflict (payment_id) do nothing`,
+    [crypto.randomUUID(), number, paymentId, s(pay.user_id), now.toISOString(), s(pay.full_name) || "Roomeo user", buyerState, amt.placeOfSupply, amt.taxable, amt.cgst, amt.sgst, amt.igst, amt.total, amt.roundOff, Number(pay.amount_inr),
+      s(pay.email) || null, s(pay.phone_e164) || null, s(pay.utr) || null, s(pay.trial_booking_id) || null],
+  );
   return (await sql.query<Row>(`select id, number from fee_invoices where payment_id = $1`, [paymentId]))[0];
 }
