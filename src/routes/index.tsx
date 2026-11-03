@@ -41,7 +41,7 @@ const STEPS = [
     "Choose your own flatmates. No random allotment, no awkward surprises.",
   ],
   ["02", "Owner says yes once", "One clear yes or no. No endless calls, no ghosting."],
-  ["03", "Chat owners free", "Unlimited owner chats, free. Listing is free too. ₹589 (₹499 + GST) once when you lock a bed, refundable within 7 days."],
+  ["03", "Chat owners free", "Unlimited owner chats, free. Listing is free too. When a stay is locked, renter and owner each pay ₹589 (₹499 + GST) once, refundable within 7 days."],
 ];
 
 const TRUST: [typeof ShieldCheck, string, string][] = [

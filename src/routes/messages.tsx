@@ -14,6 +14,8 @@ import {
   sendMessage,
 } from "@/lib/roomsetu/account-api";
 import { REPORT_CATEGORIES } from "@/lib/roomsetu/constants";
+import { isNeedPhoneError } from "@/lib/roomsetu/phone-gate";
+import { InlinePhoneVerify } from "@/components/inline-phone-verify";
 import { signedInLine, THREAD_POLL_MS } from "@/lib/roomsetu/inbox";
 import { pinnedRequestFor, requestStatusLabel } from "@/lib/roomsetu/booking-cta";
 import { inr } from "@/lib/roomsetu/map";
@@ -42,6 +44,14 @@ function Inbox() {
   const [category, setCategory] = useState<string>(REPORT_CATEGORIES[0]);
   const [apps, setApps] = useState<Awaited<ReturnType<typeof listApplications>>>([]);
   const showRequests = search.view === "requests";
+  // A message typed before the phone is verified. Held here (never sent) until the OTP passes.
+  const [queued, setQueued] = useState<{ thread: string; text: string } | null>(null);
+
+  async function deliver(thread: string, text: string) {
+    await sendMessage({ data: { id: thread, body: text } });
+    setMsgs(await listMessages({ data: thread }));
+    await loadThreads();
+  }
 
   async function loadThreads() {
     setThreads(await listConversations());
@@ -210,6 +220,32 @@ function Inbox() {
                   </li>
                 ))}
               </ul>
+              {queued && queued.thread === search.thread ? (
+                <>
+                  <p
+                    className="mx-4 mb-2 max-w-[80%] self-end break-words rounded-2xl border border-dashed border-brand px-3 py-2 text-sm [overflow-wrap:anywhere]"
+                    data-testid="queued-message"
+                  >
+                    {queued.text}
+                    <span className="mt-1 block text-xs text-muted">Not sent yet · waiting on your phone check</span>
+                  </p>
+                  <InlinePhoneVerify
+                    onCancel={() => {
+                      setBody(queued.text);
+                      setQueued(null);
+                    }}
+                    onVerified={async () => {
+                      try {
+                        await deliver(queued.thread, queued.text);
+                        setQueued(null);
+                      } catch (e) {
+                        setError(errText(e));
+                        setQueued(null);
+                      }
+                    }}
+                  />
+                </>
+              ) : null}
               <form
                 className="flex min-w-0 items-center gap-2 bg-paper p-3"
                 onSubmit={(e) => {
@@ -226,12 +262,15 @@ function Inbox() {
                     at: new Date().toISOString().slice(0, 16),
                     mine: true,
                   };
+                  if (queued) return;
                   setMsgs((cur) => [...cur, optimistic]);
-                  void sendMessage({ data: { id: search.thread, body: text } })
-                    .then(() => listMessages({ data: search.thread }))
-                    .then(setMsgs)
-                    .then(loadThreads)
-                    .catch((err) => setError(errText(err)));
+                  const thread = search.thread;
+                  void deliver(thread, text).catch((err) => {
+                    const msg = errText(err);
+                    setMsgs((cur) => cur.filter((m) => m.id !== optimistic.id));
+                    if (isNeedPhoneError(msg)) setQueued({ thread, text });
+                    else setError(msg);
+                  });
                 }}
               >
                 <input

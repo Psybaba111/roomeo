@@ -10,6 +10,7 @@ import { notifyWhatsApp } from "@/lib/roomsetu/mappstore";
 import { canPublish } from "@/lib/roomsetu/otp";
 import { assertContactAllowed, markContactRefundDue } from "@/lib/roomsetu/squad-api";
 import { contactRefundDue } from "@/lib/roomsetu/contact";
+import { isNeedPhoneError, sendNeedsContactCheck } from "@/lib/roomsetu/phone-gate";
 import {
   buildUpiLink,
   makeRef,
@@ -872,8 +873,15 @@ export const openConversation = createServerFn({ method: "POST" })
         owner_id: string;
         is_demo: boolean;
       }>`select owner_id, is_demo from listings where id = ${listingId}`;
-      if (owner[0] && !owner[0].is_demo)
-        await assertContactAllowed(sql, listingId, context.userId, owner[0].owner_id);
+      if (owner[0] && !owner[0].is_demo) {
+        try {
+          await assertContactAllowed(sql, listingId, context.userId, owner[0].owner_id);
+        } catch (e) {
+          // Unverified phone: open the thread so they can type. sendMessage re-runs the contact
+          // check on their first message, so nothing reaches the owner until the phone is verified.
+          if (!isNeedPhoneError(e instanceof Error ? e.message : String(e))) throw e;
+        }
+      }
     }
     const id = crypto.randomUUID();
     await sql`insert into conversations (id, listing_id, room_wanted_id) values (${id}, ${listingId}, ${roomWantedId})`;
@@ -978,6 +986,25 @@ export const sendMessage = createServerFn({ method: "POST" })
       }>`select account_status from profiles where user_id = ${other}`;
       if (otherStatus[0]?.account_status === "SUSPENDED")
         throw new Error("This person is not taking messages.");
+    }
+    {
+      const convo = await sql<{ listing_id: string | null; squad_id: string | null; owner_id: string | null; is_demo: boolean | null }>`
+        select c.listing_id, c.squad_id, l.owner_id, l.is_demo from conversations c left join listings l on l.id = c.listing_id where c.id = ${data.id}`;
+      const c = convo[0];
+      if (c?.listing_id && c.owner_id && !c.is_demo) {
+        const prior = await sql`select 1 from messages where conversation_id = ${data.id} and sender_id = ${context.userId} limit 1`;
+        const unlocked = await sql`select 1 from contact_unlocks where listing_id = ${c.listing_id} and seeker_id = ${context.userId} limit 1`;
+        if (
+          sendNeedsContactCheck({
+            listingOwnerId: c.owner_id,
+            senderId: context.userId,
+            squadThread: Boolean(c.squad_id),
+            senderHasPriorMessage: prior.length > 0,
+            unlocked: unlocked.length > 0,
+          })
+        )
+          await assertContactAllowed(sql, c.listing_id, context.userId, c.owner_id);
+      }
     }
     await sql`insert into messages (id, conversation_id, sender_id, body) values (${crypto.randomUUID()}, ${data.id}, ${context.userId}, ${data.body})`;
     await sql`update conversations set updated_at = now() where id = ${data.id}`;
