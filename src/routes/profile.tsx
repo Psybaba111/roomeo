@@ -1,6 +1,6 @@
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { Shell } from "@/components/shell";
 import { ChangePassword } from "@/components/change-password";
@@ -117,6 +117,11 @@ function ProfilePage() {
   return (
     <Shell>
       <h1 className="font-display text-4xl">Profile</h1>
+      <p className="mt-2 text-sm">
+        <Link to="/saved" className="font-semibold text-brand" data-testid="profile-saved-link">
+          Your saved beds →
+        </Link>
+      </p>
       <p className="mt-2 text-sm text-muted">Verification: {form.verification || "…"}. What you hide stays off public cards.</p>
       <form
         className="mt-6 grid gap-3 md:grid-cols-2"

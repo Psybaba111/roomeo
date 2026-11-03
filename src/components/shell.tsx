@@ -1,8 +1,35 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BookmarkSimple as Bookmark, House as Home, ChatCircle as MessageCircle, MagnifyingGlass as Search, UserCircle as UserRound, UsersThree as Users } from "@phosphor-icons/react";
+import { BookmarkSimple as Bookmark, Tray, House as Home, ChatCircle as MessageCircle, MagnifyingGlass as Search, UserCircle as UserRound, UsersThree as Users } from "@phosphor-icons/react";
 import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { getInboxSummary } from "@/lib/roomsetu/owner-inbox-api";
+import { inboxBadgeLabel } from "@/lib/roomsetu/owner-inbox";
+
+/** Owner flag + badge for the nav. Quietly off when signed out or on error. */
+function useOwnerInbox(path: string) {
+  const { user } = useCurrentUserState();
+  const [state, setState] = useState({ isOwner: false, badge: 0 });
+  useEffect(() => {
+    if (!user) {
+      setState({ isOwner: false, badge: 0 });
+      return;
+    }
+    let live = true;
+    const pull = () =>
+      void getInboxSummary()
+        .then((s) => live && setState({ isOwner: s.isOwner, badge: s.badge }))
+        .catch(() => undefined);
+    pull();
+    const t = setInterval(pull, 30000);
+    return () => {
+      live = false;
+      clearInterval(t);
+    };
+  }, [user, path]);
+  return state;
+}
 
 const EMPTY_SEARCH = {
   city: "",
@@ -23,6 +50,8 @@ const tab = (active: boolean) =>
 
 export function Shell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const owner = useOwnerInbox(path);
+  const badge = inboxBadgeLabel(owner.badge);
   return (
     <div className="min-h-screen overflow-x-hidden bg-paper text-ink">
       <header className="sticky top-0 z-30 h-[60px] border-b border-line bg-card/90 backdrop-blur">
@@ -34,6 +63,11 @@ export function Shell({ children }: { children: ReactNode }) {
             <Link to="/search" search={EMPTY_SEARCH} className="hover:text-brand">
               Beds
             </Link>
+            {owner.isOwner ? (
+              <Link to="/inbox" className="hover:text-brand">
+                Inbox{badge ? ` (${badge})` : ""}
+              </Link>
+            ) : null}
             <Link to="/squads" className="hover:text-brand">
               Squads
             </Link>
@@ -59,10 +93,10 @@ export function Shell({ children }: { children: ReactNode }) {
                 <UserButton />
               </div>
               <Link
-                to="/dashboard"
+                to={owner.isOwner ? "/inbox" : "/dashboard"}
                 className="inline-flex h-9 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold md:hidden"
               >
-                Yours
+                {owner.isOwner ? `Inbox${badge ? ` · ${badge}` : ""}` : "Yours"}
               </Link>
             </SignedIn>
           </div>
@@ -111,10 +145,28 @@ export function Shell({ children }: { children: ReactNode }) {
             </Link>
           </li>
           <li>
-            <Link to="/saved" className={tab(path.startsWith("/saved"))}>
-              <Bookmark className="h-5 w-5" />
-              Saved
-            </Link>
+            {owner.isOwner ? (
+              <Link to="/inbox" className={tab(path.startsWith("/inbox"))} data-testid="nav-inbox">
+                <span className="relative">
+                  <Tray className="h-5 w-5" />
+                  {badge ? (
+                    <span
+                      className="absolute -right-3 -top-2 min-w-5 rounded-full bg-brand px-1 text-center text-[10px] leading-5 text-card"
+                      data-testid="inbox-badge"
+                      aria-label={`${badge} things waiting`}
+                    >
+                      {badge}
+                    </span>
+                  ) : null}
+                </span>
+                Inbox
+              </Link>
+            ) : (
+              <Link to="/saved" className={tab(path.startsWith("/saved"))}>
+                <Bookmark className="h-5 w-5" />
+                Saved
+              </Link>
+            )}
           </li>
           <li>
             <Link to="/profile" className={tab(path.startsWith("/profile"))}>

@@ -36,7 +36,9 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
   }, []);
 
   async function finish() {
-    const next = safeNext(sessionStorage.getItem("roomsetu-next"));
+    const raw = sessionStorage.getItem("roomsetu-next");
+    // No explicit target: land on /inbox (owners stay, everyone else bounces to /dashboard).
+    const next = raw ? safeNext(raw) : "/inbox";
     sessionStorage.removeItem("roomsetu-next");
     window.location.assign(next);
   }
@@ -106,7 +108,7 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
             type="button"
             className="h-12 w-full rounded-full border border-line bg-card font-semibold"
             onClick={() => {
-              void signIn(p.id, { callbackURL: "/dashboard", errorCallbackURL: "/login" }).catch((err) => setError(errText(err)));
+              void signIn(p.id, { callbackURL: "/inbox", errorCallbackURL: "/login" }).catch((err) => setError(errText(err)));
             }}
           >
             Continue with {p.label}

@@ -15,6 +15,7 @@ import { Route as ApplicationsRouteImport } from './routes/applications'
 import { Route as CreateListingRouteImport } from './routes/create-listing'
 import { Route as CreateRoomWantedRouteImport } from './routes/create-room-wanted'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MatchesRouteImport } from './routes/matches'
 import { Route as MessagesRouteImport } from './routes/messages'
@@ -81,6 +82,11 @@ const CreateRoomWantedRoute = CreateRoomWantedRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InboxRoute = InboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -276,6 +282,7 @@ export interface FileRoutesByFullPath {
   '/create-listing': typeof CreateListingRoute
   '/create-room-wanted': typeof CreateRoomWantedRoute
   '/dashboard': typeof DashboardRoute
+  '/inbox': typeof InboxRoute
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
@@ -321,6 +328,7 @@ export interface FileRoutesByTo {
   '/create-listing': typeof CreateListingRoute
   '/create-room-wanted': typeof CreateRoomWantedRoute
   '/dashboard': typeof DashboardRoute
+  '/inbox': typeof InboxRoute
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
@@ -367,6 +375,7 @@ export interface FileRoutesById {
   '/create-listing': typeof CreateListingRoute
   '/create-room-wanted': typeof CreateRoomWantedRoute
   '/dashboard': typeof DashboardRoute
+  '/inbox': typeof InboxRoute
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
@@ -414,6 +423,7 @@ export interface FileRouteTypes {
     | '/create-listing'
     | '/create-room-wanted'
     | '/dashboard'
+    | '/inbox'
     | '/login'
     | '/matches'
     | '/messages'
@@ -459,6 +469,7 @@ export interface FileRouteTypes {
     | '/create-listing'
     | '/create-room-wanted'
     | '/dashboard'
+    | '/inbox'
     | '/login'
     | '/matches'
     | '/messages'
@@ -504,6 +515,7 @@ export interface FileRouteTypes {
     | '/create-listing'
     | '/create-room-wanted'
     | '/dashboard'
+    | '/inbox'
     | '/login'
     | '/matches'
     | '/messages'
@@ -550,6 +562,7 @@ export interface RootRouteChildren {
   CreateListingRoute: typeof CreateListingRoute
   CreateRoomWantedRoute: typeof CreateRoomWantedRoute
   DashboardRoute: typeof DashboardRoute
+  InboxRoute: typeof InboxRoute
   LoginRoute: typeof LoginRoute
   MatchesRoute: typeof MatchesRoute
   MessagesRoute: typeof MessagesRoute
@@ -631,6 +644,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inbox': {
+      id: '/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof InboxRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -902,6 +922,7 @@ const rootRouteChildren: RootRouteChildren = {
   CreateListingRoute: CreateListingRoute,
   CreateRoomWantedRoute: CreateRoomWantedRoute,
   DashboardRoute: DashboardRoute,
+  InboxRoute: InboxRoute,
   LoginRoute: LoginRoute,
   MatchesRoute: MatchesRoute,
   MessagesRoute: MessagesRoute,
