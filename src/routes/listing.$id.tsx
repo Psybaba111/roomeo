@@ -1,12 +1,12 @@
 import { LOCKED_LOCATION_LINE } from "@/lib/roomsetu/location-gate";
 import { TrialNightsBooking } from "@/components/trial-nights";
-import { FEE_LINE } from "@/lib/roomsetu/money";
+import { FEE_UNDER_PRICE, REQUEST_CTA, REQUEST_CTA_SIGNED_OUT, isAlreadyRequested, requestSentLine } from "@/lib/roomsetu/booking-cta";
 import { listingHead } from "@/lib/seo";
 import { ContactGate } from "@/components/contact-gate";
 import { SquadShortlistButton } from "@/components/squad-shortlist-button";
 import { useEffect, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { SealCheck as BadgeCheck } from "@phosphor-icons/react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { SealCheck as BadgeCheck, BookmarkSimple, ChatCircleDots } from "@phosphor-icons/react";
 import { Shell } from "@/components/shell";
 import { errText, safeNext } from "@/lib/ui-text";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -14,6 +14,7 @@ import { getListing } from "@/lib/roomsetu/public-api";
 import {
   applyToListing,
   fileReport,
+  openConversation,
   saveListing,
   unsaveListing,
   savedIds,
@@ -96,6 +97,40 @@ function ListingBody({ room }: { room: LoadedRoom }) {
   const [error, setError] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
   const [category, setCategory] = useState<string>(REPORT_CATEGORIES[0]);
+  const [requesting, setRequesting] = useState(false);
+  const navigate = useNavigate();
+
+  /** The one CTA: send the request (existing action, same notifications), then open the chat with the owner. */
+  function requestBed() {
+    if (!user) {
+      sessionStorage.setItem("roomsetu-next", `/listing/${room.id}`);
+      window.location.href = "/login";
+      return;
+    }
+    if (requesting) return;
+    setRequesting(true);
+    setError("");
+    setMessage("");
+    void (async () => {
+      try {
+        await applyToListing({ data: { id: room.id, note: "" } });
+      } catch (e) {
+        const msg = errText(e);
+        if (!isAlreadyRequested(msg)) {
+          setError(msg);
+          setRequesting(false);
+          return;
+        }
+      }
+      try {
+        const convo = await openConversation({ data: { listingId: room.id, roomWantedId: "", withUserId: "" } });
+        await navigate({ to: "/messages", search: { thread: convo.id } });
+      } catch (e) {
+        setMessage(requestSentLine(errText(e)));
+        setRequesting(false);
+      }
+    })();
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -223,7 +258,37 @@ function ListingBody({ room }: { room: LoadedRoom }) {
             ))}
           </ul>
           <div className="mt-3">
-            <ShareButtons room={{ ...room, allInInr: room.trust.allInInr }} url={`${SITE_URL}/listing/${room.id}`} />
+            <div className="flex items-start gap-2">
+              <ShareButtons compact room={{ ...room, allInInr: room.trust.allInInr }} url={`${SITE_URL}/listing/${room.id}`} />
+              <button
+                type="button"
+                aria-label={saved ? "Saved. Tap to remove" : "Save this bed"}
+                aria-pressed={saved}
+                data-testid="save-icon"
+                className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border ${saved ? "border-brand bg-brand-soft text-brand" : "border-line bg-card"}`}
+                onClick={() => {
+                  if (!user) {
+                    sessionStorage.setItem("roomsetu-next", `/listing/${room.id}`);
+                    window.location.href = "/login";
+                    return;
+                  }
+                  void act(
+                    async () => {
+                      if (saved) {
+                        await unsaveListing({ data: room.id });
+                        setSaved(false);
+                      } else {
+                        await saveListing({ data: room.id });
+                        setSaved(true);
+                      }
+                    },
+                    saved ? "Removed from saved" : "Saved 💾",
+                  );
+                }}
+              >
+                <BookmarkSimple size={22} weight={saved ? "fill" : "regular"} aria-hidden="true" />
+              </button>
+            </div>
           </div>
           <p className="mt-4 text-4xl font-semibold tabular-nums text-trust" data-testid="headline-price">
             {inr(headlinePrice(room.rent, room.trust.allInInr).amount)}{" "}
@@ -246,69 +311,27 @@ function ListingBody({ room }: { room: LoadedRoom }) {
               {depositTerms(room.deposit)}
             </p>
           </div>
-          <p className="mt-3 text-sm text-muted" data-testid="fee-line">
-            {FEE_LINE}{" "}
+          <p className="mt-3 text-sm font-medium [text-wrap:pretty]" data-testid="fee-line">
+            {FEE_UNDER_PRICE}.{" "}
             <Link to="/pricing" className="font-semibold text-brand">How pricing works</Link>
           </p>
           <div id="contact" className="mt-4 flex scroll-mt-24 flex-col gap-2">
-            {user ? (
-              <ContactGate listingId={room.id} isDemo={room.isDemo} />
-            ) : (
-              <button
-                type="button"
-                className="h-12 rounded-full bg-brand font-semibold text-card"
-                onClick={() => {
-                  sessionStorage.setItem("roomsetu-next", `/listing/${room.id}`);
-                  window.location.href = "/login";
-                }}
-              >
-                Sign in to message the owner
-              </button>
-            )}
+            <button
+              type="button"
+              disabled={requesting}
+              className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-brand text-base font-semibold text-card transition-transform active:scale-[0.98] disabled:opacity-60"
+              data-testid="request-bed"
+              onClick={requestBed}
+            >
+              <ChatCircleDots size={22} aria-hidden="true" />
+              {requesting ? "Sending your request…" : user ? REQUEST_CTA : REQUEST_CTA_SIGNED_OUT}
+            </button>
+            <p className="text-center text-xs text-muted">Free to request. Opens a chat with the owner right away 💬</p>
+            {user ? <ContactGate listingId={room.id} isDemo={room.isDemo} hideOpen /> : null}
             {user ? <SquadShortlistButton listingId={room.id} /> : null}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                className="h-12 rounded-full border border-line font-semibold"
-                onClick={() => {
-                  if (!user) {
-                    sessionStorage.setItem("roomsetu-next", `/listing/${room.id}`);
-                    window.location.href = "/login";
-                    return;
-                  }
-                  void act(
-                    async () => {
-                      if (saved) {
-                        await unsaveListing({ data: room.id });
-                        setSaved(false);
-                      } else {
-                        await saveListing({ data: room.id });
-                        setSaved(true);
-                      }
-                    },
-                    saved ? "Removed from saved" : "Saved",
-                  );
-                }}
-              >
-                {saved ? "Saved" : "Save"}
-              </button>
-              <button
-                type="button"
-                className="h-12 rounded-full border border-line font-semibold"
-                onClick={() => {
-                  if (!user) {
-                    window.location.href = "/login";
-                    return;
-                  }
-                  void act(
-                    () => applyToListing({ data: { id: room.id, note } }),
-                    "Request sent. The owner says yes or no once. To chat now, tap Message the owner above.",
-                  );
-                }}
-              >
-                Join this bed
-              </button>
-            </div>
+            <a href="#trial" className="text-center text-sm font-semibold text-brand underline-offset-4 hover:underline" data-testid="trial-link">
+              Not sure yet? Book a trial night · ₹99
+            </a>
           </div>
           {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
           {message ? <p className="mt-3 text-sm text-brand-deep">{message}</p> : null}
@@ -391,7 +414,9 @@ function ListingBody({ room }: { room: LoadedRoom }) {
           </div>
         </div>
         <aside className="lg:col-span-5">
-          <TrialNightsBooking listingId={room.id} />
+          <div id="trial" className="scroll-mt-24">
+            <TrialNightsBooking listingId={room.id} />
+          </div>
           <div className="rounded-3xl border border-line bg-card p-4">
             <p className="text-sm text-muted">Host</p>
             <h2 className="font-display text-2xl">{room.host.name}</h2>
@@ -507,17 +532,12 @@ function ListingBody({ room }: { room: LoadedRoom }) {
           </div>
           <button
             type="button"
-            className="h-12 shrink-0 rounded-full bg-brand px-4 text-sm font-semibold text-card transition-transform duration-300 active:scale-[0.98]"
-            onClick={() => {
-              if (!user) {
-                sessionStorage.setItem("roomsetu-next", `/listing/${room.id}`);
-                window.location.href = "/login";
-                return;
-              }
-              document.getElementById("contact")?.scrollIntoView({ behavior: "smooth", block: "start" });
-            }}
+            disabled={requesting}
+            data-testid="sticky-request-bed"
+            className="h-12 shrink-0 rounded-full bg-brand px-4 text-sm font-semibold text-card transition-transform duration-300 active:scale-[0.98] disabled:opacity-60"
+            onClick={requestBed}
           >
-            {user ? "Chat the owner" : "Sign in to chat"}
+            {requesting ? "Sending…" : user ? REQUEST_CTA : REQUEST_CTA_SIGNED_OUT}
           </button>
         </div>
       </div>

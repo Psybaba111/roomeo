@@ -1,6 +1,6 @@
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
@@ -8,17 +8,21 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import {
   blockUser,
   fileReport,
+  listApplications,
   listConversations,
   listMessages,
   sendMessage,
 } from "@/lib/roomsetu/account-api";
 import { REPORT_CATEGORIES } from "@/lib/roomsetu/constants";
 import { signedInLine, THREAD_POLL_MS } from "@/lib/roomsetu/inbox";
+import { pinnedRequestFor, requestStatusLabel } from "@/lib/roomsetu/booking-cta";
+import { inr } from "@/lib/roomsetu/map";
 
 export const Route = createFileRoute("/messages")({
   head: () => pageHead("Messages", { noindex: true }),
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { thread: string; view?: "requests" } => ({
     thread: typeof search.thread === "string" ? search.thread : "",
+    ...(search.view === "requests" ? { view: "requests" as const } : {}),
   }),
   component: () => (
     <NeedAccount next="/messages">
@@ -36,10 +40,17 @@ function Inbox() {
   const [body, setBody] = useState("");
   const [error, setError] = useState("");
   const [category, setCategory] = useState<string>(REPORT_CATEGORIES[0]);
+  const [apps, setApps] = useState<Awaited<ReturnType<typeof listApplications>>>([]);
+  const showRequests = search.view === "requests";
 
   async function loadThreads() {
     setThreads(await listConversations());
   }
+
+  useEffect(() => {
+    if (!user) return;
+    void listApplications().then(setApps).catch(() => undefined);
+  }, [user, search.thread, search.view]);
 
   useEffect(() => {
     if (!user) return;
@@ -70,6 +81,7 @@ function Inbox() {
   }, [user, search.thread]);
 
   const active = threads.find((t) => t.id === search.thread);
+  const pinned = pinnedRequestFor(apps, active);
 
   return (
     <Shell>
@@ -83,11 +95,57 @@ function Inbox() {
         </p>
       ) : null}
       {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
-      <div className="mt-4 grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-12" data-testid="messages-grid">
+      <div className="mt-4 flex gap-2" role="tablist" aria-label="Show">
+        <button type="button" role="tab" aria-selected={!showRequests} data-testid="chip-chats"
+          className={`inline-flex h-11 items-center rounded-full px-5 text-sm font-semibold ${!showRequests ? "bg-ink text-card" : "border border-line bg-card"}`}
+          onClick={() => void navigate({ search: { thread: search.thread } })}>
+          Chats
+        </button>
+        <button type="button" role="tab" aria-selected={showRequests} data-testid="chip-requests"
+          className={`inline-flex h-11 items-center rounded-full px-5 text-sm font-semibold ${showRequests ? "bg-ink text-card" : "border border-line bg-card"}`}
+          onClick={() => void navigate({ search: { thread: "", view: "requests" } })}>
+          Requests{apps.length ? ` · ${apps.length}` : ""}
+        </button>
+      </div>
+      {showRequests ? (
+        <ul className="mt-4 min-w-0 space-y-3" data-testid="requests-list">
+          {apps.length === 0 ? (
+            <li className="rounded-2xl border border-line bg-card p-4 text-sm text-muted">
+              No requests yet. Find a bed you like and tap “Request this bed” 🛏️
+            </li>
+          ) : null}
+          {apps.map((a) => {
+            const thread = threads.find((t) => t.listingId === a.listingId && t.otherId === (a.mine ? a.hostId : a.seekerId));
+            return (
+              <li key={a.id} className="min-w-0 rounded-2xl border border-line bg-card p-4" data-testid="request-row">
+                <p className="break-words font-semibold">{a.title}</p>
+                <p className="text-xs text-muted">
+                  {a.mine ? "You asked" : `${a.seekerName} asked`} · {a.city} · {inr(a.rent)}/mo
+                </p>
+                <p className="mt-2 inline-block rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand-deep">
+                  {requestStatusLabel(a.status, a.mine)}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {thread ? (
+                    <button type="button" className="inline-flex h-11 items-center rounded-full bg-brand px-4 text-sm font-semibold text-card"
+                      onClick={() => void navigate({ search: { thread: thread.id } })}>
+                      Open chat
+                    </button>
+                  ) : null}
+                  <Link to="/applications" className="inline-flex h-11 items-center rounded-full border border-line px-4 text-sm font-semibold">
+                    Deal steps →
+                  </Link>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      <div className={`mt-4 ${showRequests ? "hidden" : "grid"} min-w-0 grid-cols-1 gap-4 lg:grid-cols-12`} data-testid="messages-grid">
         <ul className="min-w-0 space-y-2 lg:col-span-4">
           {threads.length === 0 ? (
             <li className="rounded-2xl border border-line bg-card p-4 text-sm text-muted">
-              No conversations yet. Open a room and tap “Message the owner”. Room requests show on your Dashboard under Requests, not here.
+              No chats yet. Open a bed and tap “Request this bed”, the chat with the owner opens right here. Your requests live under the Requests chip ☝️
             </li>
           ) : null}
           {threads.map((t) => (
@@ -124,6 +182,17 @@ function Inbox() {
                   {active?.otherDemo ? " · sample host" : ""}
                 </p>
               </div>
+              {pinned ? (
+                <div className="mx-3 mt-3 min-w-0 rounded-2xl border-2 border-brand bg-brand-soft px-4 py-3" data-testid="pinned-request">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-deep">📌 Bed request</p>
+                  <p className="mt-1 break-words text-sm font-semibold">{pinned.title}</p>
+                  <p className="text-xs text-muted">{inr(pinned.rent)}/mo · {inr(pinned.deposit)} deposit to the owner</p>
+                  <p className="mt-1 text-sm">{requestStatusLabel(pinned.status, pinned.mine)}</p>
+                  <Link to="/applications" className="mt-2 inline-flex h-10 items-center rounded-full bg-card px-4 text-sm font-semibold">
+                    {pinned.mine ? "See deal steps →" : "Accept or decline →"}
+                  </Link>
+                </div>
+              ) : null}
               <ul className="flex min-w-0 flex-1 flex-col gap-2 p-4">
                 {msgs.map((m) => (
                   <li
