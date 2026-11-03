@@ -135,7 +135,8 @@ function PassGate({ listingId, status, reload, hideOpen }: { listingId: string; 
   const [checkout, setCheckout] = useState<UpiCheckoutData | null>(null);
   const s = status.summary;
   const open = s.access === "OPEN";
-  if (open && hideOpen) return null;
+  // NEED_PHONE: the chat opens anyway and asks for the OTP inline on the first send.
+  if ((open || s.access === "NEED_PHONE") && hideOpen) return null;
   const message = () => {
     setBusy("msg");
     setError("");
