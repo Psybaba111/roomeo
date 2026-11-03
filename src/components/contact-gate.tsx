@@ -51,6 +51,7 @@ export function ContactGate({ listingId, isDemo }: { listingId: string; isDemo: 
           type="button"
           disabled={busy}
           className={`w-full ${btnPrimary}`}
+          data-testid="message-owner"
           onClick={() => {
             setBusy(true);
             setError("");
@@ -60,7 +61,7 @@ export function ContactGate({ listingId, isDemo }: { listingId: string; isDemo: 
               .finally(() => setBusy(false));
           }}
         >
-          <ChatCircleDots size={20} aria-hidden="true" /> Message inside roomeo
+          <ChatCircleDots size={20} aria-hidden="true" /> {busy ? "Opening chat" : "Message the owner"}
         </button>
       ) : (
         <section className={card} aria-labelledby="unlock-h">

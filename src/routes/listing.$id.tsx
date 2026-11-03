@@ -302,7 +302,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
                   }
                   void act(
                     () => applyToListing({ data: { id: room.id, note } }),
-                    "You asked to join this bed. The owner says yes or no once.",
+                    "Request sent. The owner says yes or no once. To chat now, tap Message the owner above.",
                   );
                 }}
               >
