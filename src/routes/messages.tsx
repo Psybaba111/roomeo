@@ -13,6 +13,7 @@ import {
   sendMessage,
 } from "@/lib/roomsetu/account-api";
 import { REPORT_CATEGORIES } from "@/lib/roomsetu/constants";
+import { signedInLine, THREAD_POLL_MS } from "@/lib/roomsetu/inbox";
 
 export const Route = createFileRoute("/messages")({
   head: () => pageHead("Messages", { noindex: true }),
@@ -43,6 +44,9 @@ function Inbox() {
   useEffect(() => {
     if (!user) return;
     void loadThreads().catch((e) => setError(errText(e)));
+    // New conversations started by someone else appear without a reload.
+    const timer = window.setInterval(() => void loadThreads().catch(() => {}), THREAD_POLL_MS);
+    return () => window.clearInterval(timer);
   }, [user]);
 
   useEffect(() => {
@@ -73,12 +77,17 @@ function Inbox() {
       <p className="mt-1 text-sm text-muted">
         Messages refresh live. Phone numbers are not shared here.
       </p>
+      {user && signedInLine(user.displayName, user.primaryEmail) ? (
+        <p className="mt-1 text-xs text-muted" data-testid="inbox-account">
+          {signedInLine(user.displayName, user.primaryEmail)}
+        </p>
+      ) : null}
       {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
       <div className="mt-4 grid gap-4 lg:grid-cols-12">
         <ul className="space-y-2 lg:col-span-4">
           {threads.length === 0 ? (
             <li className="rounded-2xl border border-line bg-card p-4 text-sm text-muted">
-              No conversations yet. Open a room and message the host.
+              No conversations yet. Open a room and tap “Message the owner”. Room requests show on your Dashboard under Requests, not here.
             </li>
           ) : null}
           {threads.map((t) => (
