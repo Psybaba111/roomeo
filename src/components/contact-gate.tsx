@@ -11,7 +11,8 @@ import { UpiCheckout, type UpiCheckoutData } from "@/components/upi-checkout";
 import { btnPrimary, btnSecondary, card, errorBox, inner, skeleton } from "@/components/ui-tokens";
 
 /** "Message the owner" with the one time contact fee in front of it. Hosts never pay. */
-export function ContactGate({ listingId, isDemo }: { listingId: string; isDemo: boolean }) {
+/** hideOpen: the listing CTA already opens the chat, so only show the gates (unlock, verify, pass). */
+export function ContactGate({ listingId, isDemo, hideOpen = false }: { listingId: string; isDemo: boolean; hideOpen?: boolean }) {
   const navigate = useNavigate();
   const [status, setStatus] = useState<Awaited<ReturnType<typeof getContactStatus>> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,6 +27,7 @@ export function ContactGate({ listingId, isDemo }: { listingId: string; isDemo: 
   }
   useEffect(load, [listingId]);
 
+  if (loading && hideOpen) return null;
   if (loading)
     return (
       <div
@@ -36,9 +38,10 @@ export function ContactGate({ listingId, isDemo }: { listingId: string; isDemo: 
     );
   if (status?.isOwner) return null;
   if (status && status.model === "FREE_THEN_PASS" && !isDemo && !status.unlocked)
-    return <PassGate listingId={listingId} status={status} reload={load} />;
+    return <PassGate listingId={listingId} status={status} reload={load} hideOpen={hideOpen} />;
   const free = isDemo || status?.unlocked;
   const fee = status?.fee ?? 499;
+  if (free && hideOpen) return null;
   return (
     <div data-testid="contact-gate">
       {error ? (
@@ -125,13 +128,14 @@ export function ContactGate({ listingId, isDemo }: { listingId: string; isDemo: 
 type Status = Awaited<ReturnType<typeof getContactStatus>>;
 
 /** Pricing v2: free contacts first, then a weekly or monthly pass. */
-function PassGate({ listingId, status, reload }: { listingId: string; status: Status; reload: () => void }) {
+function PassGate({ listingId, status, reload, hideOpen }: { listingId: string; status: Status; reload: () => void; hideOpen: boolean }) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [checkout, setCheckout] = useState<UpiCheckoutData | null>(null);
   const s = status.summary;
   const open = s.access === "OPEN";
+  if (open && hideOpen) return null;
   const message = () => {
     setBusy("msg");
     setError("");
