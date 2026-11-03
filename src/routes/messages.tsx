@@ -83,8 +83,8 @@ function Inbox() {
         </p>
       ) : null}
       {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
-      <div className="mt-4 grid gap-4 lg:grid-cols-12">
-        <ul className="space-y-2 lg:col-span-4">
+      <div className="mt-4 grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-12" data-testid="messages-grid">
+        <ul className="min-w-0 space-y-2 lg:col-span-4">
           {threads.length === 0 ? (
             <li className="rounded-2xl border border-line bg-card p-4 text-sm text-muted">
               No conversations yet. Open a room and tap “Message the owner”. Room requests show on your Dashboard under Requests, not here.
@@ -95,10 +95,10 @@ function Inbox() {
               <button
                 type="button"
                 onClick={() => void navigate({ search: { thread: t.id } })}
-                className={`w-full rounded-2xl border px-4 py-3 text-left ${t.id === search.thread ? "border-brand bg-brand-soft" : "border-line bg-card"}`}
+                className={`w-full min-w-0 rounded-2xl border px-4 py-3 text-left ${t.id === search.thread ? "border-brand bg-brand-soft" : "border-line bg-card"}`}
               >
                 <span className="flex items-center justify-between gap-2">
-                  <span className="font-semibold">{t.otherName}</span>
+                  <span className="min-w-0 truncate font-semibold">{t.otherName}</span>
                   {t.unread ? (
                     <span className="rounded-full bg-brand px-2 text-xs text-card">{t.unread}</span>
                   ) : null}
@@ -110,13 +110,13 @@ function Inbox() {
             </li>
           ))}
         </ul>
-        <div className="lg:col-span-8">
+        <div className="min-w-0 lg:col-span-8">
           {!search.thread ? <p className="text-muted">Choose a conversation.</p> : null}
           {search.thread ? (
-            <div className="flex min-h-96 flex-col rounded-3xl border border-line bg-card">
+            <div className="flex min-h-96 w-full min-w-0 max-w-full flex-col overflow-x-hidden rounded-3xl border border-line bg-card" data-testid="thread-pane">
               <div className="bg-paper px-4 py-3">
-                <p className="font-semibold">{active?.otherName ?? "Conversation"}</p>
-                <p className="text-xs text-muted">
+                <p className="truncate font-semibold">{active?.otherName ?? "Conversation"}</p>
+                <p className="line-clamp-2 break-words text-xs text-muted">
                   {active?.listingTitle}
                   {active?.otherSeen
                     ? ` · last active ${active.otherSeen.slice(0, 16).replace("T", " ")}`
@@ -124,11 +124,11 @@ function Inbox() {
                   {active?.otherDemo ? " · sample host" : ""}
                 </p>
               </div>
-              <ul className="flex flex-1 flex-col gap-2 p-4">
+              <ul className="flex min-w-0 flex-1 flex-col gap-2 p-4">
                 {msgs.map((m) => (
                   <li
                     key={m.id}
-                    className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${m.mine ? "self-end bg-brand text-card" : "self-start bg-paper"}`}
+                    className={`max-w-[80%] break-words [overflow-wrap:anywhere] rounded-2xl px-3 py-2 text-sm ${m.mine ? "self-end bg-brand text-card" : "self-start bg-paper"}`}
                   >
                     {active?.isSquad && !m.mine && m.senderName ? (
                       <p className="text-xs font-semibold text-brand">{m.senderName}</p>
@@ -142,7 +142,7 @@ function Inbox() {
                 ))}
               </ul>
               <form
-                className="flex gap-2 bg-paper p-3"
+                className="flex min-w-0 items-center gap-2 bg-paper p-3"
                 onSubmit={(e) => {
                   e.preventDefault();
                   const text = body.trim();
@@ -166,20 +166,20 @@ function Inbox() {
                 }}
               >
                 <input
-                  className="h-12 flex-1 rounded-full border border-line bg-paper px-4"
+                  className="h-12 min-w-0 flex-1 rounded-full border border-line bg-paper px-4"
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   placeholder="Write a message"
                 />
                 <button
-                  className="h-12 rounded-full bg-brand px-4 font-semibold text-card"
+                  className="h-12 shrink-0 rounded-full bg-brand px-4 font-semibold text-card"
                   type="submit"
                 >
                   Send
                 </button>
               </form>
               {active ? (
-                <div className="flex flex-wrap gap-3 px-4 pb-4 text-sm">
+                <div className="flex min-w-0 flex-wrap items-center gap-3 px-4 pb-4 text-sm">
                   <button
                     type="button"
                     className="text-danger"
@@ -194,7 +194,7 @@ function Inbox() {
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="rounded-full border border-line bg-paper px-2"
+                    className="min-w-0 max-w-full rounded-full border border-line bg-paper px-2"
                   >
                     {REPORT_CATEGORIES.map((c) => (
                       <option key={c}>{c}</option>
