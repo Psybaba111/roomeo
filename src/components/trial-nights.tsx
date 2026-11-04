@@ -158,3 +158,30 @@ export function TrialIdCheckButton({ bookingId, initiallyDone = false }: { booki
     </span>
   );
 }
+
+/**
+ * Sheet body for the listing page. TrialNightsBooking renders nothing when the
+ * room has no trial nights, which inside a modal would look like a broken
+ * panel — so say so plainly instead.
+ */
+export function TrialNightsSheetBody({ listingId }: { listingId: string }) {
+  const [state, setState] = useState<"loading" | "on" | "off">("loading");
+  useEffect(() => {
+    let live = true;
+    void getListingTrial({ data: listingId })
+      .then((t) => live && setState(t.available ? "on" : "off"))
+      .catch(() => live && setState("off"));
+    return () => {
+      live = false;
+    };
+  }, [listingId]);
+  if (state === "loading") return <p className="text-sm text-muted">Checking trial nights…</p>;
+  if (state === "off")
+    return (
+      <p className="text-sm text-muted [text-wrap:pretty]" data-testid="trial-unavailable">
+        This owner isn’t offering trial nights right now. You can still request the bed — it’s free and
+        opens a chat with them.
+      </p>
+    );
+  return <TrialNightsBooking listingId={listingId} />;
+}

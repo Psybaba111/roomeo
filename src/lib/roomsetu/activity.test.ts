@@ -7,6 +7,8 @@ import {
   activityStatusLine,
   byGroup,
   groupOf,
+  pinnedPrimaryAction,
+  pinnedStepLine,
   primaryAction,
   type DealFacts,
   type DealLite,
@@ -141,4 +143,81 @@ test("the activity page uses the shared dealSteps logic instead of re-deriving i
   assert.ok(src.includes("getActivityDeals"));
   assert.ok(!src.includes("update applications"), "activity must never write a status");
   assert.ok(!src.includes("setApplication({"), "activity must never change a request status");
+});
+
+// ── Pinned deal card in the chat thread (PR 2) ───────────────────────────────
+
+test("pinned card asks for a signature when the tenant is next", () => {
+  const row = activityRow(deal({ status: "ACCEPTED" }), facts());
+  assert.deepEqual(pinnedPrimaryAction(row), { kind: "sign", label: "Sign agreement" });
+});
+
+test("pinned card asks for the fee once the agreement is issued", () => {
+  const row = activityRow(deal({ status: "ACCEPTED" }), facts({ iSigned: true, issued: true }));
+  assert.deepEqual(pinnedPrimaryAction(row), { kind: "pay", label: "Pay ₹589" });
+});
+
+test("pinned card moves on to move in after the fee is paid", () => {
+  const row = activityRow(deal({ status: "ACCEPTED" }), facts({ iSigned: true, issued: true, feePaid: true }));
+  assert.deepEqual(pinnedPrimaryAction(row), { kind: "movein", label: "Move in" });
+});
+
+test("pinned card never offers a dead button once the deal is done", () => {
+  const moved = activityRow(deal({ status: "ACCEPTED" }), facts({ iSigned: true, issued: true, feePaid: true, movedIn: true }));
+  assert.equal(pinnedPrimaryAction(moved).kind, "done");
+  for (const status of ["DECLINED", "WITHDRAWN"]) {
+    assert.equal(pinnedPrimaryAction(activityRow(deal({ status }), facts())).kind, "done", status);
+  }
+});
+
+test("pinned card waits quietly instead of nagging when the ball is with the owner", () => {
+  const waiting = activityRow(deal({ status: "PENDING" }), facts());
+  assert.equal(pinnedPrimaryAction(waiting).kind, "wait");
+  const signedByMe = activityRow(deal({ status: "ACCEPTED" }), facts({ iSigned: true }));
+  assert.equal(pinnedPrimaryAction(signedByMe).kind, "wait");
+});
+
+test("pinned card and Activity agree on the same current step", () => {
+  const cases = [
+    facts(),
+    facts({ iSigned: true }),
+    facts({ iSigned: true, issued: true }),
+    facts({ iSigned: true, issued: true, feePaid: true }),
+    facts({ iSigned: true, issued: true, feePaid: true, movedIn: true }),
+  ];
+  for (const f of cases) {
+    const row = activityRow(deal({ status: "ACCEPTED" }), f);
+    const pinned = pinnedPrimaryAction(row);
+    // The pinned card must never claim an action the Activity row would not.
+    if (row.group === "done") assert.equal(pinned.kind, "done");
+    if (row.group === "waiting") assert.equal(pinned.kind, "wait");
+    if (row.group === "needs-you" && row.current?.key === "pay") assert.equal(pinned.kind, "pay");
+    if (row.group === "needs-you" && row.current?.key === "movein") assert.equal(pinned.kind, "movein");
+  }
+});
+
+test("step counter reads 1..N and finishes on the last step", () => {
+  const first = pinnedStepLine(activityRow(deal({ status: "ACCEPTED" }), facts()).steps);
+  assert.deepEqual(first, { label: "Sign agreement", index: 2, total: 4 });
+  const issued = pinnedStepLine(activityRow(deal({ status: "ACCEPTED" }), facts({ iSigned: true, issued: true })).steps);
+  assert.deepEqual(issued, { label: "Pay fee", index: 3, total: 4 });
+  const done = pinnedStepLine(activityRow(deal({ status: "ACCEPTED" }), facts({ iSigned: true, issued: true, feePaid: true, movedIn: true })).steps);
+  assert.equal(done.label, "Done");
+  assert.equal(done.index, done.total);
+});
+
+test("the chat thread renders the shared pinned card, not its own step logic", () => {
+  const src = readFileSync(new URL("../../routes/messages.tsx", import.meta.url), "utf8");
+  assert.ok(src.includes("PinnedDealCard"), "uses the shared component");
+  assert.ok(!src.includes("dealSteps("), "messages must not re-derive steps");
+  assert.ok(src.includes("pinnedRequestFor"), "still pins the matching request");
+});
+
+test("a pending request never pretends to be at the signing step", () => {
+  const row = activityRow(deal({ status: "PENDING" }), facts());
+  const line = pinnedStepLine(row.steps, "PENDING");
+  assert.equal(line.label, "Request sent");
+  assert.equal(line.index, 1);
+  // The pinned button is a status line, not an action.
+  assert.equal(pinnedPrimaryAction(row).kind, "wait");
 });
