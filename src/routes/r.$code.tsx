@@ -28,7 +28,7 @@ function Invite() {
   }, [code]);
   useEffect(() => {
     if (valid) localStorage.setItem(REF_STORAGE_KEY, valid);
-    if (valid && user) void navigate({ to: "/dashboard" });
+    if (valid && user) void navigate({ to: "/activity" });
   }, [valid, user, navigate]);
   return (
     <Shell>

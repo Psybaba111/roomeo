@@ -1121,7 +1121,7 @@ export const applyToListing = createServerFn({ method: "POST" })
       [crypto.randomUUID(), data.id, context.userId, listing[0].owner_id, note],
     );
     if (!host[0].is_demo) {
-      await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${listing[0].owner_id}, 'application', 'New room request', ${note.slice(0, 140)}, '/applications')`;
+      await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${listing[0].owner_id}, 'application', 'New room request', ${note.slice(0, 140)}, '/inbox')`;
     }
     if (!host[0].is_demo) {
       const ownerPhone = await verifiedPhone(sql, listing[0].owner_id);
@@ -1224,7 +1224,7 @@ export const setApplication = createServerFn({ method: "POST" })
         data.status === "ACCEPTED"
           ? "The host accepted your visit. You can keep talking in messages."
           : "The host declined this visit request.";
-      await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${row.seeker_id}, 'application', ${title}, ${body}, '/applications')`;
+      await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${row.seeker_id}, 'application', ${title}, ${body}, '/activity')`;
       if (data.status === "ACCEPTED") {
         const info = await sql<{
           title: string;
