@@ -87,3 +87,64 @@ export const getActivityDeals = createServerFn({ method: "GET" })
       }),
     };
   });
+
+/**
+ * Read-only snapshot for ONE deal, for the pinned card in a chat thread.
+ *
+ * Works for either side (renter or owner) because the thread exists for both.
+ * Returns the same `DealFacts` shape `/activity` uses, so the pinned card runs
+ * through the identical dealSteps() path. Nothing is written here.
+ */
+export const getDealSnapshot = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => {
+    const id = input && typeof input === "object" ? (input as Record<string, unknown>).applicationId : input;
+    if (typeof id !== "string" || !/^[0-9A-Za-z_-]{6,80}$/.test(id)) throw new Error("Unknown request.");
+    return { applicationId: id };
+  })
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const cfg = pricingConfig();
+    const feeOn = cfg.successFeeEnabled && cfg.successFeeTenantInr > 0;
+    const listTotal = feeWithGst(cfg.successFeeTenantInr).total;
+    const rows = await sql.query<Record<string, unknown>>(
+      `select a.id, a.status, a.seeker_id, a.host_id,
+              d.seeker_signed_at is not null as seeker_signed,
+              d.owner_signed_at is not null as owner_signed,
+              d.issued_at is not null as issued,
+              d.cancelled_at is not null as cancelled,
+              mi.confirmed_at is not null as moved_in,
+              (select p.status from payments p where p.agreement_id = d.id and p.user_id = a.seeker_id
+                 and p.kind = 'SUCCESS_FEE' order by p.created_at desc limit 1) as fee_status,
+              (select p.amount_inr from payments p where p.agreement_id = d.id and p.user_id = a.seeker_id
+                 and p.kind = 'SUCCESS_FEE' order by p.created_at desc limit 1) as fee_amount
+       from applications a
+       left join deal_agreements d on d.application_id = a.id
+       left join move_ins mi on mi.application_id = a.id
+       where a.id = $1 and (a.seeker_id = $2 or a.host_id = $2)`,
+      [data.applicationId, context.userId],
+    );
+    const r = rows[0];
+    if (!r) return null;
+    const isOwner = str(r.host_id) === context.userId;
+    const role = isOwner ? ("owner" as const) : ("tenant" as const);
+    const base = isOwner ? cfg.successFeeOwnerInr : cfg.successFeeTenantInr;
+    const hasRow = Boolean(str(r.fee_status));
+    const facts: DealFacts = {
+      iSigned: isOwner ? bool(r.owner_signed) : bool(r.seeker_signed),
+      issued: bool(r.issued),
+      cancelled: bool(r.cancelled),
+      feeOn: feeOn && base > 0,
+      feePaid: str(r.fee_status) === "PAID",
+      feeTotal: hasRow ? num(r.fee_amount) : feeWithGst(base).total || listTotal,
+      movedIn: bool(r.moved_in),
+    };
+    return {
+      applicationId: str(r.id),
+      status: str(r.status),
+      mine: !isOwner,
+      role,
+      facts,
+      otherSigned: isOwner ? bool(r.seeker_signed) : bool(r.owner_signed),
+    };
+  });

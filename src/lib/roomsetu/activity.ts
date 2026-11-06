@@ -140,3 +140,64 @@ export function primaryAction(row: { group: ActivityGroup; deal: { status: strin
 /** Fee line shown once per page, never per row. Kept in one place so it can't drift. */
 export const ACTIVITY_FEE_LINE =
   "₹589 one-time Roomeo fee (₹499 + GST), renter and owner each pay it once, only after the owner says yes. Rent and deposit go straight to the owner.";
+
+/**
+ * The pinned card in a chat thread shows the same deal as its Activity row, so
+ * it reuses `activityRow` and the same `dealSteps()` output. The only
+ * difference is the fallback action: inside the thread, "Chat" is pointless, so
+ * a waiting or finished deal gets a plain status line instead of a button.
+ */
+export type PinnedAction =
+  | { kind: "sign"; label: string }
+  | { kind: "pay"; label: string }
+  | { kind: "movein"; label: string }
+  | { kind: "wait"; label: string }
+  | { kind: "done"; label: string }
+  | { kind: "none"; label: string };
+
+export function pinnedPrimaryAction(row: {
+  group: ActivityGroup;
+  deal: { status: string; mine: boolean };
+  current: DealStep | null;
+}): PinnedAction {
+  if (row.deal.status === "DECLINED") return { kind: "done", label: "Owner couldn't take this one" };
+  if (row.deal.status === "WITHDRAWN") return { kind: "done", label: "You withdrew this request" };
+  if (row.group === "done") return { kind: "done", label: "Moved in — all done 🎉" };
+  if (row.group === "waiting") {
+    const now = row.current;
+    if (now?.key === "sign") return { kind: "wait", label: "Signed ✓ waiting on the owner" };
+    if (now?.key === "pay") return { kind: "wait", label: "Waiting on the owner" };
+    if (now?.key === "movein") return { kind: "wait", label: "Waiting on the owner to confirm" };
+    return { kind: "wait", label: "Waiting on the owner to say yes" };
+  }
+  if (row.deal.status === "PENDING" && !row.deal.mine) return { kind: "none", label: "Accept or decline in your Inbox" };
+  switch (row.current?.key) {
+    case "sign":
+      return row.current.state === "now"
+        ? { kind: "sign", label: "Sign agreement" }
+        : { kind: "wait", label: "Waiting on the owner" };
+    case "pay":
+      return { kind: "pay", label: "Pay ₹589" };
+    case "movein":
+      return { kind: "movein", label: "Move in" };
+    default:
+      return { kind: "done", label: "All done 🎉" };
+  }
+}
+
+/**
+ * One-line step headline for the pinned card, e.g. "Step 2 of 4 · Sign agreement".
+ *
+ * A request that is still PENDING has not been accepted, so naming a later step
+ * would be a lie — it reports the request itself as the current step and counts
+ * from 1 of 4.
+ */
+export function pinnedStepLine(steps: DealStep[], status?: string): { label: string; index: number; total: number } {
+  const total = steps.length;
+  if (status === "PENDING") return { label: "Request sent", index: 1, total };
+  if (status === "DECLINED") return { label: "Declined", index: total, total };
+  if (status === "WITHDRAWN") return { label: "Withdrawn", index: total, total };
+  const idx = steps.findIndex((s) => s.state === "now");
+  if (idx === -1) return { label: "Done", index: total, total };
+  return { label: steps[idx].label, index: idx + 1, total };
+}
