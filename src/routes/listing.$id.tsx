@@ -1,12 +1,13 @@
 import { LOCKED_LOCATION_LINE } from "@/lib/roomsetu/location-gate";
-import { TrialNightsBooking } from "@/components/trial-nights";
+import { TrialNightsSheetBody } from "@/components/trial-nights";
 import { FEE_UNDER_PRICE, REQUEST_CTA, REQUEST_CTA_SIGNED_OUT, isAlreadyRequested, requestSentLine } from "@/lib/roomsetu/booking-cta";
 import { listingHead } from "@/lib/seo";
 import { ContactGate } from "@/components/contact-gate";
 import { SquadShortlistButton } from "@/components/squad-shortlist-button";
+import { mySquads } from "@/lib/roomsetu/squad-api";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { SealCheck as BadgeCheck, BookmarkSimple, ChatCircleDots } from "@phosphor-icons/react";
+import { SealCheck as BadgeCheck, BookmarkSimple, ChatCircleDots, DotsThree, Flag, ShareNetwork, CalendarBlank, Ticket, ArrowSquareOut, UsersThree } from "@phosphor-icons/react";
 import { Shell } from "@/components/shell";
 import { errText, safeNext } from "@/lib/ui-text";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -22,6 +23,8 @@ import {
 import { REPORT_CATEGORIES } from "@/lib/roomsetu/constants";
 import { genderLabel, inr, cardPhoto, whenLabel } from "@/lib/roomsetu/map";
 import { ShareButtons } from "@/components/share-buttons";
+import { Sheet } from "@/components/sheet";
+import { shareNative, shareText, whatsappShareUrl } from "@/lib/share";
 import { depositTerms, headlinePrice, photoDateLabel } from "@/lib/roomsetu/trust";
 import { SITE_URL } from "@/lib/seo";
 
@@ -86,6 +89,35 @@ function ListingPage() {
   return <ListingBody room={room} />;
 }
 
+/**
+ * "Add to squad shortlist" as a menu row. SquadShortlistButton returns null when
+ * the person has no squads; observe that so the row disappears with it instead
+ * of leaving a blank line in the overflow menu.
+ */
+function SquadMenuRow({ listingId }: { listingId: string }) {
+  const [hasSquads, setHasSquads] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void mySquads()
+      .then((rows) => live && setHasSquads(rows.length > 0))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (!hasSquads) return null;
+  return (
+    <li className="py-3">
+      <div className="flex items-center gap-3">
+        <UsersThree size={20} aria-hidden="true" className="shrink-0 text-brand" />
+        <div className="min-w-0 flex-1">
+          <SquadShortlistButton listingId={listingId} />
+        </div>
+      </div>
+    </li>
+  );
+}
+
 type LoadedRoom = Extract<Awaited<ReturnType<typeof getListing>>, { held: false }>;
 
 function ListingBody({ room }: { room: LoadedRoom }) {
@@ -95,7 +127,11 @@ function ListingBody({ room }: { room: LoadedRoom }) {
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [trialOpen, setTrialOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareNote, setShareNote] = useState("");
   const [category, setCategory] = useState<string>(REPORT_CATEGORIES[0]);
   const [requesting, setRequesting] = useState(false);
   const navigate = useNavigate();
@@ -174,7 +210,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
       ) : null}
       <div className="grid gap-8 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-7">
-          <div className="overflow-hidden rounded-3xl border border-line bg-brand-soft">
+          <div className="relative overflow-hidden rounded-3xl border border-line bg-brand-soft">
             {img ? (
               <img
                 src={cardPhoto(img.url, 960) ?? img.url}
@@ -188,6 +224,62 @@ function ListingBody({ room }: { room: LoadedRoom }) {
             ) : (
               <div className="aspect-[4/3]" />
             )}
+            {/* Save / Share / ⋯ sit on the photo so the action column stays calm. */}
+            <div className="absolute right-3 top-3 flex gap-2">
+              <button
+                type="button"
+                aria-label={saved ? "Saved. Tap to remove" : "Save this bed"}
+                aria-pressed={saved}
+                data-testid="save-icon"
+                className={`inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-sm backdrop-blur ${saved ? "border-brand bg-brand text-card" : "border-line bg-card/90 text-ink"}`}
+                onClick={() => {
+                  if (!user) {
+                    sessionStorage.setItem("roomsetu-next", `/listing/${room.id}`);
+                    window.location.href = "/login";
+                    return;
+                  }
+                  void act(
+                    async () => {
+                      if (saved) {
+                        await unsaveListing({ data: room.id });
+                        setSaved(false);
+                      } else {
+                        await saveListing({ data: room.id });
+                        setSaved(true);
+                      }
+                    },
+                    saved ? "Removed from saved" : "Saved 💾",
+                  );
+                }}
+              >
+                <BookmarkSimple size={20} weight={saved ? "fill" : "regular"} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label="Share this bed"
+                data-testid="share-icon"
+                onClick={() => setShareOpen(true)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-card/90 text-ink shadow-sm backdrop-blur"
+              >
+                <ShareNetwork size={20} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label="More options"
+                aria-haspopup="dialog"
+                aria-expanded={menuOpen}
+                data-testid="listing-menu"
+                onClick={() => setMenuOpen(true)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-card/90 text-ink shadow-sm backdrop-blur"
+              >
+                <DotsThree size={24} weight="bold" aria-hidden="true" />
+              </button>
+            </div>
+            {room.images.length > 1 ? (
+              <span className="absolute bottom-3 right-3 rounded-full bg-ink/70 px-2.5 py-1 text-xs font-semibold text-card tabular-nums">
+                {photo + 1} / {room.images.length}
+              </span>
+            ) : null}
           </div>
           {img && photoDateLabel(img.uploadedAt) ? (
             <p className="mt-2 text-xs text-muted" data-testid="photo-date">
@@ -195,7 +287,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
             </p>
           ) : null}
           {room.trust.videoTourUrl ? (
-            <a href={room.trust.videoTourUrl} target="_blank" rel="noopener noreferrer nofollow" className="mt-2 inline-flex h-10 items-center rounded-full border border-line px-4 text-sm font-semibold" data-testid="video-tour-link">
+            <a href={room.trust.videoTourUrl} target="_blank" rel="noopener noreferrer nofollow" className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand underline-offset-4 hover:underline" data-testid="video-tour-link">
               ▶ Watch the video tour
             </a>
           ) : null}
@@ -257,39 +349,6 @@ function ListingBody({ room }: { room: LoadedRoom }) {
               </li>
             ))}
           </ul>
-          <div className="mt-3">
-            <div className="flex items-start gap-2">
-              <ShareButtons compact room={{ ...room, allInInr: room.trust.allInInr }} url={`${SITE_URL}/listing/${room.id}`} />
-              <button
-                type="button"
-                aria-label={saved ? "Saved. Tap to remove" : "Save this bed"}
-                aria-pressed={saved}
-                data-testid="save-icon"
-                className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border ${saved ? "border-brand bg-brand-soft text-brand" : "border-line bg-card"}`}
-                onClick={() => {
-                  if (!user) {
-                    sessionStorage.setItem("roomsetu-next", `/listing/${room.id}`);
-                    window.location.href = "/login";
-                    return;
-                  }
-                  void act(
-                    async () => {
-                      if (saved) {
-                        await unsaveListing({ data: room.id });
-                        setSaved(false);
-                      } else {
-                        await saveListing({ data: room.id });
-                        setSaved(true);
-                      }
-                    },
-                    saved ? "Removed from saved" : "Saved 💾",
-                  );
-                }}
-              >
-                <BookmarkSimple size={22} weight={saved ? "fill" : "regular"} aria-hidden="true" />
-              </button>
-            </div>
-          </div>
           <p className="mt-4 text-4xl font-semibold tabular-nums text-trust" data-testid="headline-price">
             {inr(headlinePrice(room.rent, room.trust.allInInr).amount)}{" "}
             <span className="text-lg font-medium text-muted">/ month{room.trust.allInInr ? " all-in" : ""}</span>
@@ -328,10 +387,14 @@ function ListingBody({ room }: { room: LoadedRoom }) {
             </button>
             <p className="text-center text-xs text-muted">Free to request. Opens a chat with the owner right away 💬</p>
             {user ? <ContactGate listingId={room.id} isDemo={room.isDemo} hideOpen /> : null}
-            {user ? <SquadShortlistButton listingId={room.id} /> : null}
-            <a href="#trial" className="text-center text-sm font-semibold text-brand underline-offset-4 hover:underline" data-testid="trial-link">
-              Not sure yet? Book a trial night · ₹99
-            </a>
+            <button
+              type="button"
+              onClick={() => setTrialOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 text-center text-sm font-semibold text-brand underline-offset-4 hover:underline"
+              data-testid="trial-link"
+            >
+              <Ticket size={16} aria-hidden="true" /> Not sure yet? Book a trial night · ₹99
+            </button>
           </div>
           {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
           {message ? <p className="mt-3 text-sm text-brand-deep">{message}</p> : null}
@@ -414,9 +477,6 @@ function ListingBody({ room }: { room: LoadedRoom }) {
           </div>
         </div>
         <aside className="lg:col-span-5">
-          <div id="trial" className="scroll-mt-24">
-            <TrialNightsBooking listingId={room.id} />
-          </div>
           <div className="rounded-3xl border border-line bg-card p-4">
             <p className="text-sm text-muted">Host</p>
             <h2 className="font-display text-2xl">{room.host.name}</h2>
@@ -444,58 +504,6 @@ function ListingBody({ room }: { room: LoadedRoom }) {
               </p>
             ) : null}
           </div>
-          <div className="mt-4">
-            <button
-              type="button"
-              className="text-sm font-semibold text-danger"
-              onClick={() => setReportOpen((v) => !v)}
-            >
-              Report this listing
-            </button>
-            {reportOpen ? (
-              <form
-                className="mt-3 space-y-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!user && !isPending) {
-                    sessionStorage.setItem("roomsetu-next", safeNext(`/listing/${room.id}`));
-                    window.location.href = "/login";
-                    return;
-                  }
-                  void act(
-                    () =>
-                      fileReport({
-                        data: { targetType: "LISTING", targetId: room.id, category, note },
-                      }),
-                    "Report filed for review",
-                  );
-                }}
-              >
-                <select
-                  className="h-12 w-full rounded-xl border border-line bg-paper px-3"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                >
-                  {REPORT_CATEGORIES.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
-                <textarea
-                  className="w-full rounded-xl border border-line bg-paper p-3"
-                  rows={3}
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="What looks wrong?"
-                />
-                <button
-                  className="h-11 rounded-full bg-ink px-4 text-sm font-semibold text-card"
-                  type="submit"
-                >
-                  Send report
-                </button>
-              </form>
-            ) : null}
-          </div>
           <Link
             to="/search"
             search={{
@@ -517,6 +525,192 @@ function ListingBody({ room }: { room: LoadedRoom }) {
           </Link>
         </aside>
       </div>
+      {/* Secondary actions live here so the page has one clear CTA. */}
+      <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="More options" testId="listing-menu-sheet" labelledBy="listing-menu-title">
+        <ul className="min-w-0 divide-y divide-line">
+          <li>
+            <button
+              type="button"
+              data-testid="menu-trial"
+              className="flex w-full min-w-0 items-center gap-3 py-3 text-left"
+              onClick={() => {
+                setMenuOpen(false);
+                setTrialOpen(true);
+              }}
+            >
+              <Ticket size={20} aria-hidden="true" className="shrink-0 text-brand" />
+              <span className="min-w-0">
+                <span className="block font-semibold">Book a trial night · ₹99</span>
+                <span className="block text-xs text-muted">Stay 1–3 nights before you commit.</span>
+              </span>
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              data-testid="menu-share"
+              className="flex w-full min-w-0 items-center gap-3 py-3 text-left"
+              onClick={() => {
+                setMenuOpen(false);
+                setShareOpen(true);
+              }}
+            >
+              <ShareNetwork size={20} aria-hidden="true" className="shrink-0 text-brand" />
+              <span className="min-w-0">
+                <span className="block font-semibold">Share this bed</span>
+                <span className="block text-xs text-muted">WhatsApp, or copy the link.</span>
+              </span>
+            </button>
+          </li>
+          {room.trust.videoTourUrl ? (
+            <li>
+              <a
+                href={room.trust.videoTourUrl}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                data-testid="menu-video-tour"
+                className="flex w-full min-w-0 items-center gap-3 py-3 text-left"
+              >
+                <ArrowSquareOut size={20} aria-hidden="true" className="shrink-0 text-brand" />
+                <span className="min-w-0">
+                  <span className="block font-semibold">Watch the video tour</span>
+                  <span className="block text-xs text-muted">Opens on the owner&apos;s link.</span>
+                </span>
+              </a>
+            </li>
+          ) : null}
+          {user ? (
+            // The squad button renders nothing when the person has no squads, so the
+            // row itself is hidden then too (no empty menu line).
+            <SquadMenuRow listingId={room.id} />
+          ) : null}
+          <li>
+            <button
+              type="button"
+              data-testid="menu-report"
+              className="flex w-full min-w-0 items-center gap-3 py-3 text-left text-danger"
+              onClick={() => {
+                setMenuOpen(false);
+                setReportOpen(true);
+              }}
+            >
+              <Flag size={20} aria-hidden="true" className="shrink-0" />
+              <span className="min-w-0">
+                <span className="block font-semibold">Report this listing</span>
+                <span className="block text-xs text-muted">Something off? Tell us.</span>
+              </span>
+            </button>
+          </li>
+          <li>
+            <Link
+              to="/search"
+              search={{
+                city: room.city,
+                locality: "",
+                maxRent: "",
+                roomType: "",
+                furnished: "",
+                gender: "",
+                food: "",
+                kind: "",
+                sort: "recommended",
+                q: "",
+                availableBy: "",
+              }}
+              data-testid="menu-more-rooms"
+              className="flex w-full min-w-0 items-center gap-3 py-3 text-left"
+            >
+              <CalendarBlank size={20} aria-hidden="true" className="shrink-0 text-brand" />
+              <span className="min-w-0">
+                <span className="block font-semibold">More rooms in {room.city}</span>
+                <span className="block text-xs text-muted">Same area, other beds.</span>
+              </span>
+            </Link>
+          </li>
+        </ul>
+      </Sheet>
+
+      <Sheet open={shareOpen} onClose={() => setShareOpen(false)} title="Share this bed" testId="share-sheet" labelledBy="share-sheet-title">
+        <p className="text-sm text-muted">Send it to the gang. No account needed to open the link.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a
+            href={whatsappShareUrl(shareText({ title: room.title, locality: room.locality, rent: room.rent, allInInr: room.trust.allInInr }), `${SITE_URL}/listing/${room.id}`)}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="share-whatsapp"
+            className="inline-flex h-11 items-center gap-2 rounded-full bg-[#14532d] px-4 text-sm font-semibold text-white"
+          >
+            WhatsApp
+          </a>
+          <button
+            type="button"
+            data-testid="share-more"
+            className="inline-flex h-11 items-center gap-2 rounded-full border border-line bg-card px-4 text-sm font-semibold"
+            onClick={() =>
+              void shareNative({
+                title: room.title,
+                text: shareText({ title: room.title, locality: room.locality, rent: room.rent, allInInr: room.trust.allInInr }),
+                url: `${SITE_URL}/listing/${room.id}`,
+              }).then((r) =>
+                setShareNote(r === "copied" ? "Link copied. Paste it in your story or DM ✨" : r === "unavailable" ? "Copy the link from the address bar." : ""),
+              )
+            }
+          >
+            Instagram / more
+          </button>
+        </div>
+        {shareNote ? <p className="mt-2 text-xs text-muted" role="status">{shareNote}</p> : null}
+        <div className="mt-4">
+          <ShareButtons room={{ ...room, allInInr: room.trust.allInInr }} url={`${SITE_URL}/listing/${room.id}`} />
+        </div>
+      </Sheet>
+
+      <Sheet open={trialOpen} onClose={() => setTrialOpen(false)} title="Book a trial night" testId="trial-sheet" labelledBy="trial-sheet-title">
+        <TrialNightsSheetBody listingId={room.id} />
+      </Sheet>
+
+      <Sheet open={reportOpen} onClose={() => setReportOpen(false)} title="Report this listing" testId="report-sheet" labelledBy="report-sheet-title">
+        <form
+          className="space-y-2"
+          data-testid="report-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!user && !isPending) {
+              sessionStorage.setItem("roomsetu-next", safeNext(`/listing/${room.id}`));
+              window.location.href = "/login";
+              return;
+            }
+            void act(
+              () => fileReport({ data: { targetType: "LISTING", targetId: room.id, category, note } }),
+              "Report filed for review",
+            );
+            setReportOpen(false);
+          }}
+        >
+          <select
+            aria-label="What's wrong"
+            className="h-12 w-full rounded-xl border border-line bg-paper px-3"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            {REPORT_CATEGORIES.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+          <textarea
+            className="w-full rounded-xl border border-line bg-paper p-3"
+            rows={3}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="What looks wrong?"
+            aria-label="What looks wrong"
+          />
+          <button className="h-11 w-full rounded-full bg-ink px-4 text-sm font-semibold text-card" type="submit" data-testid="report-submit">
+            Send report
+          </button>
+        </form>
+      </Sheet>
+
       <div className="h-24 md:hidden" aria-hidden="true" />
       <div
         className="fixed inset-x-0 bottom-16 z-20 border-t border-line bg-card/95 px-4 py-2 backdrop-blur md:hidden"

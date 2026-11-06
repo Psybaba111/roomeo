@@ -99,7 +99,7 @@ function OwnerInbox() {
         const s = await getInboxSummary();
         if (!live) return;
         if (!s.isOwner) {
-          void navigate({ to: "/dashboard", replace: true });
+          void navigate({ to: "/activity", replace: true });
           return;
         }
         await load();
@@ -273,8 +273,8 @@ function OwnerInbox() {
           ))}
         </Section>
         <p className="mt-6 text-sm text-muted">
-          Need saved beds, plans or earnings? <Link to="/dashboard" className="font-semibold text-brand">Your desk</Link> ·{" "}
-          <Link to="/saved" className="font-semibold text-brand">Saved</Link>
+          Need your beds, plans or saved list? <Link to="/dashboard" className="font-semibold text-brand">My beds</Link> ·{" "}
+          <Link to="/search" search={{ city: "", locality: "", maxRent: "", roomType: "", furnished: "", gender: "", food: "", kind: "", sort: "recommended", q: "", availableBy: "", saved: "1" }} className="font-semibold text-brand">Saved</Link>
         </p>
       </div>
     </Shell>

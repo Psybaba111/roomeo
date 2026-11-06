@@ -1,6 +1,6 @@
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
 import { RoomCard, control } from "@/components/cards";
@@ -10,10 +10,13 @@ import { areaPins, type Centroid } from "@/lib/roomsetu/area-pins";
 import { AreaMap } from "@/components/area-map";
 import { EmptyBeds } from "@/components/empty-beds";
 import { RoomGridSkeleton } from "@/components/skeletons";
-import { rememberSearch } from "@/lib/roomsetu/account-api";
+import { listSaved, rememberSearch } from "@/lib/roomsetu/account-api";
+import { Heart, UsersThree } from "@phosphor-icons/react";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { CityPicker } from "@/components/city-picker";
 import { cityInfo, citySeoDescription, citySeoTitle, searchCity } from "@/lib/roomsetu/cities";
+
+const cardBox = "rounded-3xl border border-line bg-card p-4";
 
 function textParam(value: unknown): string {
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -25,7 +28,21 @@ export const Route = createFileRoute("/search")({
     const city = searchCity((match.search as { city?: string } | undefined)?.city);
     return pageHead(citySeoTitle(city), { description: citySeoDescription(city) });
   },
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): {
+    city: string;
+    locality: string;
+    maxRent: string;
+    roomType: string;
+    furnished: string;
+    gender: string;
+    food: string;
+    kind: string;
+    sort: string;
+    q: string;
+    availableBy: string;
+  } & { /** "1" when the Saved filter is on. Absent otherwise, so URLs stay clean. */
+    saved?: string;
+  } => ({
     city: searchCity(textParam(search.city)),
     locality: textParam(search.locality),
     maxRent: textParam(search.maxRent),
@@ -37,6 +54,8 @@ export const Route = createFileRoute("/search")({
     sort: textParam(search.sort) || "recommended",
     q: textParam(search.q),
     availableBy: textParam(search.availableBy),
+    // Saved filter (PR 1): the heart chip narrows the list to bookmarks.
+    ...(search.saved === "1" || search.saved === 1 ? { saved: "1" } : {}),
   }),
   component: SearchPage,
 });
@@ -52,6 +71,7 @@ function SearchPage() {
   const [view, setView] = useState<"list" | "map">("list");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [centroids, setCentroids] = useState<Centroid[]>([]);
+  const [savedRooms, setSavedRooms] = useState<Awaited<ReturnType<typeof listSaved>> | null>(null);
 
   const city = searchCity(initial.city);
   const info = cityInfo(city);
@@ -116,11 +136,27 @@ function SearchPage() {
     );
   }, [user, initial.city, initial.roomType]);
 
+  const savedOn = initial.saved === "1";
+
+  useEffect(() => {
+    if (!savedOn || !user) {
+      setSavedRooms(null);
+      return;
+    }
+    let live = true;
+    void listSaved()
+      .then((rows) => live && setSavedRooms(rows))
+      .catch(() => live && setSavedRooms([]));
+    return () => {
+      live = false;
+    };
+  }, [savedOn, user]);
+
   const localities = cities.find((c) => c.name === city)?.localities ?? [];
 
   const activeFilters = (
     ["locality", "maxRent", "roomType", "furnished", "gender", "food", "kind", "availableBy", "q"] as const
-  ).filter((k) => initial[k]).length;
+  ).filter((k) => initial[k]).length + (initial.saved ? 1 : 0);
 
   useEffect(() => {
     if (!filtersOpen) return;
@@ -323,6 +359,16 @@ function SearchPage() {
                 <span className="rounded-full bg-pop px-2 text-xs text-card">{activeFilters}</span>
               ) : null}
             </button>
+            <button
+              type="button"
+              aria-pressed={savedOn}
+              data-testid="filter-saved"
+              onClick={() => set("saved", savedOn ? "" : "1")}
+              className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold ${savedOn ? "border-brand bg-brand text-card" : "border-line bg-card"}`}
+            >
+              <Heart className="h-4 w-4" weight={savedOn ? "fill" : "regular"} />
+              Saved
+            </button>
             <div
               role="tablist"
               aria-label="View"
@@ -342,6 +388,14 @@ function SearchPage() {
                 </button>
               ))}
             </div>
+            <Link
+              to="/squads"
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-line bg-card px-4 text-sm font-semibold"
+              data-testid="beds-squads-link"
+            >
+              <UsersThree className="h-4 w-4" />
+              Hunting with friends?
+            </Link>
           </div>
           {view === "map" && rooms ? (
             <div className="mb-4" id="search-map-panel" role="tabpanel" aria-label="Map of beds by area">
@@ -352,8 +406,23 @@ function SearchPage() {
               />
             </div>
           ) : null}
-          {loading ? <RoomGridSkeleton /> : null}
-          {!loading && rooms && rooms.listings.length === 0 ? (
+          {savedOn ? (
+            savedRooms === null ? (
+              <RoomGridSkeleton />
+            ) : savedRooms.length === 0 ? (
+              <p className={`${cardBox} text-sm`} data-testid="saved-empty">
+                Nothing saved yet. Tap the heart on a bed you might visit.
+              </p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2" data-testid="saved-grid">
+                {savedRooms.map((room) => (
+                  <RoomCard key={room.id} room={room} />
+                ))}
+              </div>
+            )
+          ) : null}
+          {!savedOn && loading ? <RoomGridSkeleton /> : null}
+          {!savedOn && !loading && rooms && rooms.listings.length === 0 ? (
             activeFilters ? (
               <div className="space-y-3">
                 <p className="rounded-3xl border border-line bg-card p-4 text-sm">
@@ -365,16 +434,18 @@ function SearchPage() {
               <EmptyBeds area={city} />
             )
           ) : null}
-          {!loading && rooms && rooms.listings.length > 0 && rooms.listings.length < 3 ? (
+          {!savedOn && !loading && rooms && rooms.listings.length > 0 && rooms.listings.length < 3 ? (
             <div className="mt-4">
               <EmptyBeds area={initial.locality || "your area"} compact />
             </div>
           ) : null}
-          <div className="grid gap-4 sm:grid-cols-2">
-            {rooms?.listings.map((room) => (
-              <RoomCard key={room.id} room={room} />
-            ))}
-          </div>
+          {!savedOn ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {rooms?.listings.map((room) => (
+                <RoomCard key={room.id} room={room} />
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </Shell>

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { adminRedirect, rolesAreAdmin } from "./admin-gate.ts";
 
 test("non-admins are sent away from /admin", () => {
-  assert.equal(adminRedirect({ signedIn: true, isAdmin: false }), "/dashboard");
+  assert.equal(adminRedirect({ signedIn: true, isAdmin: false }), "/activity");
   assert.equal(adminRedirect({ signedIn: true, isAdmin: true }), null);
   assert.equal(adminRedirect({ signedIn: false, isAdmin: false }), null);
 });

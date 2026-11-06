@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as AdminClaimRouteImport } from './routes/admin-claim'
 import { Route as ApplicationsRouteImport } from './routes/applications'
 import { Route as CreateListingRouteImport } from './routes/create-listing'
@@ -57,6 +58,11 @@ import { Route as ApiOgListingIdRouteImport } from './routes/api/og/listing.$id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivityRoute = ActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminClaimRoute = AdminClaimRouteImport.update({
@@ -277,6 +283,7 @@ const ApiOgListingIdRoute = ApiOgListingIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
   '/admin-claim': typeof AdminClaimRoute
   '/applications': typeof ApplicationsRoute
   '/create-listing': typeof CreateListingRoute
@@ -323,6 +330,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
   '/admin-claim': typeof AdminClaimRoute
   '/applications': typeof ApplicationsRoute
   '/create-listing': typeof CreateListingRoute
@@ -370,6 +378,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
   '/admin-claim': typeof AdminClaimRoute
   '/applications': typeof ApplicationsRoute
   '/create-listing': typeof CreateListingRoute
@@ -418,6 +427,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/activity'
     | '/admin-claim'
     | '/applications'
     | '/create-listing'
@@ -464,6 +474,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/activity'
     | '/admin-claim'
     | '/applications'
     | '/create-listing'
@@ -510,6 +521,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/activity'
     | '/admin-claim'
     | '/applications'
     | '/create-listing'
@@ -557,6 +569,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ActivityRoute: typeof ActivityRoute
   AdminClaimRoute: typeof AdminClaimRoute
   ApplicationsRoute: typeof ApplicationsRoute
   CreateListingRoute: typeof CreateListingRoute
@@ -609,6 +622,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/activity': {
+      id: '/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof ActivityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin-claim': {
@@ -917,6 +937,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ActivityRoute: ActivityRoute,
   AdminClaimRoute: AdminClaimRoute,
   ApplicationsRoute: ApplicationsRoute,
   CreateListingRoute: CreateListingRoute,

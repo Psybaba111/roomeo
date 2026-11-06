@@ -18,6 +18,7 @@ import { isNeedPhoneError } from "@/lib/roomsetu/phone-gate";
 import { InlinePhoneVerify } from "@/components/inline-phone-verify";
 import { signedInLine, THREAD_POLL_MS } from "@/lib/roomsetu/inbox";
 import { pinnedRequestFor, requestStatusLabel } from "@/lib/roomsetu/booking-cta";
+import { PinnedDealCard } from "@/components/pinned-deal";
 import { inr } from "@/lib/roomsetu/map";
 
 export const Route = createFileRoute("/messages")({
@@ -142,7 +143,7 @@ function Inbox() {
                       Open chat
                     </button>
                   ) : null}
-                  <Link to="/applications" className="inline-flex h-11 items-center rounded-full border border-line px-4 text-sm font-semibold">
+                  <Link to="/activity" className="inline-flex h-11 items-center rounded-full border border-line px-4 text-sm font-semibold">
                     Deal steps →
                   </Link>
                 </div>
@@ -193,15 +194,17 @@ function Inbox() {
                 </p>
               </div>
               {pinned ? (
-                <div className="mx-3 mt-3 min-w-0 rounded-2xl border-2 border-brand bg-brand-soft px-4 py-3" data-testid="pinned-request">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-brand-deep">📌 Bed request</p>
-                  <p className="mt-1 break-words text-sm font-semibold">{pinned.title}</p>
-                  <p className="text-xs text-muted">{inr(pinned.rent)}/mo · {inr(pinned.deposit)} deposit to the owner</p>
-                  <p className="mt-1 text-sm">{requestStatusLabel(pinned.status, pinned.mine)}</p>
-                  <Link to="/applications" className="mt-2 inline-flex h-10 items-center rounded-full bg-card px-4 text-sm font-semibold">
-                    {pinned.mine ? "See deal steps →" : "Accept or decline →"}
-                  </Link>
-                </div>
+                <PinnedDealCard
+                  request={{
+                    id: pinned.id,
+                    listingId: pinned.listingId,
+                    title: pinned.title,
+                    rent: pinned.rent,
+                    deposit: pinned.deposit,
+                    status: pinned.status,
+                    mine: pinned.mine,
+                  }}
+                />
               ) : null}
               <ul className="flex min-w-0 flex-1 flex-col gap-2 p-4">
                 {msgs.map((m) => (

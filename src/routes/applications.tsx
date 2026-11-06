@@ -8,43 +8,10 @@ import { errText } from "@/lib/ui-text";
 import { listApplications, openConversation, setApplication } from "@/lib/roomsetu/account-api";
 import { inr } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { confirmMoveIn, myMoveIns } from "@/lib/roomsetu/pricing-api";
+import { myMoveIns } from "@/lib/roomsetu/pricing-api";
+import { MoveIn as MoveInConfirm } from "@/components/move-in-confirm";
 import { DealAgreement } from "@/components/deal-agreement";
-import { btnSmallPrimary, errorBox, inner } from "@/components/ui-tokens";
-
-type MoveInfo = Awaited<ReturnType<typeof myMoveIns>>;
-
-/** Both sides confirm the move in. The success fee (off at launch) shows only after both confirm. */
-function MoveIn({ applicationId, mine, info, reload }: { applicationId: string; mine: boolean; info: MoveInfo | null; reload: () => void }) {
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const m = info?.items.find((i) => i.applicationId === applicationId);
-  const meDone = mine ? m?.seekerConfirmed : m?.ownerConfirmed;
-  return (
-    <div className={`mt-4 text-sm ${inner}`} data-testid="move-in">
-      {m?.confirmed ? (
-        <p className="font-semibold" data-testid="move-in-confirmed">Move in confirmed by both of you.</p>
-      ) : meDone ? (
-        <p>You confirmed. Waiting for the {mine ? "owner" : "tenant"} to confirm.</p>
-      ) : (
-        <button
-          type="button"
-          disabled={busy}
-          className={btnSmallPrimary}
-          data-testid="confirm-move-in"
-          onClick={() => {
-            setBusy(true);
-            setError("");
-            void confirmMoveIn({ data: { applicationId } }).then(reload).catch((e) => setError(errText(e))).finally(() => setBusy(false));
-          }}
-        >
-          Confirm move in
-        </button>
-      )}
-      {error ? <p className={`mt-2 ${errorBox}`} role="alert">{error}</p> : null}
-    </div>
-  );
-}
+import { errorBox } from "@/components/ui-tokens";
 
 export const Route = createFileRoute("/applications")({
   head: () => pageHead("Room requests", { noindex: true }),
@@ -60,7 +27,7 @@ function Apps() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<Awaited<ReturnType<typeof listApplications>>>([]);
   const [error, setError] = useState("");
-  const [moves, setMoves] = useState<MoveInfo | null>(null);
+  const [moves, setMoves] = useState<Awaited<ReturnType<typeof myMoveIns>> | null>(null);
   const [rowErr, setRowErr] = useState<{ id: string; msg: string } | null>(null);
   function loadMoves() {
     void myMoveIns().then(setMoves).catch(() => undefined);
@@ -92,7 +59,7 @@ function Apps() {
                 {row.status === "ACCEPTED" && !row.demo ? (
                   <>
                     <DealAgreement dealRef={{ kind: "app", id: row.id }} />
-                    <MoveIn applicationId={row.id} mine={row.mine} info={moves} reload={loadMoves} />
+                    <MoveInConfirm applicationId={row.id} mine={row.mine} info={moves} reload={loadMoves} />
                   </>
                 ) : null}
                 {row.demo ? <p className="mt-2 text-sm text-muted">Sample room. Rent is not collected here.</p> : null}

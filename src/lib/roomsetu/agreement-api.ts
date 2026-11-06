@@ -135,7 +135,7 @@ export const signDealAgreement = createServerFn({ method: "POST" })
     if (a?.issued_at) {
       for (const u of [d.ownerId, ...d.tenantIds].filter((x) => x !== context.userId)) {
         await sql.query(`insert into notifications (id, user_id, kind, title, body, href) values ($1,$2,'application','Agreement signed by everyone 🎉','Your Roomeo agreement is issued. Next up: the one-time fee, then move in.',$3)`,
-          [crypto.randomUUID(), u, data.ref.kind === "squad" ? "/squads" : "/applications"]);
+          [crypto.randomUUID(), u, data.ref.kind === "squad" ? "/squads" : "/activity"]);
       }
       // WhatsApp (best effort, no-op unless MAPPSTORE_NOTIFY_ENABLED + MAPPSTORE_TPL_AGREEMENT_SIGNED are set):
       // every signer, verified phones only.

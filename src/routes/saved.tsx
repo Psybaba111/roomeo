@@ -1,38 +1,30 @@
 import { pageHead } from "@/lib/seo";
-import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { NeedAccount } from "@/components/need-account";
-import { Shell } from "@/components/shell";
-import { errText } from "@/lib/ui-text";
-import { RoomCard } from "@/components/cards";
-import { listSaved } from "@/lib/roomsetu/account-api";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+/**
+ * Saved beds live inside Beds now (the heart filter). This route is kept so
+ * bookmarks, notifications and older links still land on the right list.
+ */
 export const Route = createFileRoute("/saved")({
   head: () => pageHead("Saved beds", { noindex: true }),
-  component: () => (
-    <NeedAccount next="/saved">
-      <Saved />
-    </NeedAccount>
-  ),
+  beforeLoad: () => {
+    throw redirect({
+      to: "/search",
+      search: {
+        city: "",
+        locality: "",
+        maxRent: "",
+        roomType: "",
+        furnished: "",
+        gender: "",
+        food: "",
+        kind: "",
+        sort: "recommended",
+        q: "",
+        availableBy: "",
+        saved: "1",
+      },
+      replace: true,
+    });
+  },
 });
-
-function Saved() {
-  const { user } = useCurrentUserState();
-  const [rooms, setRooms] = useState<Awaited<ReturnType<typeof listSaved>>>([]);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    if (!user) return;
-    void listSaved().then(setRooms).catch((e) => setError(errText(e)));
-  }, [user]);
-  return (
-    <Shell>
-      <h1 className="font-display text-4xl">Saved rooms</h1>
-      {error ? <p className="mt-3 text-danger">{error}</p> : null}
-      {rooms.length === 0 ? <p className="mt-4 text-muted">Nothing saved yet. Tap Save on a room you might visit.</p> : null}
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {rooms.map((room) => <RoomCard key={room.id} room={room} />)}
-      </div>
-    </Shell>
-  );
-}

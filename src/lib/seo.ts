@@ -16,6 +16,7 @@ export function robotsTxt(base: string): string {
     "/admin",
     "/admin/",
     "/dashboard",
+    "/activity",
     "/messages",
     "/applications",
     "/profile",

@@ -1,7 +1,7 @@
 /** Where a visitor to /admin/* should go. null = let them in (or let NeedAccount ask them to sign in). */
-export function adminRedirect(state: { signedIn: boolean; isAdmin: boolean }): "/dashboard" | null {
+export function adminRedirect(state: { signedIn: boolean; isAdmin: boolean }): "/activity" | null {
   if (!state.signedIn) return null;
-  return state.isAdmin ? null : "/dashboard";
+  return state.isAdmin ? null : "/activity";
 }
 
 export function rolesAreAdmin(roles: string[], accountStatus?: string): boolean {
