@@ -2,10 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   TRIAL_FEE_INR, feeAfterTrialCredit, inclusiveGstSplit, trialCheckOut, trialCreditEligible, trialFeeBreakdown, trialFeeText,
-  trialNightsEnabled, trialStayTotal, validCheckIn, validNightlyPrice, validNights,
+  showTrialPrompt, trialNightsEnabled, trialStayTotal, validCheckIn, validNightlyPrice, validNights,
 } from "./trial-nights.ts";
 import { testDb, seedListing } from "./pgtest.ts";
-import { bookTrial, confirmTrialFromPayment, findTrialCredit, markTrialIdChecked, setListingTrial, tenantFeeWithTrialCredit, adminTrialBookings } from "./trial-db.ts";
+import { readFileSync } from "node:fs";
+import { bookTrial, confirmTrialFromPayment, findTrialCredit, listingTrial, markTrialIdChecked, setListingTrial, tenantFeeWithTrialCredit, adminTrialBookings } from "./trial-db.ts";
 
 test("₹99 incl. GST splits exactly into ₹83.90 + ₹15.10", () => {
   const f = trialFeeBreakdown();
@@ -86,4 +87,34 @@ test("book → admin approves ₹99 → confirmed → ID check → one-time cred
   assert.ok(list[0].idCheckedAt);
   assert.equal(list[0].creditedOn, "RMFEE00001");
   await pg.close();
+});
+
+test("trial prompt is per listing: switching one listing off hides only that one", async () => {
+  const { pg, sql } = await testDb();
+  await seedListing(pg, "MUD1");
+  await seedListing(pg, "OTHER1");
+  // New listings start with trials off (owner opts in), so no prompt by default.
+  assert.equal((await listingTrial(sql, "MUD1"))?.enabled, false);
+  await setListingTrial(sql, { listingId: "MUD1", ownerId: "owner", enabled: true, nightlyInr: 500 });
+  await setListingTrial(sql, { listingId: "OTHER1", ownerId: "owner", enabled: true, nightlyInr: 500 });
+  await setListingTrial(sql, { listingId: "MUD1", ownerId: "owner", enabled: false });
+  assert.equal((await listingTrial(sql, "MUD1"))?.enabled, false);
+  assert.equal((await listingTrial(sql, "OTHER1"))?.enabled, true);
+  await pg.close();
+});
+
+test("showTrialPrompt: only a bookable trial shows the prompt", () => {
+  assert.equal(showTrialPrompt({ available: true }), true);
+  assert.equal(showTrialPrompt({ available: false }), false);
+  assert.equal(showTrialPrompt(null), false);
+  assert.equal(showTrialPrompt(undefined), false);
+});
+
+test("listing page has no unconditional trial-night link", () => {
+  const page = readFileSync(new URL("../../routes/listing.$id.tsx", import.meta.url), "utf8");
+  assert.ok(!page.includes("Book a trial night"), "trial link text must live in TrialNightsLink, gated per listing");
+  assert.ok(page.includes("<TrialNightsLink listingId={room.id} />"));
+  const comp = readFileSync(new URL("../../components/trial-nights.tsx", import.meta.url), "utf8");
+  assert.match(comp, /setShow\(showTrialPrompt\(t\)\)/);
+  assert.ok(comp.includes("Not sure yet? Book a trial night · ₹99"), "wording unchanged");
 });

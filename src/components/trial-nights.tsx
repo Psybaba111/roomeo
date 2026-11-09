@@ -3,7 +3,7 @@ import { btnSmall, btnSmallPrimary, card, inner, input } from "@/components/ui-t
 import { errText } from "@/lib/ui-text";
 import { confirmTrialIdChecked, getListingTrial, getMyTrialBooking, getOwnerListingTrial, getOwnerTrialBookings, saveListingTrial, startTrialBooking } from "@/lib/roomsetu/trial-api";
 import { UpiCheckout } from "@/components/upi-checkout";
-import { TRIAL_MAX_NIGHTS } from "@/lib/roomsetu/trial-nights";
+import { TRIAL_MAX_NIGHTS, showTrialPrompt } from "@/lib/roomsetu/trial-nights";
 
 const feeLine = (f: { total: number; base: number; gst: number }) => `₹${f.total} incl. GST (₹${f.base.toFixed(2)} + ₹${f.gst.toFixed(2)} GST)`;
 
@@ -71,6 +71,22 @@ export function TrialNightsOwner({ listingId }: { listingId: string }) {
   );
 }
 
+/** "Not sure yet? Book a trial night" link in the listing CTA stack. Same per-listing rule as the card below. */
+export function TrialNightsLink({ listingId }: { listingId: string }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void getListingTrial({ data: listingId }).then((t) => live && setShow(showTrialPrompt(t))).catch(() => live && setShow(false));
+    return () => { live = false; };
+  }, [listingId]);
+  if (!show) return null;
+  return (
+    <a href="#trial" className="text-center text-sm font-semibold text-brand underline-offset-4 hover:underline" data-testid="trial-link">
+      Not sure yet? Book a trial night · ₹99
+    </a>
+  );
+}
+
 /** Student booking card on the listing page. Hidden unless the flag is on and the owner opted in. */
 export function TrialNightsBooking({ listingId }: { listingId: string }) {
   const [t, setT] = useState<Awaited<ReturnType<typeof getListingTrial>> | null>(null);
@@ -83,7 +99,7 @@ export function TrialNightsBooking({ listingId }: { listingId: string }) {
     // Restore an existing booking after a reload. Signed-out visitors just get null.
     void getMyTrialBooking({ data: { listingId } }).then((b) => { if (b) { setPay(b); setNights(b.nights); setCheckIn(b.checkIn); } }).catch(() => undefined);
   }, [listingId]);
-  if (!t?.available) return null;
+  if (!t?.available || !showTrialPrompt(t)) return null;
   async function book() {
     setErr("");
     try {

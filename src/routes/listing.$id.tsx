@@ -1,6 +1,6 @@
 import { LOCKED_LOCATION_LINE } from "@/lib/roomsetu/location-gate";
-import { TrialNightsBooking } from "@/components/trial-nights";
-import { FEE_UNDER_PRICE, REQUEST_CTA, REQUEST_CTA_SIGNED_OUT, isAlreadyRequested, requestSentLine } from "@/lib/roomsetu/booking-cta";
+import { TrialNightsBooking, TrialNightsLink } from "@/components/trial-nights";
+import { FEE_UNDER_PRICE, MESSAGE_CTA, ctaDisabled, isAlreadyRequested, requestCtaLabel, requestSentLine } from "@/lib/roomsetu/booking-cta";
 import { listingHead } from "@/lib/seo";
 import { ContactGate } from "@/components/contact-gate";
 import { sendLead } from "@/lib/analytics/ga4";
@@ -99,16 +99,39 @@ function ListingBody({ room }: { room: LoadedRoom }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [category, setCategory] = useState<string>(REPORT_CATEGORIES[0]);
   const [requesting, setRequesting] = useState(false);
+  const [messaging, setMessaging] = useState(false);
   const navigate = useNavigate();
+  const cta = { requesting, sessionPending: isPending, signedIn: Boolean(user) };
+  const busy = ctaDisabled(cta) || messaging;
+
+  function goSignIn() {
+    sessionStorage.setItem("roomsetu-next", `/listing/${room.id}`);
+    window.location.href = "/login";
+  }
+
+  /** Secondary action: open the chat without sending a bed request. Contact gates still apply server-side. */
+  function messageOwner() {
+    if (isPending || messaging || requesting) return;
+    if (!user) return goSignIn();
+    setMessaging(true);
+    setError("");
+    setMessage("");
+    void openConversation({ data: { listingId: room.id, roomWantedId: "", withUserId: "" } })
+      .then((c) => {
+        sendLead("chat", { listingId: room.id, type: "message_owner" });
+        return navigate({ to: "/messages", search: { thread: c.id } });
+      })
+      .catch((e) => {
+        setError(errText(e));
+        setMessaging(false);
+      });
+  }
 
   /** The one CTA: send the request (existing action, same notifications), then open the chat with the owner. */
   function requestBed() {
-    if (!user) {
-      sessionStorage.setItem("roomsetu-next", `/listing/${room.id}`);
-      window.location.href = "/login";
-      return;
-    }
-    if (requesting) return;
+    if (isPending) return;
+    if (!user) return goSignIn();
+    if (requesting || messaging) return;
     setRequesting(true);
     setError("");
     setMessage("");
@@ -318,22 +341,33 @@ function ListingBody({ room }: { room: LoadedRoom }) {
             <Link to="/pricing" className="font-semibold text-brand">How pricing works</Link>
           </p>
           <div id="contact" className="mt-4 flex scroll-mt-24 flex-col gap-2">
-            <button
-              type="button"
-              disabled={requesting}
-              className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-brand text-base font-semibold text-card transition-transform active:scale-[0.98] disabled:opacity-60"
-              data-testid="request-bed"
-              onClick={requestBed}
-            >
-              <ChatCircleDots size={22} aria-hidden="true" />
-              {requesting ? "Sending your request…" : user ? REQUEST_CTA : REQUEST_CTA_SIGNED_OUT}
-            </button>
+            <div className="grid gap-2 sm:grid-cols-[3fr_2fr]">
+              <button
+                type="button"
+                disabled={busy}
+                aria-busy={isPending || requesting}
+                className={`inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-brand text-base font-semibold text-card transition-transform active:scale-[0.98] disabled:opacity-60 ${isPending ? "animate-pulse motion-reduce:animate-none" : ""}`}
+                data-testid="request-bed"
+                onClick={requestBed}
+              >
+                <ChatCircleDots size={22} aria-hidden="true" />
+                {requestCtaLabel(cta)}
+              </button>
+              {user?.id === room.ownerId ? null : <button
+                type="button"
+                disabled={busy}
+                aria-busy={messaging}
+                className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-full border border-line bg-card text-base font-semibold text-ink transition-transform active:scale-[0.98] disabled:opacity-60"
+                data-testid="message-owner-secondary"
+                onClick={messageOwner}
+              >
+                {messaging ? "Opening chat…" : MESSAGE_CTA}
+              </button>}
+            </div>
             <p className="text-center text-xs text-muted">Free to request. Opens a chat with the owner right away 💬</p>
             {user ? <ContactGate listingId={room.id} isDemo={room.isDemo} hideOpen /> : null}
             {user ? <SquadShortlistButton listingId={room.id} /> : null}
-            <a href="#trial" className="text-center text-sm font-semibold text-brand underline-offset-4 hover:underline" data-testid="trial-link">
-              Not sure yet? Book a trial night · ₹99
-            </a>
+            <TrialNightsLink listingId={room.id} />
           </div>
           {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
           {message ? <p className="mt-3 text-sm text-brand-deep">{message}</p> : null}
@@ -534,12 +568,13 @@ function ListingBody({ room }: { room: LoadedRoom }) {
           </div>
           <button
             type="button"
-            disabled={requesting}
+            disabled={busy}
+            aria-busy={isPending || requesting}
             data-testid="sticky-request-bed"
-            className="h-12 shrink-0 rounded-full bg-brand px-4 text-sm font-semibold text-card transition-transform duration-300 active:scale-[0.98] disabled:opacity-60"
+            className={`h-12 shrink-0 rounded-full bg-brand px-4 text-sm font-semibold text-card transition-transform duration-300 active:scale-[0.98] disabled:opacity-60 ${isPending ? "animate-pulse motion-reduce:animate-none" : ""}`}
             onClick={requestBed}
           >
-            {requesting ? "Sending…" : user ? REQUEST_CTA : REQUEST_CTA_SIGNED_OUT}
+            {requestCtaLabel(cta, true)}
           </button>
         </div>
       </div>
