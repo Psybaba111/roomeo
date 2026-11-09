@@ -12,7 +12,7 @@ import { btnPrimary, btnSecondary, btnSmall } from "@/components/ui-tokens";
 import { readPhotos } from "@/components/photo-upload";
 import { errText } from "@/lib/ui-text";
 import { FURNISHED } from "@/lib/roomsetu/constants";
-import { EDIT_AMENITIES, MAX_PHOTOS, type AmenityKey } from "@/lib/roomsetu/listing-edit";
+import { EDIT_AMENITIES, MAX_PHOTOS, TITLE_MAX, TITLE_MIN, type AmenityKey } from "@/lib/roomsetu/listing-edit";
 import { getListingForEdit, updateListing } from "@/lib/roomsetu/listing-edit-api";
 
 export const Route = createFileRoute("/edit-listing/$id")({
@@ -38,7 +38,7 @@ function EditListing({ id }: { id: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ monthlyRent: "", deposit: "", description: "", furnished: "Furnished", availableFrom: "" });
+  const [form, setForm] = useState({ title: "", monthlyRent: "", deposit: "", description: "", furnished: "Furnished", availableFrom: "" });
   const [trust, setTrust] = useState<TrustForm>(EMPTY_TRUST);
   const [amenities, setAmenities] = useState<Record<AmenityKey, boolean> | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -47,7 +47,7 @@ function EditListing({ id }: { id: string }) {
     void getListingForEdit({ data: { id } })
       .then((r) => {
         setRoom(r);
-        setForm({ monthlyRent: String(r.monthlyRent), deposit: String(r.deposit), description: r.description, furnished: r.furnished, availableFrom: r.availableFrom });
+        setForm({ title: r.title, monthlyRent: String(r.monthlyRent), deposit: String(r.deposit), description: r.description, furnished: r.furnished, availableFrom: r.availableFrom });
         setTrust({ allInInr: r.trust.allInInr ? String(r.trust.allInInr) : "", allInIncludes: r.trust.allInIncludes, videoTourUrl: r.trust.videoTourUrl, depositRefundDays: String(r.trust.depositRefundDays) });
         setAmenities(r.amenities);
         setPhotos(r.photos);
@@ -73,6 +73,7 @@ function EditListing({ id }: { id: string }) {
     void updateListing({
       data: {
         id,
+        title: form.title.trim() === room?.title ? "" : form.title,
         monthlyRent: Number(form.monthlyRent),
         deposit: Number(form.deposit),
         description: form.description,
@@ -131,6 +132,20 @@ function EditListing({ id }: { id: string }) {
           save();
         }}
       >
+        <label className="md:col-span-2">
+          <span className="mb-1 block text-sm text-muted">Title</span>
+          <input
+            className={control}
+            name="title"
+            value={form.title}
+            minLength={TITLE_MIN}
+            maxLength={TITLE_MAX}
+            required
+            onChange={(e) => set("title", e.target.value)}
+            data-testid="edit-title"
+          />
+          <span className="mt-1 block text-xs text-muted">{form.title.trim().length}/{TITLE_MAX}. Say the bed, who it's for and the area, like "4-sharing AC bed for working men · MPT Road".</span>
+        </label>
         <label>
           <span className="mb-1 block text-sm text-muted">Rent per month (₹)</span>
           <input className={control} inputMode="numeric" name="monthlyRent" value={form.monthlyRent} onChange={(e) => set("monthlyRent", e.target.value.replace(/[^\d]/g, ""))} required />

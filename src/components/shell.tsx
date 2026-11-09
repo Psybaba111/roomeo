@@ -108,6 +108,15 @@ export function Shell({ children }: { children: ReactNode }) {
           <Link to="/privacy" className="hover:underline">Privacy</Link>
           <Link to="/terms" className="hover:underline">Terms</Link>
           <Link to="/pricing" className="hover:underline">Pricing</Link>
+          <a
+            href="https://wa.me/919380219117"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+            data-testid="footer-whatsapp"
+          >
+            WhatsApp us: +91 93802 19117
+          </a>
           <span>© 2026 Athiti Hospitality Services Pvt Ltd</span>
         </p>
       </footer>

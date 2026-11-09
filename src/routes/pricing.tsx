@@ -22,7 +22,7 @@ const EMPTY_SEARCH = { city: "", locality: "", maxRent: "", roomType: "", furnis
 const TRUST_PROMISES: { icon: React.ReactNode; title: string; body: string }[] = [
   { icon: <CalendarCheck size={24} aria-hidden="true" />, title: "Dated photos", body: "Every photo shows when it was uploaded. No 2019 pics of a room that looks nothing like that now." },
   { icon: <VideoCamera size={24} aria-hidden="true" />, title: "Video tours", body: "Owners can add a walk-through video, so you see the actual room before you visit." },
-  { icon: <Receipt size={24} aria-hidden="true" />, title: "One all-in price", body: "Rent + food + wifi + power in one monthly number, with what's included spelled out. No surprise add-ons." },
+  { icon: <Receipt size={24} aria-hidden="true" />, title: "One clear price", body: "Rent + wifi + power in one monthly number, with what's included spelled out. Food is optional and priced separately, never sneaked in." },
   { icon: <HandCoins size={24} aria-hidden="true" />, title: "Deposit shown, never held", body: "The deposit is on the listing before you pay a rupee. You pay it directly to the owner. Roomeo never holds it." },
 ];
 
@@ -33,6 +33,7 @@ function Pricing() {
     ["Does Roomeo hold my deposit?", "No. Roomeo shows the deposit on the listing, but you pay it directly to the owner. Roomeo never holds or refunds deposits, and never takes a cut of rent."],
     ["Is the fee refundable?", "Only if the renter moves out within 7 days of paying it. Then the renter's ₹589 (or ₹490 after a trial credit) is refunded to the UPI ID that paid, and the owner's fee too if the stay ended within 7 days of the owner's payment. After that, no refund."],
     ["Is the ₹99 trial night fee refundable?", "No. The ₹99 trial fee is never refunded. If you stay on and sign within 14 days of your trial, it comes off your ₹589 fee once, so you pay ₹490, then monthly rent goes straight to the owner."],
+    ["Is food included at Mud Home Premium PG?", "Food is optional: +₹3,500/mo if you want meals. The bed price covers rent + bills: ₹5,999 (6-sharing), ₹6,999 (4-sharing), ₹7,999 (3-sharing) or ₹8,999 (2-sharing) per bed per month. AC beds for working men on MPT Road, Bunder."],
     ["Why ₹499?", "A broker usually takes a month's rent. ₹499 once beats that on any bed. The next months cost no fee."],
     ["What if the owner doesn't return my deposit?", "The deposit is between you and the owner. Report the owner from the listing and repeat offenders get removed."],
   ];

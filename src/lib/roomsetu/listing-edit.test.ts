@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MAX_PHOTOS, canEditListing, editOf, editQuality, photosToDelete, validKeeps } from "./listing-edit.ts";
+import { MAX_PHOTOS, TITLE_MAX, canEditListing, editOf, editQuality, photosToDelete, titleOf, validKeeps } from "./listing-edit.ts";
 
 const jpeg = "data:image/jpeg;base64," + Buffer.from([0xff, 0xd8, 0xff, 0xe0, ...new Array(60).fill(7)]).toString("base64");
 const ID = "566aab6a-91ba-4d67-acaf-a02a3bcfc0e2";
@@ -48,4 +48,18 @@ test("photo diff keeps only this listing's photos", () => {
   assert.deepEqual(validKeeps(["a", "b"], ["b", "zzz", "a"]), ["b", "a"]);
   assert.equal(editQuality(2, "x".repeat(81), "Furnished"), 79);
   assert.equal(editQuality(10, "", "Unfurnished"), 70);
+});
+
+test("title edit: optional, tidied, length-checked, no phones or links", () => {
+  assert.equal(editOf(base).title, "", "no title sent keeps the current one");
+  assert.equal(editOf({ ...base, title: "   " }).title, "");
+  const t = "Mud Home Premium PG · 4-sharing AC bed for working men · MPT Road, Bunder";
+  assert.equal(editOf({ ...base, title: `  ${t.replace(/ /g, "  ")}\n` }).title, t);
+  assert.ok(t.length <= TITLE_MAX);
+  assert.throws(() => titleOf("Bed"), /8 to 100/);
+  assert.throws(() => titleOf("x".repeat(TITLE_MAX + 1)), /8 to 100/);
+  assert.throws(() => titleOf(42), /Title/);
+  assert.throws(() => titleOf("AC bed, call 93802 19117"), /phone numbers and links/);
+  assert.throws(() => titleOf("AC bed see https://x.co"), /phone numbers and links/);
+  assert.equal(titleOf("6-sharing AC bed for ₹5,999"), "6-sharing AC bed for ₹5,999");
 });

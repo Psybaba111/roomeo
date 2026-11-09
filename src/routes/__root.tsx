@@ -10,7 +10,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "roomeo · spare beds for students & first jobbers" },
+      { title: "roomeo · spare PG beds for working professionals" },
       { name: "description", content: "Spare PG beds in Mangaluru. People choose their own group. Chat free, ₹589 once when you lock a bed. Zero commission on rent." },
       { name: "theme-color", content: "var(--color-brand)" },
     ],
