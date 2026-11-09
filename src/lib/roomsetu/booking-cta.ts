@@ -2,6 +2,24 @@
 
 export const REQUEST_CTA = "Request this bed";
 export const REQUEST_CTA_SIGNED_OUT = "Sign in to request this bed";
+/** Secondary listing action: just open a chat, no bed request. */
+export const MESSAGE_CTA = "Message the owner";
+/** Neutral label while the session is still resolving, so we never flash "Sign in" at a signed-in user. */
+export const CTA_LOADING = "Loading…";
+
+export type CtaState = { requesting: boolean; sessionPending: boolean; signedIn: boolean };
+
+/** Label for the "Request this bed" buttons. `compact` is the sticky bar. */
+export function requestCtaLabel(s: CtaState, compact = false): string {
+  if (s.requesting) return compact ? "Sending…" : "Sending your request…";
+  if (s.sessionPending) return CTA_LOADING;
+  return s.signedIn ? REQUEST_CTA : REQUEST_CTA_SIGNED_OUT;
+}
+
+/** Buttons stay disabled while the session loads or a request is in flight. */
+export function ctaDisabled(s: Pick<CtaState, "requesting" | "sessionPending">): boolean {
+  return s.requesting || s.sessionPending;
+}
 export const FEE_UNDER_PRICE = "₹589 one-time Roomeo fee, only after the owner says yes · rent & deposit go straight to the owner";
 
 /** applyToListing throws this when a live request already exists; we still open the chat. */

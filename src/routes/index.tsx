@@ -4,7 +4,7 @@ import { pageHead, SHARE_DESCRIPTION } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Shell } from "@/components/shell";
-import { RoomCard } from "@/components/cards";
+import { BedCarousel } from "@/components/bed-carousel";
 import { EmptyBeds } from "@/components/empty-beds";
 import { getHome, listCities } from "@/lib/roomsetu/public-api";
 import { CityPicker } from "@/components/city-picker";
@@ -193,7 +193,7 @@ function Home() {
       <section className="mt-12">
         <div className="mb-4 flex items-end justify-between gap-3">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Swipe karo</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">Swipe karo →</p>
             <h2 className="mt-1 text-3xl sm:text-4xl">{city ? `Fresh beds in ${city}` : "Fresh beds"}</h2>
             <p className="mt-1 text-sm text-muted">{cityInfo(city).tagline}</p>
           </div>
@@ -204,13 +204,7 @@ function Home() {
         {data.listings.length === 0 ? (
           <EmptyBeds area={city} />
         ) : (
-          <div className="flex snap-x gap-4 overflow-x-auto pb-4 no-scrollbar">
-            {data.listings.map((room) => (
-              <div key={room.id} className="w-[82%] max-w-sm shrink-0 snap-start">
-                <RoomCard room={room} />
-              </div>
-            ))}
-          </div>
+          <BedCarousel rooms={data.listings} />
         )}
         {data.listings.some((r) => r.isDemo) ? (
           <p className="text-sm text-muted">

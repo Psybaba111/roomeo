@@ -99,3 +99,12 @@ export const TRIAL_ARRIVAL_CHECKLIST = [
   `The ₹${TRIAL_FEE_INR} trial fee is non-refundable.`,
   `Stay on: sign the full deal within ${TRIAL_CREDIT_WINDOW_DAYS} days of your trial and the ₹${TRIAL_FEE_INR} comes off your ₹589 fee (one time only, not given back if that fee is later refunded).`,
 ] as const;
+
+/**
+ * Any "book a trial night" prompt for a listing shows only when that listing's trial is
+ * actually bookable (flag on + owner ticked "Offer trial nights" with a price). Owners switch
+ * it off per listing from /edit-listing/<id>.
+ */
+export function showTrialPrompt(t: { available: boolean } | null | undefined): boolean {
+  return t?.available === true;
+}
