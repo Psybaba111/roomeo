@@ -12,7 +12,12 @@ test("₹99 never refunded; credit single-use even after the fee is refunded; ca
   const { pg, sql } = await testDb();
   await seedListing(pg);
   await setListingTrial(sql, { listingId: "L1", ownerId: "owner", enabled: true, nightlyInr: "400" });
-  const b = await bookTrial(sql, { listingId: "L1", seekerId: "tenant", checkIn: "2026-11-05", nights: 1, ref: "RMT1", now: new Date("2026-11-01T06:00:00Z") });
+  const now = new Date("2026-11-01T06:00:00Z");
+  const b = await bookTrial(sql, { listingId: "L1", seekerId: "tenant", checkIn: "2026-11-05", nights: 1, ref: "RMT1", now });
+  // created_at defaults to the DB clock (real time). Pin it to the simulated booking time, otherwise the
+  // test time-bombs once the real date passes `issued` below (a deal issued before the booking earns no
+  // credit, which is correct and covered in trial-nights.test.ts).
+  await pg.query(`update trial_bookings set created_at = $2 where id = $1`, [b.bookingId, now.toISOString()]);
   await pg.query(`update payments set status = 'PAID', reviewed_at = now() where ref = 'RMT1'`);
   const tp = (await pg.query<{ id: string }>(`select id from payments where ref = 'RMT1'`)).rows[0].id;
   await confirmTrialFromPayment(sql, tp);
