@@ -18,14 +18,14 @@ export function Ga4Analytics() {
     if (!tracker) {
       // Guard first so even gtag's own automatic hits (Enhanced Measurement) are scrubbed.
       installCollectGuard(window as unknown as Parameters<typeof installCollectGuard>[0], origin);
-      const fields = initialPageFields(window.location.pathname, origin, document.referrer);
+      const fields = initialPageFields(window.location.pathname + window.location.search, origin, document.referrer);
       tracker = createPageViewTracker(installGtag(window as unknown as GaWindow, document as unknown as GaDocument, origin, fields), origin, document.referrer);
     }
     const track = tracker;
-    track(router.state.resolvedLocation?.pathname ?? window.location.pathname);
+    track(router.state.resolvedLocation?.href ?? window.location.pathname + window.location.search);
     // onResolved fires once per finished navigation (after redirects; preloads don't fire it).
     return router.subscribe("onResolved", (e) => {
-      track(e.toLocation.pathname);
+      track(e.toLocation.href);
     });
   }, [router]);
   return null;

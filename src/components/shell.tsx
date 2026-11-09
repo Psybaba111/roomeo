@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getInboxSummary } from "@/lib/roomsetu/owner-inbox-api";
 import { inboxBadgeLabel } from "@/lib/roomsetu/owner-inbox";
+import { sendLead } from "@/lib/analytics/ga4";
 
 /** Owner flag + badge for the nav. Quietly off when signed out or on error. */
 function useOwnerInbox(path: string) {
@@ -114,6 +115,7 @@ export function Shell({ children }: { children: ReactNode }) {
             rel="noopener noreferrer"
             className="hover:underline"
             data-testid="footer-whatsapp"
+            onClick={() => sendLead("whatsapp", { type: "footer" })}
           >
             WhatsApp us: +91 93802 19117
           </a>

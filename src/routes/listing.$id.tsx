@@ -3,6 +3,7 @@ import { TrialNightsBooking } from "@/components/trial-nights";
 import { FEE_UNDER_PRICE, REQUEST_CTA, REQUEST_CTA_SIGNED_OUT, isAlreadyRequested, requestSentLine } from "@/lib/roomsetu/booking-cta";
 import { listingHead } from "@/lib/seo";
 import { ContactGate } from "@/components/contact-gate";
+import { sendLead } from "@/lib/analytics/ga4";
 import { SquadShortlistButton } from "@/components/squad-shortlist-button";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -124,6 +125,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
       }
       try {
         const convo = await openConversation({ data: { listingId: room.id, roomWantedId: "", withUserId: "" } });
+        sendLead("chat", { listingId: room.id, type: "request_bed" });
         await navigate({ to: "/messages", search: { thread: convo.id } });
       } catch (e) {
         setMessage(requestSentLine(errText(e)));

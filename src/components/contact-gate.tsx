@@ -6,6 +6,7 @@ import { Link } from "@tanstack/react-router";
 import { startPassCheckout } from "@/lib/roomsetu/pricing-api";
 import { errText } from "@/lib/ui-text";
 import { openConversation } from "@/lib/roomsetu/account-api";
+import { sendLead } from "@/lib/analytics/ga4";
 import { getContactStatus, startContactCheckout } from "@/lib/roomsetu/squad-api";
 import { UpiCheckout, type UpiCheckoutData } from "@/components/upi-checkout";
 import { btnPrimary, btnSecondary, card, errorBox, inner, skeleton } from "@/components/ui-tokens";
@@ -59,7 +60,10 @@ export function ContactGate({ listingId, isDemo, hideOpen = false }: { listingId
             setBusy(true);
             setError("");
             void openConversation({ data: { listingId, roomWantedId: "", withUserId: "" } })
-              .then((c) => navigate({ to: "/messages", search: { thread: c.id } }))
+              .then((c) => {
+                sendLead("chat", { listingId, type: "message_owner" });
+                return navigate({ to: "/messages", search: { thread: c.id } });
+              })
               .catch((e) => setError(errText(e)))
               .finally(() => setBusy(false));
           }}
@@ -141,7 +145,10 @@ function PassGate({ listingId, status, reload, hideOpen }: { listingId: string; 
     setBusy("msg");
     setError("");
     void openConversation({ data: { listingId, roomWantedId: "", withUserId: "" } })
-      .then((c) => navigate({ to: "/messages", search: { thread: c.id } }))
+      .then((c) => {
+        sendLead("chat", { listingId, type: "message_owner" });
+        return navigate({ to: "/messages", search: { thread: c.id } });
+      })
       .catch((e) => setError(errText(e)))
       .finally(() => setBusy(""));
   };

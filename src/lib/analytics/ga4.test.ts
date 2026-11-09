@@ -8,6 +8,10 @@ import {
   installCollectGuard,
   installGtag,
   isCollectUrl,
+  leadParams,
+  sanitizePageLocation,
+  sendLead,
+  utmQuery,
   scrubCollectRequest,
   scrubHitParams,
   sanitizePagePath,
@@ -170,7 +174,7 @@ test("isCollectUrl matches GA4 endpoints only", () => {
 
 test("scrubHitParams rewrites raw dl/dr/dt from automatic hits", () => {
   const out = new URLSearchParams(scrubHitParams(`en=page_view&epn.roomeo_pv=1&dl=${enc(RAW)}&dr=${enc(`${ORIGIN}/pricing?utm_source=x`)}&dt=${enc("Mud Home Premium PG · 6-sharing")}&_et=5`, ORIGIN) ?? "");
-  assert.equal(out.get("dl"), `${ORIGIN}/listing/:id`);
+  assert.equal(out.get("dl"), `${ORIGIN}/listing/:id?utm_source=test`, "utm_source is the one query param kept");
   assert.equal(out.get("dr"), `${ORIGIN}/pricing`);
   assert.equal(out.get("dt"), "roomeo /listing/:id");
   assert.equal(out.get("_et"), "5");
@@ -195,8 +199,9 @@ test("scrubCollectRequest handles shared query + multi-line body and drops exclu
   const out = scrubCollectRequest(url, body, ORIGIN, `/listing/${ID}`);
   assert.ok(out);
   const blob = decodeURIComponent(`${out.url}\n${out.body}`);
-  assert.ok(!blob.includes(ID) && !blob.includes("e139bd64") && !blob.includes("utm_source") && !blob.includes("?q=2") && !blob.includes("Real title"), blob);
+  assert.ok(!blob.includes(ID) && !blob.includes("e139bd64") && !blob.includes("?q=2") && !blob.includes("Real title"), blob);
   assert.equal(String(out.body).split("\r\n").length, 2, "search hit removed");
+  assert.equal(new URLSearchParams(out.url.split("?")[1]).get("dl"), `${ORIGIN}/listing/:id?utm_source=test`);
   assert.equal(new URLSearchParams(out.url.split("?")[1]).get("tid"), "G-MY0R3B2T7T");
   assert.equal(scrubCollectRequest(url, body, ORIGIN, "/admin/payments"), null, "nothing leaves an excluded page");
   assert.equal(scrubCollectRequest(url, "en=view_search_results&ep.search_term=x", ORIGIN, "/search"), null);
@@ -237,4 +242,83 @@ test("installCollectGuard rewrites fetch + sendBeacon GA hits, passes everything
   assert.equal(r.status, 204);
   assert.equal(win.navigator.sendBeacon("https://analytics.google.com/g/collect?v=2", "en=scroll"), true);
   assert.equal(sent.length, 3, "hits from excluded pages are swallowed");
+});
+
+test("utm: keeps only the five utm_* params, encoded, capped, in a fixed order", () => {
+  assert.equal(utmQuery("/pricing?utm_source=test"), "?utm_source=test");
+  assert.equal(
+    utmQuery(`/listing/${ID}?fbclid=abc&utm_medium=social&gclid=x&utm_source=ig story&utm_campaign=mud%20home&ref=wa&utm_term=pg+bunder&utm_content=reel_1#photos`),
+    "?utm_source=ig%20story&utm_medium=social&utm_campaign=mud%20home&utm_content=reel_1&utm_term=pg%20bunder",
+  );
+  assert.equal(utmQuery("/?UTM_SOURCE=x&utm_id=7&q=bunder"), "", "other params and other casings are dropped");
+  assert.equal(utmQuery("/pricing"), "");
+  assert.equal(utmQuery(`/?utm_source=${"a".repeat(300)}`), `?utm_source=${"a".repeat(100)}`);
+  assert.equal(utmQuery("/?utm_source=<script>&utm_medium=a&b"), "?utm_source=%3Cscript%3E&utm_medium=a");
+});
+
+test("utm: values that look like emails, phones or uuids are dropped", () => {
+  assert.equal(utmQuery("/?utm_source=someone@gmail.com&utm_medium=cpc"), "?utm_medium=cpc");
+  assert.equal(utmQuery("/?utm_source=someone%40gmail.com"), "");
+  assert.equal(utmQuery("/?utm_content=%2B91%2093802%2019117"), "");
+  assert.equal(utmQuery("/?utm_term=9380219117"), "");
+  assert.equal(utmQuery(`/?utm_campaign=${ID}`), "");
+  assert.equal(utmQuery("/?utm_campaign=diwali2026"), "?utm_campaign=diwali2026", "short numbers are fine");
+});
+
+test("sanitizePageLocation: scrubbed path + utm only; excluded pages null", () => {
+  assert.equal(sanitizePageLocation(`${ORIGIN}/listing/${ID}?utm_source=test&x=1#photos`, ORIGIN), `${ORIGIN}/listing/:id?utm_source=test`);
+  assert.equal(sanitizePageLocation(`/listing/${ID}?ref=x`, ORIGIN), `${ORIGIN}/listing/:id`);
+  assert.equal(sanitizePageLocation(`${ORIGIN}/listing/:id?utm_source=test`, ORIGIN), `${ORIGIN}/listing/:id?utm_source=test`, "idempotent");
+  assert.equal(sanitizePageLocation("/admin/users?utm_source=test", ORIGIN), null);
+});
+
+test("tracker: landing page_location keeps utm, referrers never do, one view per path", () => {
+  const g = fakeGtag();
+  const track = createPageViewTracker(g.gtag, ORIGIN);
+  assert.equal(track(`/listing/${ID}?utm_source=test&fbclid=zz#photos`), true);
+  assert.equal(track(`/listing/${ID}?utm_source=other`), false, "query-only change is not a new page_view");
+  assert.equal(track("/pricing"), true);
+  const v = g.views();
+  assert.equal(v[0].page_location, `${ORIGIN}/listing/:id?utm_source=test`);
+  assert.equal(v[0].page_path, "/listing/:id");
+  assert.equal(v[0].page_title, "roomeo /listing/:id");
+  assert.equal(v[1].page_location, `${ORIGIN}/pricing`);
+  assert.equal(v[1].page_referrer, `${ORIGIN}/listing/:id`, "no utm in referrer");
+  const fields = initialPageFields(`/listing/${ID}?utm_source=test&email=a@b.co`, ORIGIN, "");
+  assert.equal(fields.page_location, `${ORIGIN}/listing/:id?utm_source=test`);
+});
+
+test("collect filter: dl keeps utm only, dr stays path-only, page_view rules unchanged", () => {
+  const raw = `${ORIGIN}/listing/${ID}?utm_source=test&utm_medium=wa&fbclid=1&phone=9380219117#x`;
+  const out = new URLSearchParams(scrubHitParams(`en=page_view&epn.roomeo_pv=1&dl=${enc(raw)}&dr=${enc(`${ORIGIN}/pricing?utm_source=test`)}`, ORIGIN) ?? "");
+  assert.equal(out.get("dl"), `${ORIGIN}/listing/:id?utm_source=test&utm_medium=wa`);
+  assert.equal(out.get("dr"), `${ORIGIN}/pricing`);
+  assert.equal(out.get("dt"), "roomeo /listing/:id");
+  assert.equal(scrubHitParams(`en=page_view&dl=${enc(raw)}`, ORIGIN), null, "foreign page_view still dropped");
+  assert.equal(scrubHitParams(`en=view_search_results&dl=${enc(`${ORIGIN}/search?q=x&utm_source=t`)}`, ORIGIN), null);
+  assert.equal(scrubHitParams(`en=scroll&dl=${enc(`${ORIGIN}/verify/digilocker?utm_source=t`)}`, ORIGIN), null);
+});
+
+test("generate_lead: allowlisted params only and survives the collect filter", () => {
+  assert.deepEqual(leadParams("whatsapp", { type: "footer" }), { method: "whatsapp", type: "footer" });
+  assert.deepEqual(leadParams("chat", { listingId: ID.toUpperCase(), type: "request_bed" }), { method: "chat", listing_id: ID, type: "request_bed" });
+  assert.deepEqual(leadParams("chat", { listingId: ":id" }), { method: "chat", listing_id: ":id" });
+  assert.deepEqual(leadParams("chat", { listingId: "someone@gmail.com", type: "Rohith 9380219117" }), { method: "chat" }, "non-uuid ids and odd types are dropped");
+  assert.equal(leadParams("email"), null, "unknown method");
+  const hit = `en=generate_lead&ep.method=whatsapp&ep.type=footer&dl=${enc(`${ORIGIN}/pricing?utm_source=test&x=1`)}`;
+  const out = new URLSearchParams(scrubHitParams(hit, ORIGIN) ?? "");
+  assert.equal(out.get("en"), "generate_lead");
+  assert.equal(out.get("ep.method"), "whatsapp");
+  assert.equal(out.get("dl"), `${ORIGIN}/pricing?utm_source=test`);
+});
+
+test("sendLead: only when GA is running, never on excluded pages, never on the server", () => {
+  const g = fakeGtag();
+  assert.equal(sendLead("whatsapp", {}), false, "no window in node (SSR) -> no-op");
+  assert.equal(sendLead("whatsapp", {}, { gtag: g.gtag, location: { pathname: "/pricing" } }), false, "GA not installed");
+  assert.equal(sendLead("whatsapp", { type: "footer" }, { gtag: g.gtag, __roomeoGa4: true, location: { pathname: "/pricing" } }), true);
+  assert.equal(sendLead("chat", { listingId: ID }, { gtag: g.gtag, __roomeoGa4: true, location: { pathname: "/admin/users" } }), false);
+  const leads = g.calls.filter((c) => c[0] === "event" && c[1] === "generate_lead");
+  assert.equal(leads.length, 1);
+  assert.deepEqual(leads[0][2], { method: "whatsapp", type: "footer" });
 });
