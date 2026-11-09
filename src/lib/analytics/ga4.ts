@@ -7,6 +7,17 @@
 // phones, no user ids, no listing titles. Admin + verification pages are never
 // tracked. Page views are manual (send_page_view: false) so GA's own history
 // tracking must stay off in GA admin to avoid double counting.
+//
+// Why `set` comes before `js`/`config` (found by capturing /g/collect hits):
+// loading gtag.js?id=G-… auto-configures the Google tag, which fires its own
+// page-load page_view from the raw document.location / document.title. That hit
+// ignores everything passed to gtag('config', …), including send_page_view:false,
+// but it does honour fields queued earlier with gtag('set', …). So we `set`
+// send_page_view:false plus scrubbed page fields first.
+//
+// Enhanced Measurement's history-change page_view reads the real URL at send
+// time and can't be switched off from code (Google: GA admin only). The collect
+// guard below rewrites dl/dr/dt on every outgoing GA hit as a backstop.
 
 export const GA_MEASUREMENT_ID = "G-MY0R3B2T7T";
 export const GA_SCRIPT_SRC = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
@@ -103,7 +114,19 @@ export type GaDocument = {
  * Install gtag exactly once: dataLayer, gtag('js'), gtag('config', ..., {send_page_view:false})
  * and one async <script> in <head>. Safe to call repeatedly (StrictMode, remounts).
  */
-export function installGtag(win: GaWindow, doc: GaDocument, origin: string): Gtag {
+export type PageFields = { page_location: string; page_title: string; page_referrer: string };
+
+/** Scrubbed page fields for the page we're on now (excluded pages map to the bare origin). */
+export function initialPageFields(pathname: string, origin: string, referrer: string): PageFields {
+  const p = sanitizePagePath(pathname);
+  return {
+    page_location: p ? `${origin}${p}` : `${origin}/`,
+    page_title: p ? `roomeo ${p}` : "roomeo",
+    page_referrer: sanitizeReferrer(referrer, origin),
+  };
+}
+
+export function installGtag(win: GaWindow, doc: GaDocument, origin: string, initial?: PageFields): Gtag {
   if (win.__roomeoGa4 && win.gtag) return win.gtag;
   win.dataLayer = win.dataLayer || [];
   const gtag: Gtag =
@@ -114,15 +137,17 @@ export function installGtag(win: GaWindow, doc: GaDocument, origin: string): Gta
       (win.dataLayer as unknown[]).push(arguments);
     };
   win.gtag = gtag;
+  // Never let GA read the raw URL / title / referrer (could hold ids or query strings).
+  const fields = initial ?? { page_location: `${origin}/`, page_title: "roomeo", page_referrer: "" };
+  // MUST be queued before 'js'/'config': the auto-configured Google tag fires its
+  // page-load page_view from global `set` fields only (config params are ignored for it).
+  gtag("set", { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, ...fields });
   gtag("js", new Date());
   gtag("config", GA_MEASUREMENT_ID, {
     send_page_view: false,
-    // Never let GA read the raw URL / title / referrer (could hold ids or query strings).
-    page_location: `${origin}/`,
-    page_title: "roomeo",
-    page_referrer: "",
     allow_google_signals: false,
     allow_ad_personalization_signals: false,
+    ...fields,
   });
   if (!doc.querySelector(`script[src="${GA_SCRIPT_SRC}"]`)) {
     const s = doc.createElement("script");
@@ -140,6 +165,9 @@ export function installGtag(win: GaWindow, doc: GaDocument, origin: string): Gta
  * after hydration or an invalidate, query-only / hash-only changes) are ignored.
  * Excluded pages send nothing but still count as "where we are now".
  */
+/** Marks our own page_view hits so the collect guard can drop gtag's automatic ones. */
+export const OUR_PAGE_VIEW_PARAM = "roomeo_pv";
+
 export function createPageViewTracker(gtag: Gtag, origin: string, initialReferrer = "") {
   let lastPathname: string | null = null;
   let lastLocation = "";
@@ -154,11 +182,113 @@ export function createPageViewTracker(gtag: Gtag, origin: string, initialReferre
     }
     const pageLocation = `${origin}${pagePath}`;
     const pageReferrer = lastLocation || sanitizeReferrer(initialReferrer, origin);
-    const params = { page_location: pageLocation, page_path: pagePath, page_title: `roomeo ${pagePath}`, page_referrer: pageReferrer };
+    const params = { page_location: pageLocation, page_path: pagePath, page_title: `roomeo ${pagePath}`, page_referrer: pageReferrer, [OUR_PAGE_VIEW_PARAM]: 1 };
     // `set` keeps any later automatic event on the scrubbed values too.
     gtag("set", { page_location: pageLocation, page_title: params.page_title, page_referrer: pageReferrer });
     gtag("event", "page_view", params);
     lastLocation = pageLocation;
     return true;
   };
+}
+
+// ---------------------------------------------------------------------------
+// Collect guard: last line of defence for hits gtag builds itself (Enhanced
+// Measurement history page_views, scroll, user_engagement, clicks...). Every
+// GA4 /g/collect request has dl (location), dr (referrer) and dt (title)
+// rewritten to scrubbed values. Dropped: hits from excluded pages, site-search
+// hits (raw search term), and any page_view that isn't ours (no roomeo_pv
+// marker), i.e. the auto page-load view and Enhanced Measurement history views,
+// so only one page_view per navigation is ever sent.
+
+const COLLECT_URL = /^https:\/\/([a-z0-9-]+\.)*(google-analytics\.com|analytics\.google\.com|doubleclick\.net)\/(g|[a-z]\/)?(collect)\b/i;
+
+export function isCollectUrl(url: string): boolean {
+  return COLLECT_URL.test(String(url || ""));
+}
+
+/** Scrub one url-encoded hit (query string or one body line). null = drop it. */
+function isForeignPageView(params: URLSearchParams): boolean {
+  return params.get("en") === "page_view" && !params.has(`epn.${OUR_PAGE_VIEW_PARAM}`) && !params.has(`ep.${OUR_PAGE_VIEW_PARAM}`);
+}
+
+export function scrubHitParams(qs: string, origin: string, fallbackPath = "/"): string | null {
+  const params = new URLSearchParams(qs);
+  if (params.get("en") === "view_search_results") return null;
+  if (isForeignPageView(params)) return null;
+  let path: string | null = fallbackPath;
+  if (params.has("dl")) {
+    path = sanitizePagePath(params.get("dl") || "/");
+    if (!path) return null;
+    params.set("dl", `${origin}${path}`);
+  }
+  if (params.has("dt") || params.has("dl")) params.set("dt", `roomeo ${path}`);
+  if (params.has("dr")) {
+    const ref = sanitizeReferrer(params.get("dr") || "", origin);
+    if (ref) params.set("dr", ref);
+    else params.delete("dr");
+  }
+  for (const k of [...params.keys()]) {
+    if (k === "ep.search_term" || k === "ep.page_location" || k === "ep.page_referrer") params.delete(k);
+  }
+  return params.toString();
+}
+
+/**
+ * Scrub a whole collect request. The URL's query holds shared params; a POST body
+ * may hold one hit per line. Returns null when nothing is left to send.
+ */
+export function scrubCollectRequest(url: string, body: string | null | undefined, origin: string, currentPath: string): { url: string; body: string | null | undefined } | null {
+  if (!sanitizePagePath(currentPath)) return null; // never send from /admin, /verification…
+  const q = url.indexOf("?");
+  const base = q >= 0 ? url.slice(0, q) : url;
+  const query = q >= 0 ? url.slice(q + 1) : "";
+  const fallback = sanitizePagePath(currentPath) || "/";
+  const sharedDl = new URLSearchParams(query).get("dl");
+  const sharedPath = sharedDl ? sanitizePagePath(sharedDl) : fallback;
+  const scrubbedQuery = scrubHitParams(query, origin, fallback);
+  if (scrubbedQuery === null) return null;
+  const newUrl = scrubbedQuery ? `${base}?${scrubbedQuery}` : base;
+  if (typeof body !== "string" || !body) return { url: newUrl, body };
+  const lines = body.split("\r\n").filter(Boolean);
+  const kept = lines.map((l) => scrubHitParams(l, origin, sharedPath || fallback)).filter((l): l is string => l !== null);
+  if (lines.length && !kept.length) return null;
+  return { url: newUrl, body: kept.join("\r\n") };
+}
+
+type GuardWindow = {
+  fetch?: (input: unknown, init?: { body?: unknown } & Record<string, unknown>) => Promise<unknown>;
+  navigator?: { sendBeacon?: (url: string, data?: unknown) => boolean };
+  location: { pathname: string };
+  Response?: new (body: null, init: { status: number }) => unknown;
+  __roomeoGaGuard?: boolean;
+};
+
+/** Wrap fetch + sendBeacon once so every GA hit goes through scrubCollectRequest. */
+export function installCollectGuard(win: GuardWindow, origin: string): void {
+  if (win.__roomeoGaGuard) return;
+  win.__roomeoGaGuard = true;
+  const origFetch = win.fetch;
+  if (typeof origFetch === "function") {
+    win.fetch = function guardedFetch(this: unknown, input: unknown, init?: { body?: unknown } & Record<string, unknown>) {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : "";
+      if (url && isCollectUrl(url) && (init?.body === undefined || typeof init.body === "string")) {
+        const out = scrubCollectRequest(url, init?.body as string | undefined, origin, win.location.pathname);
+        if (!out) return Promise.resolve(win.Response ? new win.Response(null, { status: 204 }) : undefined);
+        return origFetch.call(this, out.url, init ? { ...init, body: out.body } : init);
+      }
+      return origFetch.call(this, input, init);
+    } as GuardWindow["fetch"];
+  }
+  const nav = win.navigator;
+  const origBeacon = nav?.sendBeacon;
+  if (nav && typeof origBeacon === "function") {
+    nav.sendBeacon = function guardedBeacon(url: string, data?: unknown) {
+      if (isCollectUrl(url) && (data === undefined || data === null || typeof data === "string")) {
+        const out = scrubCollectRequest(url, data as string | null | undefined, origin, win.location.pathname);
+        if (!out) return true;
+        return origBeacon.call(nav, out.url, out.body ?? undefined);
+      }
+      return origBeacon.call(nav, url, data);
+    };
+  }
 }

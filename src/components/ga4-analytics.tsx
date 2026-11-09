@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useRouter } from "@tanstack/react-router";
-import { createPageViewTracker, installGtag, shouldTrackHost, type GaDocument, type GaWindow } from "@/lib/analytics/ga4";
+import { createPageViewTracker, initialPageFields, installCollectGuard, installGtag, shouldTrackHost, type GaDocument, type GaWindow } from "@/lib/analytics/ga4";
 
 // One tracker per page load, shared across remounts so StrictMode can't double count.
 let tracker: ((pathname: string) => boolean) | null = null;
@@ -15,7 +15,12 @@ export function Ga4Analytics() {
   useEffect(() => {
     if (!import.meta.env.PROD || !shouldTrackHost(window.location.hostname)) return;
     const origin = window.location.origin;
-    if (!tracker) tracker = createPageViewTracker(installGtag(window as unknown as GaWindow, document as unknown as GaDocument, origin), origin, document.referrer);
+    if (!tracker) {
+      // Guard first so even gtag's own automatic hits (Enhanced Measurement) are scrubbed.
+      installCollectGuard(window as unknown as Parameters<typeof installCollectGuard>[0], origin);
+      const fields = initialPageFields(window.location.pathname, origin, document.referrer);
+      tracker = createPageViewTracker(installGtag(window as unknown as GaWindow, document as unknown as GaDocument, origin, fields), origin, document.referrer);
+    }
     const track = tracker;
     track(router.state.resolvedLocation?.pathname ?? window.location.pathname);
     // onResolved fires once per finished navigation (after redirects; preloads don't fire it).

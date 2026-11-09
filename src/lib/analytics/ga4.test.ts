@@ -4,7 +4,12 @@ import {
   GA_MEASUREMENT_ID,
   GA_SCRIPT_SRC,
   createPageViewTracker,
+  initialPageFields,
+  installCollectGuard,
   installGtag,
+  isCollectUrl,
+  scrubCollectRequest,
+  scrubHitParams,
   sanitizePagePath,
   sanitizeReferrer,
   shouldTrackHost,
@@ -101,6 +106,7 @@ test("one page_view on load and one per navigation; repeats ignored", () => {
     const blob = JSON.stringify(x);
     assert.ok(!blob.includes("?") && !blob.includes("#") && !blob.includes(ID), blob);
   }
+  assert.ok(v.every((x) => (x as Record<string, unknown>).roomeo_pv === 1), "our page_views carry the marker the guard keeps");
   const sets = g.calls.filter((c) => c[0] === "set");
   assert.equal(sets.length, 5, "page fields are set before each page_view");
 });
@@ -117,7 +123,7 @@ test("excluded pages send nothing and don't become the next referrer", () => {
   assert.equal(v[0].page_referrer, ORIGIN);
 });
 
-test("installGtag initialises once with send_page_view false and one async script", () => {
+test("installGtag queues set(send_page_view:false + scrubbed fields) BEFORE js/config, once", () => {
   const appended: { async?: boolean; src?: string }[] = [];
   const win: { dataLayer?: unknown[]; gtag?: Gtag; __roomeoGa4?: boolean } = {};
   const doc = {
@@ -125,19 +131,110 @@ test("installGtag initialises once with send_page_view false and one async scrip
     createElement: () => ({}) as { async?: boolean; src?: string },
     querySelector: (sel: string) => (appended.some((s) => sel.includes(String(s.src))) ? {} : null),
   };
-  const g1 = installGtag(win, doc, ORIGIN);
-  const g2 = installGtag(win, doc, ORIGIN);
+  const fields = initialPageFields(`/listing/${ID}`, ORIGIN, "https://www.google.com/search?q=pg");
+  const g1 = installGtag(win, doc, ORIGIN, fields);
+  const g2 = installGtag(win, doc, ORIGIN, fields);
   assert.equal(g1, g2);
   assert.equal(appended.length, 1);
   assert.equal(appended[0].async, true);
   assert.equal(appended[0].src, GA_SCRIPT_SRC);
   assert.equal(GA_SCRIPT_SRC, "https://www.googletagmanager.com/gtag/js?id=G-MY0R3B2T7T");
   const layer = (win.dataLayer ?? []).map((a) => Array.from(a as ArrayLike<unknown>));
-  assert.equal(layer.length, 2, "js + config only, no page_view from init");
-  assert.equal(layer[0][0], "js");
-  assert.equal(layer[1][0], "config");
-  assert.equal(layer[1][1], GA_MEASUREMENT_ID);
-  const cfg = layer[1][2] as Record<string, unknown>;
+  assert.deepEqual(layer.map((c) => c[0]), ["set", "js", "config"], "set must come first: the auto-configured tag only honours earlier set fields");
+  const set = layer[0][1] as Record<string, unknown>;
+  assert.equal(set.send_page_view, false);
+  assert.equal(set.page_location, `${ORIGIN}/listing/:id`);
+  assert.equal(set.page_title, "roomeo /listing/:id");
+  assert.equal(set.page_referrer, "https://www.google.com");
+  assert.equal(layer[2][1], GA_MEASUREMENT_ID);
+  const cfg = layer[2][2] as Record<string, unknown>;
   assert.equal(cfg.send_page_view, false);
-  assert.equal(cfg.page_location, `${ORIGIN}/`);
+  assert.equal(cfg.page_location, `${ORIGIN}/listing/:id`);
+  assert.ok(!JSON.stringify(layer).includes(ID), "no raw ids anywhere in the queue");
+});
+
+test("initialPageFields: excluded pages fall back to the bare origin", () => {
+  assert.deepEqual(initialPageFields("/admin/users", ORIGIN, ""), { page_location: `${ORIGIN}/`, page_title: "roomeo", page_referrer: "" });
+});
+
+const RAW = `${ORIGIN}/listing/${ID}?utm_source=test`;
+const enc = encodeURIComponent;
+
+test("isCollectUrl matches GA4 endpoints only", () => {
+  assert.ok(isCollectUrl("https://analytics.google.com/g/collect?v=2"));
+  assert.ok(isCollectUrl("https://region1.google-analytics.com/g/collect?v=2"));
+  assert.ok(isCollectUrl("https://stats.g.doubleclick.net/g/collect?v=2"));
+  assert.ok(!isCollectUrl("https://www.googletagmanager.com/gtag/js?id=G-MY0R3B2T7T"));
+  assert.ok(!isCollectUrl(`${ORIGIN}/api/g/collect`));
+});
+
+test("scrubHitParams rewrites raw dl/dr/dt from automatic hits", () => {
+  const out = new URLSearchParams(scrubHitParams(`en=page_view&epn.roomeo_pv=1&dl=${enc(RAW)}&dr=${enc(`${ORIGIN}/pricing?utm_source=x`)}&dt=${enc("Mud Home Premium PG · 6-sharing")}&_et=5`, ORIGIN) ?? "");
+  assert.equal(out.get("dl"), `${ORIGIN}/listing/:id`);
+  assert.equal(out.get("dr"), `${ORIGIN}/pricing`);
+  assert.equal(out.get("dt"), "roomeo /listing/:id");
+  assert.equal(out.get("_et"), "5");
+  const ext = new URLSearchParams(scrubHitParams(`en=scroll&dr=${enc("https://www.google.com/search?q=pg+bunder")}`, ORIGIN, "/pricing") ?? "");
+  assert.equal(ext.get("dr"), "https://www.google.com");
+  assert.equal(scrubHitParams(`en=view_search_results&dl=${enc(`${ORIGIN}/search?q=bunder`)}&ep.search_term=bunder`, ORIGIN), null, "site search hits carry raw terms: dropped");
+  assert.equal(scrubHitParams(`en=page_view&epn.roomeo_pv=1&dl=${enc(`${ORIGIN}/admin/users`)}`, ORIGIN), null);
+});
+
+test("only our page_views survive: auto page-load and history page_views are dropped", () => {
+  assert.equal(scrubHitParams(`en=page_view&dl=${enc(RAW)}&_fv=1&_ss=1`, ORIGIN), null, "Google tag auto page-load view");
+  assert.equal(scrubHitParams(`en=page_view&dl=${enc(`${ORIGIN}/pricing`)}&ae=a`, ORIGIN), null, "Enhanced Measurement history view");
+  assert.ok(scrubHitParams(`en=page_view&epn.roomeo_pv=1&dl=${enc(`${ORIGIN}/pricing`)}`, ORIGIN));
+  assert.ok(scrubHitParams(`en=page_view&ep.roomeo_pv=1&dl=${enc(`${ORIGIN}/pricing`)}`, ORIGIN));
+  assert.ok(scrubHitParams(`en=scroll&dl=${enc(`${ORIGIN}/pricing`)}`, ORIGIN), "other automatic events are kept (scrubbed)");
+  assert.ok(scrubHitParams(`en=user_engagement&_et=500`, ORIGIN, "/pricing"));
+});
+
+test("scrubCollectRequest handles shared query + multi-line body and drops excluded pages", () => {
+  const url = `https://analytics.google.com/g/collect?v=2&tid=G-MY0R3B2T7T&dl=${enc(RAW)}&dt=${enc("Real title")}`;
+  const body = [`en=page_view&epn.roomeo_pv=1&_et=3`, `en=page_view&epn.roomeo_pv=1&dl=${enc(`${ORIGIN}/listing/e139bd64-4794-435b-a0d4-9096075e1974?q=2`)}&dr=${enc(RAW)}`, `en=view_search_results&ep.search_term=x`].join("\r\n");
+  const out = scrubCollectRequest(url, body, ORIGIN, `/listing/${ID}`);
+  assert.ok(out);
+  const blob = decodeURIComponent(`${out.url}\n${out.body}`);
+  assert.ok(!blob.includes(ID) && !blob.includes("e139bd64") && !blob.includes("utm_source") && !blob.includes("?q=2") && !blob.includes("Real title"), blob);
+  assert.equal(String(out.body).split("\r\n").length, 2, "search hit removed");
+  assert.equal(new URLSearchParams(out.url.split("?")[1]).get("tid"), "G-MY0R3B2T7T");
+  assert.equal(scrubCollectRequest(url, body, ORIGIN, "/admin/payments"), null, "nothing leaves an excluded page");
+  assert.equal(scrubCollectRequest(url, "en=view_search_results&ep.search_term=x", ORIGIN, "/search"), null);
+});
+
+test("installCollectGuard rewrites fetch + sendBeacon GA hits, passes everything else through", async () => {
+  const sent: { via: string; url: string; body: unknown }[] = [];
+  const win = {
+    location: { pathname: `/listing/${ID}` },
+    fetch: async (input: unknown, init?: { body?: unknown }) => {
+      sent.push({ via: "fetch", url: String(input), body: init?.body });
+      return "ok";
+    },
+    navigator: {
+      sendBeacon: (url: string, data?: unknown) => {
+        sent.push({ via: "beacon", url, body: data });
+        return true;
+      },
+    },
+    Response: class {
+      status: number;
+      constructor(_b: null, init: { status: number }) {
+        this.status = init.status;
+      }
+    },
+  };
+  installCollectGuard(win, ORIGIN);
+  installCollectGuard(win, ORIGIN); // idempotent, no double wrap
+  await win.fetch(`https://analytics.google.com/g/collect?v=2&dl=${enc(RAW)}&dt=x`, { body: `en=page_view&epn.roomeo_pv=1&dr=${enc(RAW)}`, keepalive: true } as { body?: unknown });
+  win.navigator.sendBeacon(`https://analytics.google.com/g/collect?v=2&dl=${enc(RAW)}`, `en=user_engagement`);
+  await win.fetch(`${ORIGIN}/api/thing?id=${ID}`, { body: "x" });
+  assert.equal(sent.length, 3);
+  assert.ok(!decodeURIComponent(sent[0].url + sent[0].body).includes(ID));
+  assert.ok(!decodeURIComponent(sent[1].url).includes(ID));
+  assert.equal(sent[2].url, `${ORIGIN}/api/thing?id=${ID}`, "non-GA requests untouched");
+  win.location.pathname = "/admin/users";
+  const r = (await win.fetch(`https://analytics.google.com/g/collect?v=2&dl=${enc(RAW)}`, { body: "en=scroll" })) as { status?: number };
+  assert.equal(r.status, 204);
+  assert.equal(win.navigator.sendBeacon("https://analytics.google.com/g/collect?v=2", "en=scroll"), true);
+  assert.equal(sent.length, 3, "hits from excluded pages are swallowed");
 });
