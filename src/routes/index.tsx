@@ -1,6 +1,6 @@
 import { FEE_LINE } from "@/lib/roomsetu/money";
 import { CalendarCheck, ChatCircle, Flag, MapPin, Receipt, ShieldCheck } from "@phosphor-icons/react";
-import { pageHead } from "@/lib/seo";
+import { pageHead, SHARE_DESCRIPTION } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Shell } from "@/components/shell";
@@ -13,8 +13,7 @@ import { DEFAULT_CITY, budgetHints, cityInfo } from "@/lib/roomsetu/cities";
 export const Route = createFileRoute("/")({
   head: () =>
     pageHead("Spare PG beds for working professionals", {
-      description:
-        "Shared rooms and PG beds in Mangaluru for working professionals. Real photos, rent + bills in one price, food optional. Deposit paid to the owner. Chat free, ₹589 once when you lock a bed.",
+      description: SHARE_DESCRIPTION,
     }),
   loader: () => getHome({ data: { city: DEFAULT_CITY } }),
   component: Home,

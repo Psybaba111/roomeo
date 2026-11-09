@@ -31,6 +31,10 @@ export function robotsTxt(base: string): string {
   ].join("\n");
 }
 
+/** Shared description for the home/marketing pages' meta + social previews (no ₹ fee on purpose). */
+export const SHARE_DESCRIPTION =
+  "AC PG beds for working men in Mangaluru. Dated photos, rent + bills in one price, meals optional. Deposit paid to the owner.";
+
 export function pageHead(title: string, opts: { description?: string; noindex?: boolean } = {}) {
   const meta: Array<Record<string, string>> = [
     { title: `${title} · roomeo` },

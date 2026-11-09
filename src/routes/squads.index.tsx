@@ -1,6 +1,6 @@
 import { readableDate } from "@/lib/roomsetu/dates";
 import { SquadMoveIn } from "@/components/squad-move-in";
-import { pageHead } from "@/lib/seo";
+import { pageHead, SHARE_DESCRIPTION } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, UsersThree } from "@phosphor-icons/react";
@@ -27,7 +27,7 @@ import {
 } from "@/components/ui-tokens";
 
 export const Route = createFileRoute("/squads/")({
-  head: () => pageHead("Squads, rent a whole flat with friends", { noindex: true }),
+  head: () => pageHead("Squads, rent a whole flat with friends", { noindex: true, description: SHARE_DESCRIPTION }),
   component: () => (
     <NeedAccount next="/squads">
       <Squads />

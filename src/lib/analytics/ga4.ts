@@ -76,6 +76,42 @@ export function sanitizePagePath(raw: string): string | null {
   return scrubbed.slice(0, 200) || "/";
 }
 
+/** Campaign params GA reads from page_location. Everything else in a query string is dropped. */
+export const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"] as const;
+export const UTM_MAX_LEN = 100;
+
+/** A utm value that could identify a person (email, phone, uuid) is dropped. */
+function utmValueOk(v: string): boolean {
+  if (!v) return false;
+  if (/@|%40/i.test(v)) return false;
+  if ((v.match(/\d/g) || []).length >= 9) return false; // phone numbers (Indian mobiles are 10 digits)
+  if (/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(v)) return false;
+  return true;
+}
+
+/** "?utm_source=…&utm_medium=…" (allowlisted, encoded, capped) or "" from any url / query string. */
+export function utmQuery(raw: string): string {
+  const str = String(raw ?? "");
+  const q = str.indexOf("?");
+  if (q < 0) return "";
+  const hash = str.indexOf("#", q);
+  const params = new URLSearchParams(str.slice(q + 1, hash >= 0 ? hash : undefined));
+  const out: string[] = [];
+  for (const key of UTM_KEYS) {
+    // eslint-disable-next-line no-control-regex
+    const value = (params.get(key) ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, UTM_MAX_LEN);
+    if (utmValueOk(value)) out.push(`${key}=${encodeURIComponent(value)}`);
+  }
+  return out.length ? `?${out.join("&")}` : "";
+}
+
+/** Scrubbed absolute page_location: origin + scrubbed path + allowlisted utm_* only. null = excluded page. */
+export function sanitizePageLocation(raw: string, origin: string): string | null {
+  const path = sanitizePagePath(raw);
+  if (!path) return null;
+  return `${origin}${path}${utmQuery(raw)}`;
+}
+
 /** Referrer for GA: our own pages as scrubbed URLs, other sites as bare origin. */
 export function sanitizeReferrer(referrer: string, ownOrigin: string): string {
   if (!referrer) return "";
@@ -117,10 +153,10 @@ export type GaDocument = {
 export type PageFields = { page_location: string; page_title: string; page_referrer: string };
 
 /** Scrubbed page fields for the page we're on now (excluded pages map to the bare origin). */
-export function initialPageFields(pathname: string, origin: string, referrer: string): PageFields {
-  const p = sanitizePagePath(pathname);
+export function initialPageFields(href: string, origin: string, referrer: string): PageFields {
+  const p = sanitizePagePath(href);
   return {
-    page_location: p ? `${origin}${p}` : `${origin}/`,
+    page_location: sanitizePageLocation(href, origin) ?? `${origin}/`,
     page_title: p ? `roomeo ${p}` : "roomeo",
     page_referrer: sanitizeReferrer(referrer, origin),
   };
@@ -159,20 +195,21 @@ export function installGtag(win: GaWindow, doc: GaDocument, origin: string, init
   return gtag;
 }
 
-/**
- * Returns `track(pathname)`: sends one page_view per distinct client navigation.
- * Repeats of the same pathname (StrictMode double effects, the router re-resolving
- * after hydration or an invalidate, query-only / hash-only changes) are ignored.
- * Excluded pages send nothing but still count as "where we are now".
- */
 /** Marks our own page_view hits so the collect guard can drop gtag's automatic ones. */
 export const OUR_PAGE_VIEW_PARAM = "roomeo_pv";
 
+/**
+ * Returns `track(href)`: sends one page_view per distinct client navigation.
+ * Repeats of the same pathname (StrictMode double effects, the router re-resolving
+ * after hydration or an invalidate, query-only / hash-only changes) are ignored.
+ * Excluded pages send nothing but still count as "where we are now".
+ * page_location keeps allowlisted utm_* params only (see sanitizePageLocation).
+ */
 export function createPageViewTracker(gtag: Gtag, origin: string, initialReferrer = "") {
   let lastPathname: string | null = null;
   let lastLocation = "";
-  return function track(rawPathname: string): boolean {
-    const pathname = stripToPath(rawPathname);
+  return function track(rawHref: string): boolean {
+    const pathname = stripToPath(rawHref);
     if (pathname === lastPathname) return false;
     lastPathname = pathname;
     const pagePath = sanitizePagePath(pathname);
@@ -180,13 +217,13 @@ export function createPageViewTracker(gtag: Gtag, origin: string, initialReferre
       lastLocation = origin; // don't leak an excluded page as the next referrer
       return false;
     }
-    const pageLocation = `${origin}${pagePath}`;
+    const pageLocation = `${origin}${pagePath}${utmQuery(rawHref)}`;
     const pageReferrer = lastLocation || sanitizeReferrer(initialReferrer, origin);
     const params = { page_location: pageLocation, page_path: pagePath, page_title: `roomeo ${pagePath}`, page_referrer: pageReferrer, [OUR_PAGE_VIEW_PARAM]: 1 };
     // `set` keeps any later automatic event on the scrubbed values too.
     gtag("set", { page_location: pageLocation, page_title: params.page_title, page_referrer: pageReferrer });
     gtag("event", "page_view", params);
-    lastLocation = pageLocation;
+    lastLocation = `${origin}${pagePath}`; // referrers never carry utm_*
     return true;
   };
 }
@@ -217,9 +254,10 @@ export function scrubHitParams(qs: string, origin: string, fallbackPath = "/"): 
   if (isForeignPageView(params)) return null;
   let path: string | null = fallbackPath;
   if (params.has("dl")) {
-    path = sanitizePagePath(params.get("dl") || "/");
+    const raw = params.get("dl") || "/";
+    path = sanitizePagePath(raw);
     if (!path) return null;
-    params.set("dl", `${origin}${path}`);
+    params.set("dl", `${origin}${path}${utmQuery(raw)}`);
   }
   if (params.has("dt") || params.has("dl")) params.set("dt", `roomeo ${path}`);
   if (params.has("dr")) {
@@ -291,4 +329,39 @@ export function installCollectGuard(win: GuardWindow, origin: string): void {
       return origBeacon.call(nav, url, data);
     };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Lead events (GA4 recommended event `generate_lead`). Allowed params only:
+// method (whatsapp | chat | visit_request), optional listing_id (a uuid or the
+// :id placeholder) and optional type (short lowercase token). Never PII.
+
+export const LEAD_METHODS = ["whatsapp", "chat", "visit_request"] as const;
+export type LeadMethod = (typeof LEAD_METHODS)[number];
+
+export function leadParams(method: string, opts: { listingId?: string; type?: string } = {}): Record<string, string> | null {
+  if (!(LEAD_METHODS as readonly string[]).includes(method)) return null;
+  const out: Record<string, string> = { method };
+  const id = String(opts.listingId ?? "").trim();
+  if (id && (UUID.test(id) || id === ":id")) out.listing_id = id.toLowerCase();
+  const type = String(opts.type ?? "").trim();
+  if (/^[a-z][a-z0-9_]{0,31}$/.test(type)) out.type = type;
+  return out;
+}
+
+type LeadWindow = { gtag?: Gtag; __roomeoGa4?: boolean; location?: { pathname: string } };
+
+/**
+ * Fire generate_lead if GA is running on this page (production, allowed host, not
+ * an excluded page). No-op on the server, in dev, or before GA loads. Returns
+ * whether an event was queued.
+ */
+export function sendLead(method: LeadMethod, opts: { listingId?: string; type?: string } = {}, win?: LeadWindow): boolean {
+  const w = win ?? (typeof window === "undefined" ? undefined : (window as unknown as LeadWindow));
+  if (!w || !w.__roomeoGa4 || typeof w.gtag !== "function") return false;
+  if (!sanitizePagePath(w.location?.pathname ?? "/")) return false;
+  const params = leadParams(method, opts);
+  if (!params) return false;
+  w.gtag("event", "generate_lead", params);
+  return true;
 }

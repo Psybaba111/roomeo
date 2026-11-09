@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { listingHead, listingJsonLd, pageHead, robotsTxt, sitemapXml } from "./seo.ts";
+import { readFileSync } from "node:fs";
+import { SHARE_DESCRIPTION, listingHead, listingJsonLd, pageHead, robotsTxt, sitemapXml } from "./seo.ts";
 
 const room = {
   id: "abc-123",
@@ -52,4 +53,19 @@ test("robots.txt points at the same base as the sitemap", () => {
   assert.ok(out.includes("Sitemap: https://roomeo-eosin.vercel.app/sitemap.xml"));
   assert.ok(!out.includes("roomeo.com"));
   assert.ok(out.includes("Disallow: /admin"));
+});
+
+test("shared social/meta description: exact copy, no ₹ fee, used by site.json; listings keep their own", () => {
+  assert.equal(SHARE_DESCRIPTION, "AC PG beds for working men in Mangaluru. Dated photos, rent + bills in one price, meals optional. Deposit paid to the owner.");
+  assert.ok(!/₹/.test(SHARE_DESCRIPTION));
+  const site = JSON.parse(readFileSync(new URL("./og/site.json", import.meta.url), "utf8"));
+  assert.equal(site.description, SHARE_DESCRIPTION, "default og:/twitter:description injected on non-listing pages");
+  const metas = pageHead("Pricing", { description: SHARE_DESCRIPTION }).meta;
+  assert.ok(metas.some((m) => m.name === "description" && m.content === SHARE_DESCRIPTION));
+  const head = listingHead(room);
+  assert.ok(!JSON.stringify(head).includes(SHARE_DESCRIPTION), "listing meta is untouched");
+  for (const f of ["../routes/index.tsx", "../routes/pricing.tsx", "../routes/squads.index.tsx", "../routes/room-wanted.tsx", "../routes/__root.tsx"]) {
+    const src = readFileSync(new URL(f, import.meta.url), "utf8");
+    assert.match(src, /SHARE_DESCRIPTION/, f);
+  }
 });

@@ -1,6 +1,6 @@
 import { CalendarCheck, ChatCircleDots, HandCoins, Receipt, ShieldCheck, VideoCamera } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { pageHead } from "@/lib/seo";
+import { pageHead, SHARE_DESCRIPTION } from "@/lib/seo";
 import { Shell } from "@/components/shell";
 import { TaglineReveal } from "@/components/tagline-reveal";
 import { btnPrimary, btnSecondary, card } from "@/components/ui-tokens";
@@ -11,8 +11,7 @@ const tf = trialFeeBreakdown();
 export const Route = createFileRoute("/pricing")({
   head: () =>
     pageHead("Pricing: ₹499 once, not a broker's month", {
-      description:
-        "₹499 + GST once from the renter and ₹499 + GST once from the owner, per person, per stay. Chat owners free, list free. No passes, no cut of rent. Deposit is paid directly to the owner.",
+      description: SHARE_DESCRIPTION,
     }),
   component: Pricing,
 });

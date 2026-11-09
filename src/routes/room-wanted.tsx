@@ -1,4 +1,4 @@
-import { pageHead } from "@/lib/seo";
+import { pageHead, SHARE_DESCRIPTION } from "@/lib/seo";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Shell } from "@/components/shell";
@@ -10,7 +10,7 @@ import { inr, whenLabel } from "@/lib/roomsetu/map";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/room-wanted")({
-  head: () => pageHead("People looking for a room"),
+  head: () => pageHead("People looking for a room", { description: SHARE_DESCRIPTION }),
   component: WantedPage,
 });
 
