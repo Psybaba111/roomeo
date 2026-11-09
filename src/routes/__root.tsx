@@ -4,6 +4,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import { NotFoundPage } from "@/components/not-found";
+import { Ga4Analytics } from "@/components/ga4-analytics";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -30,6 +31,7 @@ export const Route = createRootRoute({
       </head>
       <body>
         <PreviewHostBridge />
+        <Ga4Analytics />
         <AuthProvider>
           <Outlet />
         </AuthProvider>
