@@ -1,0 +1,27 @@
+import { useEffect } from "react";
+import { useRouter } from "@tanstack/react-router";
+import { createPageViewTracker, installGtag, shouldTrackHost, type GaDocument, type GaWindow } from "@/lib/analytics/ga4";
+
+// One tracker per page load, shared across remounts so StrictMode can't double count.
+let tracker: ((pathname: string) => boolean) | null = null;
+
+/**
+ * GA4 page views for TanStack Router. Renders nothing. Runs only in the browser
+ * (inside useEffect, so SSR never touches window), only in production builds and
+ * never on localhost / LAN / Vercel branch previews.
+ */
+export function Ga4Analytics() {
+  const router = useRouter();
+  useEffect(() => {
+    if (!import.meta.env.PROD || !shouldTrackHost(window.location.hostname)) return;
+    const origin = window.location.origin;
+    if (!tracker) tracker = createPageViewTracker(installGtag(window as unknown as GaWindow, document as unknown as GaDocument, origin), origin, document.referrer);
+    const track = tracker;
+    track(router.state.resolvedLocation?.pathname ?? window.location.pathname);
+    // onResolved fires once per finished navigation (after redirects; preloads don't fire it).
+    return router.subscribe("onResolved", (e) => {
+      track(e.toLocation.pathname);
+    });
+  }, [router]);
+  return null;
+}

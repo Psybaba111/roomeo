@@ -378,7 +378,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
           <div>
             <h2 className="text-2xl font-semibold">The room</h2>
             <p className="mt-2 text-sm text-muted">
-              No visit. You judge this bed from the photos and the rent.
+              Want to see it first? Ping us in chat and we'll set up a quick visit.
             </p>
           </div>
           <div data-testid="location-box">

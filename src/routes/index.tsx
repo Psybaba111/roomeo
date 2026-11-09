@@ -12,9 +12,9 @@ import { DEFAULT_CITY, budgetHints, cityInfo } from "@/lib/roomsetu/cities";
 
 export const Route = createFileRoute("/")({
   head: () =>
-    pageHead("Spare beds for students & first jobbers", {
+    pageHead("Spare PG beds for working professionals", {
       description:
-        "Shared rooms and PG beds in Mangaluru. Real photos, one all-in price, deposit paid to the owner. Chat free, ₹589 once when you lock a bed.",
+        "Shared rooms and PG beds in Mangaluru for working professionals. Real photos, rent + bills in one price, food optional. Deposit paid to the owner. Chat free, ₹589 once when you lock a bed.",
     }),
   loader: () => getHome({ data: { city: DEFAULT_CITY } }),
   component: Home,
@@ -47,7 +47,7 @@ const STEPS = [
 const TRUST: [typeof ShieldCheck, string, string][] = [
   [ShieldCheck, "ID + phone checked", "Hosts verify phone and ID before a bed goes live."],
   [CalendarCheck, "Dated photos + video tours", "See when each photo was taken. Watch the room before you visit."],
-  [Receipt, "One all-in price", "Rent + food + bills in one number. Deposit shown, paid directly to the owner."],
+  [Receipt, "One clear price", "Rent + bills in one number. Food's optional and priced separately. Deposit shown, paid directly to the owner."],
   [MapPin, "Address stays private", "Exact address only after the owner says yes."],
   [ChatCircle, "Chat inside roomeo", "Your number stays hidden till you're ready."],
   [Flag, "Report in one tap", "Something feels off? Flag it. A real person reviews it."],
@@ -85,8 +85,8 @@ function Home() {
       <section className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-[#2a0a4a] px-4 pb-12 pt-10 text-white">
         <div className="relative mx-auto max-w-6xl">
           <p className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
-            <span className="h-2 w-2 rounded-full bg-lime" aria-hidden /> {city} · for students &
-            first jobbers
+            <span className="h-2 w-2 rounded-full bg-lime" aria-hidden /> {city} · for working
+            professionals
           </p>
           <CityPicker
             value={city}
@@ -102,8 +102,8 @@ function Home() {
             <span className="block text-lime">Then your bed.</span>
           </h1>
           <p className="mt-4 max-w-md text-base leading-relaxed text-white/90">
-            Spare beds near college and office, with dated photos, one all-in price and deposit
-            paid directly to the owner. No broker's month, no cut of your rent.
+            Spare beds near the office, with dated photos, rent + bills in one price (food optional)
+            and deposit paid directly to the owner. No broker's month, no cut of your rent.
           </p>
           <p className="mt-2 max-w-md text-sm text-white/80" data-testid="fee-line">
             {FEE_LINE}{" "}

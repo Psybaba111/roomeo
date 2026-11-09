@@ -4,13 +4,14 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import { NotFoundPage } from "@/components/not-found";
+import { Ga4Analytics } from "@/components/ga4-analytics";
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "roomeo · spare beds for students & first jobbers" },
+      { title: "roomeo · spare PG beds for working professionals" },
       { name: "description", content: "Spare PG beds in Mangaluru. People choose their own group. Chat free, ₹589 once when you lock a bed. Zero commission on rent." },
       { name: "theme-color", content: "var(--color-brand)" },
     ],
@@ -30,6 +31,7 @@ export const Route = createRootRoute({
       </head>
       <body>
         <PreviewHostBridge />
+        <Ga4Analytics />
         <AuthProvider>
           <Outlet />
         </AuthProvider>

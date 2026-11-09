@@ -91,12 +91,15 @@ export const updateListing = createServerFn({ method: "POST" })
       editQuality(keep.length + data.newPhotos.length, data.description, data.furnished),
       ...EDIT_AMENITIES.map((a) => data.amenities[a.key]),
       String(data.monthlyRent),
+      data.title,
     ];
-    const rentText = `$${params.length}`;
+    const rentText = `$${params.length - 1}`;
+    const titleParam = `$${params.length}`;
     await sql.query(
       `update listings set monthly_rent = $2::int, deposit = $3::int, description = coalesce(nullif($4, ''), description),
          furnished = $5, available_from = $6::date, quality_score = $7,
          ${cols.map((c, i) => `${c} = $${i + 8}`).join(", ")},
+         title = coalesce(nullif(${titleParam}::text, ''), title),
          fingerprint = lower(city_name || '|' || locality_name || '|' || ${rentText}::text || '|' || room_type),
          updated_at = now()
        where id = $1`,
@@ -119,7 +122,7 @@ export const updateListing = createServerFn({ method: "POST" })
       const am = await sql<{ id: string }>`select id from amenities where name = ${a.amenity}`;
       if (am[0]) await sql`insert into listing_amenities (listing_id, amenity_id) values (${data.id}, ${am[0].id}) on conflict do nothing`;
     }
-    if (asAdmin) await audit(sql, context.userId, "listing.edit", "listing", data.id, `rent ${data.monthlyRent}, photos ${keep.length + data.newPhotos.length}`);
-    logEvent("listing.edited", { admin: asAdmin, photos: keep.length + data.newPhotos.length });
+    if (asAdmin) await audit(sql, context.userId, "listing.edit", "listing", data.id, `${data.title ? "title changed, " : ""}rent ${data.monthlyRent}, photos ${keep.length + data.newPhotos.length}`);
+    logEvent("listing.edited", { admin: asAdmin, titleChanged: Boolean(data.title), photos: keep.length + data.newPhotos.length });
     return { id: data.id };
   });

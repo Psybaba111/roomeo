@@ -24,6 +24,8 @@ export type AmenityKey = (typeof EDIT_AMENITIES)[number]["key"];
 
 export type ListingEdit = {
   id: string;
+  /** New title, or "" to keep the current one. */
+  title: string;
   monthlyRent: number;
   deposit: number;
   description: string;
@@ -45,11 +47,27 @@ function whole(v: unknown): number {
 
 const ID = /^[0-9a-f-]{8,80}$/i;
 
+export const TITLE_MIN = 8;
+export const TITLE_MAX = 100;
+
+/** Owner-edited title: whitespace tidied, control chars dropped. "" means keep the current title. */
+export function titleOf(v: unknown): string {
+  if (v === undefined || v === null) return "";
+  if (typeof v !== "string") throw new Error("Title looks off.");
+  // eslint-disable-next-line no-control-regex
+  const t = v.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  if (t.length < TITLE_MIN || t.length > TITLE_MAX) throw new Error(`Title should be ${TITLE_MIN} to ${TITLE_MAX} characters.`);
+  if (/\d[\d\s-]{8,}\d/.test(t) || /https?:|www\./i.test(t)) throw new Error("Keep phone numbers and links out of the title. Chat handles that.");
+  return t;
+}
+
 /** Validate an edit. Throws a friendly message on the first problem. */
 export function editOf(input: unknown): ListingEdit {
   const o = rec(input);
   const id = typeof o.id === "string" && ID.test(o.id) ? o.id : "";
   if (!id) throw new Error("Unknown room.");
+  const title = titleOf(o.title);
   const monthlyRent = whole(o.monthlyRent);
   if (!(monthlyRent >= 1500 && monthlyRent <= 500000)) throw new Error("Monthly rent looks off. Use ₹1,500 to ₹5,00,000.");
   const deposit = whole(o.deposit);
@@ -77,7 +95,7 @@ export function editOf(input: unknown): ListingEdit {
   const total = keepPhotoIds.length + newPhotos.length;
   if (total < 1) throw new Error("Keep at least one photo.");
   if (total > MAX_PHOTOS) throw new Error(`Up to ${MAX_PHOTOS} photos per room.`);
-  return { id, monthlyRent, deposit, description, furnished, availableFrom, amenities, keepPhotoIds, newPhotos };
+  return { id, title, monthlyRent, deposit, description, furnished, availableFrom, amenities, keepPhotoIds, newPhotos };
 }
 
 /** Owners edit their own rooms; operators (ADMIN / SUPER_ADMIN) can edit any. */
