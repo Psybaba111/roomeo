@@ -60,3 +60,32 @@ export function requestStatusLabel(status: string, mine: boolean): string {
       return status.toLowerCase();
   }
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "9 Nov 2026, 3:05 PM IST" from an ISO timestamp. Fixed +5:30, no Intl/ICU dependence. */
+export function istStamp(iso: string): string {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "";
+  const d = new Date(t + 330 * 60_000);
+  const h = d.getUTCHours();
+  const hh = h % 12 || 12;
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${hh}:${mm} ${h < 12 ? "AM" : "PM"} IST`;
+}
+
+/**
+ * Who withdrew a request and when. Only the seeker can withdraw (setApplication enforces it),
+ * and updated_at is set on that status change, so both come from the request row itself.
+ */
+export function withdrawalLine(row: { status: string; mine: boolean; seekerName: string; updatedAt: string }): string {
+  if (row.status !== "WITHDRAWN") return "";
+  const who = row.mine ? "You" : row.seekerName.trim() || "The renter";
+  const when = istStamp(row.updatedAt);
+  return when ? `${who} withdrew this request · ${when}` : `${who} withdrew this request`;
+}
+
+/** Fallback link to one request on /applications (the row carries id="req-<id>"). */
+export function requestHref(id: string): string {
+  return `/applications#req-${encodeURIComponent(id)}`;
+}

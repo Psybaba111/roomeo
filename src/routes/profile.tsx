@@ -12,7 +12,7 @@ import { ensureProfile, getDesk, updateProfile } from "@/lib/roomsetu/account-ap
 import { FURNISHED, ROOM_TYPES } from "@/lib/roomsetu/constants";
 import { numField, digitsOnly, toNumberOrNull } from "@/lib/roomsetu/profile-form";
 import { listCities } from "@/lib/roomsetu/public-api";
-import { canSave, formLocked, loadErrorMessage, saveButtonLabelFor, type LoadState } from "@/lib/roomsetu/profile-load";
+import { accountEmail, canSave, formLocked, loadErrorMessage, saveButtonLabelFor, type LoadState } from "@/lib/roomsetu/profile-load";
 import { clearSaved, initialSaveStatus, isSaving, markSaved, saveButtonLabel, savedRemainingMs, saveStatusText, type SaveStatus } from "@/lib/roomsetu/save-status";
 
 export const Route = createFileRoute("/profile")({
@@ -154,6 +154,10 @@ function ProfilePage() {
             <button type="button" className="rounded-full border border-danger px-3 py-1 font-semibold" onClick={() => setLoadAttempt((n) => n + 1)}>Retry</button>
           </div>
         ) : null}
+        <label className="md:col-span-2" data-testid="profile-email">
+          <span className="mb-1 block text-sm text-muted">Email (your sign-in, can't be changed here)</span>
+          <input className={`${control} cursor-default bg-paper text-muted`} type="email" value={accountEmail(user)} readOnly aria-readonly="true" tabIndex={-1} />
+        </label>
         <fieldset disabled={formLocked(load)} aria-busy={load.kind === "loading"} className={`contents ${formLocked(load) ? "[&_input]:opacity-60 [&_select]:opacity-60 [&_textarea]:opacity-60" : ""}`}>
         <label><span className="mb-1 block text-sm text-muted">Name</span><input className={control} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></label>
         <label><span className="mb-1 block text-sm text-muted">Mobile (never shown on listings)</span><input className={control} value={form.mobile} onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))} /></label>

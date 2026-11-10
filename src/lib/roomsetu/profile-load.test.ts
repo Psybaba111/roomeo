@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canSave, formLocked, saveButtonLabelFor, loadErrorMessage, LOADING_LABEL } from "./profile-load.ts";
+import { readFileSync } from "node:fs";
+import { accountEmail, canSave, formLocked, saveButtonLabelFor, loadErrorMessage, LOADING_LABEL } from "./profile-load.ts";
 
 test("save blocked while profile is loading", () => {
   assert.equal(canSave({ kind: "loading" }), false);
@@ -35,4 +36,13 @@ test("regression: profile page gates Save and submit on load state", async () =>
   assert.match(src, /setLoad\(\{ kind: "loaded" \}\)/);
   assert.match(src, /setLoad\(\{ kind: "failed"/);
   assert.match(src, /Retry/);
+});
+
+test("profile shows the account email read-only", () => {
+  assert.equal(accountEmail({ primaryEmail: "zz.test@example.com" }), "zz.test@example.com");
+  assert.equal(accountEmail({ primaryEmail: null }), "No email on this account");
+  assert.equal(accountEmail(null), "No email on this account");
+  const src = readFileSync(new URL("../../routes/profile.tsx", import.meta.url), "utf8");
+  const field = src.slice(src.indexOf('data-testid="profile-email"'), src.indexOf("<fieldset"));
+  assert.ok(field.includes("value={accountEmail(user)}") && field.includes("readOnly") && !field.includes("onChange"));
 });
