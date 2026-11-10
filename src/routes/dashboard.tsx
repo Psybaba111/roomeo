@@ -23,6 +23,7 @@ import {
 } from "@/lib/roomsetu/account-api";
 import { COMING_SOON, HOST_WIDGETS, defaultLayout } from "@/lib/roomsetu/constants";
 import { inr } from "@/lib/roomsetu/map";
+import { requestHref, requestStatusLabel, withdrawalLine } from "@/lib/roomsetu/booking-cta";
 import { ComplaintsReceiptsSection } from "@/components/complaints-receipts";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
@@ -36,6 +37,31 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 type DeskData = Awaited<ReturnType<typeof getDesk>>;
+type AppRow = Awaited<ReturnType<typeof listApplications>>[number];
+
+/** One request on the desk, tappable as a whole: opens the chat with the other side. */
+function RequestRowButton({ row, busy, onOpen }: { row: AppRow; busy: boolean; onOpen: () => void }) {
+  const withdrawn = withdrawalLine(row);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={onOpen}
+      data-testid="desk-request"
+      aria-label={`Open chat about ${row.title}`}
+      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-card px-4 py-3 text-left text-sm transition-transform active:scale-[0.99] disabled:opacity-60"
+    >
+      <span className="min-w-0">
+        <span className="block truncate font-medium">{row.mine ? row.title : `${row.seekerName} · ${row.title}`}</span>
+        <span className="block text-muted">
+          {row.city} · {requestStatusLabel(row.status, row.mine)}
+        </span>
+        {withdrawn ? <span className="mt-0.5 block text-xs text-muted" data-testid="desk-withdrawn">{withdrawn}</span> : null}
+      </span>
+      <span className="shrink-0 font-semibold text-brand" aria-hidden="true">{busy ? "Opening…" : "Open →"}</span>
+    </button>
+  );
+}
 
 function Desk() {
   const { user } = useCurrentUserState();
@@ -46,6 +72,7 @@ function Desk() {
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [checkout, setCheckout] = useState<UpiCheckoutData | null>(null);
+  const [opening, setOpening] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -135,6 +162,21 @@ function Desk() {
   const hostish = data.profile.intent !== "LOOKING" || data.listings.length > 0;
   const incoming = apps.filter((row) => !row.mine && row.status === "PENDING");
   const tracking = apps.filter((row) => row.mine);
+  // Owner side: requests that are no longer waiting (accepted, declined, withdrawn).
+  const history = apps.filter((row) => !row.mine && row.status !== "PENDING");
+
+  /** Tap a request: open the chat about it; if that fails, fall back to the request on /applications. */
+  function openRequest(row: AppRow) {
+    if (opening) return;
+    setOpening(row.id);
+    setNote("");
+    void openConversation({ data: { listingId: row.listingId, roomWantedId: "", withUserId: row.mine ? "" : row.seekerId } })
+      .then((convo) => navigate({ to: "/messages", search: { thread: convo.id } }))
+      .catch(() => {
+        window.location.href = requestHref(row.id);
+      })
+      .finally(() => setOpening(""));
+  }
 
   return (
     <Shell>
@@ -258,7 +300,7 @@ function Desk() {
       ) : null}
 
       {tracking.length ? (
-        <section className="mt-6">
+        <section className="mt-6" data-testid="desk-applications">
           <div className="flex items-end justify-between gap-3">
             <h2 className="font-display text-3xl">Your applications</h2>
             <Link to="/applications" className="text-sm font-semibold text-brand">
@@ -267,14 +309,26 @@ function Desk() {
           </div>
           <ul className="mt-3 space-y-2">
             {tracking.slice(0, 4).map((row) => (
-              <li
-                key={row.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-line bg-card px-4 py-3 text-sm"
-              >
-                <span>
-                  {row.title} · {row.city}
-                </span>
-                <span className="font-semibold">{row.status}</span>
+              <li key={row.id}>
+                <RequestRowButton row={row} busy={opening === row.id} onOpen={() => openRequest(row)} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {history.length ? (
+        <section className="mt-6" data-testid="desk-request-history">
+          <div className="flex items-end justify-between gap-3">
+            <h2 className="font-display text-3xl">Request history</h2>
+            <Link to="/applications" className="text-sm font-semibold text-brand">
+              All requests
+            </Link>
+          </div>
+          <ul className="mt-3 space-y-2">
+            {history.slice(0, 4).map((row) => (
+              <li key={row.id}>
+                <RequestRowButton row={row} busy={opening === row.id} onOpen={() => openRequest(row)} />
               </li>
             ))}
           </ul>

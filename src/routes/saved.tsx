@@ -1,12 +1,13 @@
 import { pageHead } from "@/lib/seo";
-import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { Shell } from "@/components/shell";
-import { errText } from "@/lib/ui-text";
 import { RoomCard } from "@/components/cards";
 import { listSaved } from "@/lib/roomsetu/account-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { ListStatus } from "@/components/list-states";
+import { useListLoad } from "@/components/use-list-load";
+import { listItems } from "@/lib/ui/list-load";
 
 export const Route = createFileRoute("/saved")({
   head: () => pageHead("Saved beds", { noindex: true }),
@@ -19,18 +20,20 @@ export const Route = createFileRoute("/saved")({
 
 function Saved() {
   const { user } = useCurrentUserState();
-  const [rooms, setRooms] = useState<Awaited<ReturnType<typeof listSaved>>>([]);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    if (!user) return;
-    void listSaved().then(setRooms).catch((e) => setError(errText(e)));
-  }, [user]);
+  const saved = useListLoad(() => listSaved(), Boolean(user));
+  const rooms = listItems(saved.state);
   return (
     <Shell>
       <h1 className="font-display text-4xl">Saved rooms</h1>
-      {error ? <p className="mt-3 text-danger">{error}</p> : null}
-      {rooms.length === 0 ? <p className="mt-4 text-muted">Nothing saved yet. Tap Save on a room you might visit.</p> : null}
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ListStatus
+        state={saved.state}
+        what="saved rooms"
+        onRetry={saved.reload}
+        rows={2}
+        rowClass="h-72"
+        empty={<p>Nothing saved yet. Tap Save on a room you might visit.</p>}
+      />
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="saved-list">
         {rooms.map((room) => <RoomCard key={room.id} room={room} />)}
       </div>
     </Shell>

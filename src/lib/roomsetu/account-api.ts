@@ -1143,7 +1143,8 @@ export const listApplications = createServerFn({ method: "GET" })
       `select a.id, a.status, a.note, a.listing_id, a.seeker_id, a.host_id, l.title, l.city_name, l.monthly_rent, l.deposit, l.is_demo,
               ps.full_name as seeker_name, ps.identity_status as seeker_identity, ph.identity_status as host_identity,
               ra.seeker_ok, ra.host_ok, ra.status as agreement_status,
-              to_char(a.created_at at time zone 'UTC', 'YYYY-MM-DD') as created_on
+              to_char(a.created_at at time zone 'UTC', 'YYYY-MM-DD') as created_on,
+              to_char(a.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as updated_iso
        from applications a
        join listings l on l.id = a.listing_id
        join profiles ps on ps.user_id = a.seeker_id
@@ -1172,6 +1173,8 @@ export const listApplications = createServerFn({ method: "GET" })
         seekerName: str(r.seeker_name),
         mine: str(r.seeker_id) === context.userId,
         createdOn: str(r.created_on),
+        /** Last status change. Only the seeker can withdraw, so for WITHDRAWN this is when they withdrew. */
+        updatedAt: str(r.updated_iso),
         demo: bool(r.is_demo),
         seekerIdentity: str(r.seeker_identity) || "UNVERIFIED",
         hostIdentity: str(r.host_identity) || "UNVERIFIED",

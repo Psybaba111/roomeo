@@ -31,3 +31,9 @@ export function loadErrorMessage(reason: string): string {
     ? `Couldn't load your profile: ${r}. Tap retry, your saved details are safe.`
     : "Couldn't load your profile. Check your connection and tap retry, your saved details are safe.";
 }
+
+/** Read-only account email for the profile page. Comes from the signed-in session, never from the form. */
+export function accountEmail(user: { primaryEmail: string | null } | null | undefined): string {
+  const e = user?.primaryEmail?.trim();
+  return e || "No email on this account";
+}

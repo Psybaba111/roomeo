@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { CTA_LOADING, FEE_UNDER_PRICE, MESSAGE_CTA, REQUEST_CTA, REQUEST_CTA_SIGNED_OUT, ctaDisabled, isAlreadyRequested, requestCtaLabel, pinnedRequestFor, requestSentLine, requestStatusLabel } from "./booking-cta.ts";
+import { CTA_LOADING, FEE_UNDER_PRICE, MESSAGE_CTA, REQUEST_CTA, REQUEST_CTA_SIGNED_OUT, ctaDisabled, isAlreadyRequested, requestCtaLabel, istStamp, requestHref, withdrawalLine, pinnedRequestFor, requestSentLine, requestStatusLabel } from "./booking-cta.ts";
 import { dealSteps } from "./deal-steps.ts";
 
 test("one CTA label, signed in and out", () => {
@@ -71,4 +71,25 @@ test("listing page has a secondary 'Message the owner' next to the request CTA",
   // Opening a chat must not send a bed request.
   const fn = src.slice(src.indexOf("function messageOwner"), src.indexOf("function requestBed"));
   assert.ok(fn.includes("openConversation") && !fn.includes("applyToListing"));
+});
+
+test("withdrawal history: who withdrew and when (IST)", () => {
+  assert.equal(istStamp("2026-11-09T09:35:00Z"), "9 Nov 2026, 3:05 PM IST");
+  assert.equal(istStamp("2026-11-09T19:00:00Z"), "10 Nov 2026, 12:30 AM IST");
+  assert.equal(istStamp("nope"), "");
+  const base = { status: "WITHDRAWN", seekerName: "ZZ TEST Renter", updatedAt: "2026-11-09T09:35:00Z" };
+  assert.equal(withdrawalLine({ ...base, mine: true }), "You withdrew this request · 9 Nov 2026, 3:05 PM IST");
+  assert.equal(withdrawalLine({ ...base, mine: false }), "ZZ TEST Renter withdrew this request · 9 Nov 2026, 3:05 PM IST");
+  assert.equal(withdrawalLine({ ...base, mine: false, seekerName: " " , updatedAt: "" }), "The renter withdrew this request");
+  assert.equal(withdrawalLine({ ...base, status: "PENDING", mine: true }), "");
+  assert.equal(requestHref("a b"), "/applications#req-a%20b");
+});
+
+test("dashboard requests are tappable and show withdrawal history", () => {
+  const src = readFileSync(new URL("../../routes/dashboard.tsx", import.meta.url), "utf8");
+  assert.ok(src.includes('data-testid="desk-request"') && src.includes("onClick={onOpen}"));
+  assert.ok(src.includes("withdrawalLine(row)") && src.includes('data-testid="desk-request-history"'));
+  const api = readFileSync(new URL("./account-api.ts", import.meta.url), "utf8");
+  assert.match(api, /as updated_iso/);
+  assert.match(api, /WITHDRAWN" && row\.seeker_id !== context\.userId/, "only the seeker can withdraw, so 'who' is the seeker");
 });
