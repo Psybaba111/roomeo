@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { btnSmall, errorBox, skeleton } from "@/components/ui-tokens";
+import { btnSmall, errorBox } from "@/components/ui-tokens";
 import { listErrorMessage, listView, type ListLoad } from "@/lib/ui/list-load";
 
 /**
@@ -19,7 +19,10 @@ export function ListStatus<T>({ state, what, empty, onRetry, rows = 3, rowClass 
     return (
       <div className="mt-6 space-y-3" aria-busy="true" aria-live="polite" data-testid="list-loading">
         <span className="sr-only">Loading your {what}…</span>
-        {Array.from({ length: rows }, (_, i) => <div key={i} className={`${skeleton} ${rowClass} w-full rounded-3xl`} aria-hidden="true" />)}
+        {Array.from({ length: rows }, (_, i) => <div key={i} className={`${rowClass} w-full animate-pulse rounded-3xl border border-line bg-card p-4 motion-reduce:animate-none`} aria-hidden="true">
+            <div className="h-4 w-2/3 rounded-full bg-line" />
+            <div className="mt-3 h-3 w-1/2 rounded-full bg-line/70" />
+          </div>)}
       </div>
     );
   if (view === "error" && state.kind === "failed")
