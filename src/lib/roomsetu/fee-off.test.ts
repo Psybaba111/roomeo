@@ -87,9 +87,9 @@ describe("fee OFF ⇒ no ₹499 / ₹589 anywhere", () => {
     assert.ok(TERMS.every((s) => s.body.every((b) => !mentionsFeeAmount(b))));
     assert.ok(TRIAL_ARRIVAL_CHECKLIST.every((c) => !mentionsFeeAmount(c)));
   });
-  test("copy says it is free while we pilot", () => {
-    assert.match(feeLine(OFF), /free while we pilot/i);
-    assert.match(pricingCopy(OFF, TRIAL).h1, /free while we pilot/i);
+  test("copy says it is free for tenants (owner-fee model, 15 Nov 2026)", () => {
+    assert.match(feeLine(OFF), /free for tenants/i);
+    assert.match(pricingCopy(OFF, TRIAL).h1, /free for tenants/i);
     assert.equal(trialCreditLine(OFF, 99, 14), null);
     assert.equal(pricingTrialCreditBullet(OFF, 99, 14), null);
   });

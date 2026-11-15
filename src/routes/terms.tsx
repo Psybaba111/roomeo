@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { pageHead } from "@/lib/seo";
 import { LegalPage } from "@/components/legal-page";
-import { termsFor } from "@/lib/legal";
+import { termsFor, termsUpdated } from "@/lib/legal";
 import { asFeeView } from "@/lib/roomsetu/fee-copy";
 import { getFeeView } from "@/lib/roomsetu/pricing-api";
 
@@ -13,5 +13,5 @@ export const Route = createFileRoute("/terms")({
 
 function Terms() {
   const fee = asFeeView(Route.useLoaderData());
-  return <LegalPage title="Terms of use" intro="Short version: Roomeo connects people; the rental deal is between tenant and owner. Be real, be kind, and here's exactly what we charge and when you get money back." sections={termsFor(fee)} />;
+  return <LegalPage title="Terms of use" intro="Short version: Roomeo connects people; the rental deal is between tenant and owner. Be real, be kind, and here's exactly what we charge and when you get money back." sections={termsFor(fee)} updated={termsUpdated(fee)} />;
 }

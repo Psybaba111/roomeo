@@ -236,6 +236,13 @@ function Desk() {
           <p className="font-display text-3xl">See</p>
         </Link>
       </div>
+      {data.listings.length > 0 ? (
+        <p className="mt-3 text-sm">
+          <Link to="/owner-fees" className="font-semibold text-brand" data-testid="owner-fees-link">
+            Roomeo commissions
+          </Link>
+        </p>
+      ) : null}
 
       <ReferralCard />
 

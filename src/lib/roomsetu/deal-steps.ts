@@ -5,11 +5,17 @@ import { SUCCESS_FEE_INR } from "./pricing.ts";
 export type StepState = "done" | "now" | "todo";
 export type DealStep = { key: "accepted" | "sign" | "pay" | "movein"; label: string; state: StepState; hint: string };
 
-export function dealSteps(p: { role: "tenant" | "owner"; squad?: boolean; iSigned: boolean; issued: boolean; cancelled: boolean; feeOn: boolean; feePaid: boolean; feeTotal: number; feeBase?: number; movedIn: boolean }): DealStep[] {
+export function dealSteps(p: { role: "tenant" | "owner"; squad?: boolean; iSigned: boolean; issued: boolean; cancelled: boolean; feeOn: boolean; feePaid: boolean; feeTotal: number; feeBase?: number; movedIn: boolean; ownerFeeTotal?: number }): DealStep[] {
   const f = feeWithGst(p.feeBase ?? SUCCESS_FEE_INR);
   const other = p.role === "tenant" ? (p.squad ? "the owner and your squad" : "the owner") : p.squad ? "every squad member" : "the tenant";
   const signHint = p.issued ? "Signed by everyone. Agreement issued." : p.iSigned ? `You signed. Waiting on ${other}.` : `Read it, type your name, sign. ${other[0].toUpperCase() + other.slice(1)} signs too.`;
-  const payHint = !p.feeOn ? "No fee right now. Skip ahead 🙌" : p.feePaid ? "Paid. Invoice is ready." : `You pay ₹${p.feeTotal} once (₹${f.base} + 18% GST = ₹${f.total}${p.feeTotal < f.total ? ", less your ₹99 trial credit, which is non-refundable" : ""}), before move in. The ${p.role === "tenant" ? "owner" : "tenant"} pays ₹${f.total} once too. If the stay ends within 7 days of paying, both sides get their fee back.`;
+  const payHint = !p.feeOn
+    ? p.role === "tenant"
+      ? "Free for tenants. Nothing to pay Roomeo. Skip ahead 🙌"
+      : p.ownerFeeTotal
+        ? `Nothing to pay now. Roomeo's commission (₹${p.ownerFeeTotal} incl. GST) is due within 7 days of move-in.`
+        : "No fee right now. Skip ahead 🙌"
+    : p.feePaid ? "Paid. Invoice is ready." : `You pay ₹${p.feeTotal} once (₹${f.base} + 18% GST = ₹${f.total}${p.feeTotal < f.total ? ", less your ₹99 trial credit, which is non-refundable" : ""}), before move in. The ${p.role === "tenant" ? "owner" : "tenant"} pays ₹${f.total} once too. If the stay ends within 7 days of paying, both sides get their fee back.`;
   const steps: Omit<DealStep, "state">[] = [
     { key: "accepted", label: "Accepted", hint: "Owner said yes 🎉" },
     { key: "sign", label: "Sign agreement", hint: signHint },

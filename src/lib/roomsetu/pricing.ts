@@ -22,7 +22,10 @@ export type PricingConfig = {
   boostInr: number;
   boostDays: number;
   fastTrackInr: number;
+  /** The flat success fee (tenant side and the matching owner side). Same value as the tenant-fee setting. */
   successFeeEnabled: boolean;
+  /** Which env var decided `successFeeEnabled`. */
+  tenantFeeSource: TenantFeeSource;
   successFeeTenantInr: number;
   successFeeOwnerInr: number;
   /** Free trust-first model (Oct 2026): paid chat, boosts and fast track are parked behind these. */
@@ -45,6 +48,23 @@ function flag(env: Env, k: string, def: boolean): boolean {
   return v === "true" || v === "1" || v === "on" || v === "yes";
 }
 
+export type TenantFeeSource = "ROOMEO_TENANT_FEE_ENABLED" | "ROOMEO_FEE_ENABLED" | "default";
+
+/**
+ * Tenant-side fee setting (owner-fee model, 15 Nov 2026). Default OFF in code.
+ * - ROOMEO_TENANT_FEE_ENABLED, when set to anything, wins.
+ * - Otherwise the legacy ROOMEO_FEE_ENABLED decides, exactly as before this change. Production has
+ *   ROOMEO_FEE_ENABLED on, so merging this changes nothing for tenants until someone sets
+ *   ROOMEO_TENANT_FEE_ENABLED=false on purpose.
+ * Turning the tenant fee off turns the whole flat ₹499 success fee off (tenant and owner sides);
+ * the owner commission (OWNER_FEE_ENABLED) replaces the owner side.
+ */
+export function tenantFeeSetting(env: Env = procEnv()): { enabled: boolean; source: TenantFeeSource } {
+  if (env.ROOMEO_TENANT_FEE_ENABLED?.trim()) return { enabled: flag(env, "ROOMEO_TENANT_FEE_ENABLED", false), source: "ROOMEO_TENANT_FEE_ENABLED" };
+  if (env.ROOMEO_FEE_ENABLED?.trim()) return { enabled: flag(env, "ROOMEO_FEE_ENABLED", false), source: "ROOMEO_FEE_ENABLED" };
+  return { enabled: false, source: "default" };
+}
+
 export function pricingConfig(env: Env = procEnv()): PricingConfig {
   const model = env.ROOMEO_CONTACT_MODEL?.trim().toUpperCase() === "FREE_THEN_PASS" ? "FREE_THEN_PASS" : "PER_LISTING_FEE";
   const squadDays = int(env, "ROOMEO_SQUAD_PASS_DAYS", 30, 1, 365);
@@ -64,9 +84,10 @@ export function pricingConfig(env: Env = procEnv()): PricingConfig {
     boostInr: int(env, "ROOMEO_BOOST_INR", 199, 1, 100000),
     boostDays: int(env, "ROOMEO_BOOST_DAYS", 7, 1, 90),
     fastTrackInr: int(env, "ROOMEO_FAST_TRACK_INR", 149, 1, 100000),
-    // Flat ₹499 per side, fixed (not env-tunable). Collection stays off until the payment gates
-    // are met and ROOMEO_FEE_ENABLED=true is set on purpose.
-    successFeeEnabled: flag(env, "ROOMEO_FEE_ENABLED", false),
+    // Flat ₹499 per side, fixed (not env-tunable). OFF by default. Read through tenantFeeSetting():
+    // ROOMEO_TENANT_FEE_ENABLED when set, else the legacy ROOMEO_FEE_ENABLED (so prod is unchanged on merge).
+    successFeeEnabled: tenantFeeSetting(env).enabled,
+    tenantFeeSource: tenantFeeSetting(env).source,
     successFeeTenantInr: SUCCESS_FEE_INR,
     successFeeOwnerInr: SUCCESS_FEE_INR,
     paidChatEnabled: flag(env, "ROOMEO_PAID_CHAT_ENABLED", false),

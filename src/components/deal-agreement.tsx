@@ -49,7 +49,7 @@ export function DealAgreement({ dealRef }: { dealRef: DealRef }) {
         <p className="mt-2" data-testid="deal-now">{a.steps.find((s) => s.state === "now")?.hint ?? "All done 🎉"}</p>
       )}
       <p className="mt-1 text-xs text-muted">
-        {who}. {a.feeEnabled ? `Tenant${a.kind === "squad" ? " (each squad member)" : ""} pays ₹${f.total} once and the owner pays ₹${f.total} once (₹${f.base} + 18% GST each), after everyone signs and before move in. Refund only if the tenant moves out within 7 days of paying${a.refundBy ? ` (yours: move out by ${a.refundBy})` : ""}. After that, no refund. The deposit goes straight to the owner.` : "No Roomeo fee right now. Rent and deposit go straight to the owner."}
+        {who}. {a.feeEnabled ? `Tenant${a.kind === "squad" ? " (each squad member)" : ""} pays ₹${f.total} once and the owner pays ₹${f.total} once (₹${f.base} + 18% GST each), after everyone signs and before move in. Refund only if the tenant moves out within 7 days of paying${a.refundBy ? ` (yours: move out by ${a.refundBy})` : ""}. After that, no refund. The deposit goes straight to the owner.` : a.role === "tenant" ? "Free for tenants: no Roomeo fee. Rent and deposit go straight to the owner." : a.ownerFee ? `Roomeo commission: ${a.ownerFee.ratePct}% of one month's rent = ₹${a.ownerFee.feeInr} + ₹${a.ownerFee.gstInr} GST (${a.ownerFee.gstPct}%) = ₹${a.ownerFee.totalInr}, due within 7 days of the tenant's deposit or first rent, by a Razorpay payment link. 50% back if the tenant leaves within 15 days. Please don't charge the tenant any brokerage.` : "No Roomeo fee right now. Rent and deposit go straight to the owner."}
       </p>
 
       <div className="mt-3 border-t border-line pt-3">

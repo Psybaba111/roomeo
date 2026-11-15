@@ -1,7 +1,17 @@
 /** Roomeo legal pages copy. Plain, casual-but-clear. Not a substitute for legal review. */
-import { FEE_OFF, type FeeView } from "./roomsetu/fee-copy.ts";
+import { FEE_OFF, FREE_TENANTS, ownerOf, type FeeView } from "./roomsetu/fee-copy.ts";
 
 export const LEGAL_UPDATED = "29 Oct 2026";
+/**
+ * Terms date shown only while the owner-fee model is live (OWNER_FEE_ENABLED on, tenant fee off): that copy
+ * is different, so it carries its own date. ROHITH TO CONFIRM before switching the owner fee on.
+ */
+export const OWNER_FEE_TERMS_UPDATED = "15 Nov 2026";
+
+/** "Last updated" for the terms the visitor actually sees. Unchanged unless the owner-fee copy is live. */
+export function termsUpdated(fee: FeeView): string {
+  return !fee.on && ownerOf(fee).on ? OWNER_FEE_TERMS_UPDATED : LEGAL_UPDATED;
+}
 export const OPERATOR = {
   name: "Athiti Hospitality Services Private Limited",
   gstin: "29ABFCA1830K1ZM",
@@ -72,6 +82,8 @@ export const PRIVACY: LegalSection[] = [
 
 /** Terms of use, with the fee and refund clauses built from the fee setting (no fee amounts while it is off). */
 export function termsFor(fee: FeeView): LegalSection[] {
+  const o = ownerOf(fee);
+  const ownerModel = !fee.on && o.on;
   return [
     { id: "about", title: "The basics", body: [
       `These terms are an agreement between you and ${OPERATOR.name} (GSTIN ${OPERATOR.gstin}), ${OPERATOR.address}, which runs Roomeo. Using Roomeo means you accept them. You must be 18+.`,
@@ -80,7 +92,9 @@ export function termsFor(fee: FeeView): LegalSection[] {
     { id: "platform", title: "We're a platform, not your landlord", body: [
       "Roomeo is a technology platform that helps people find rooms, beds and flatmates. We're an intermediary under section 79 of the IT Act, 2000.",
       "We are not the owner, landlord, licensor, tenant, agent, broker or guarantor in any rental, and we're not a party to any agreement between users, even one signed inside Roomeo.",
-      "We don't collect, hold or refund rent or deposits. Those go directly between tenant and owner, and we take no commission or brokerage on them. Fees you pay Roomeo are separate platform fees, not rent, deposit or brokerage.",
+      ownerModel
+        ? "We don't collect, hold or refund rent or deposits. Those go directly between tenant and owner. Tenants pay Roomeo nothing. Owners pay Roomeo a separate placement commission (see Fees), which is not rent, deposit or brokerage."
+        : "We don't collect, hold or refund rent or deposits. Those go directly between tenant and owner, and we take no commission or brokerage on them. Fees you pay Roomeo are separate platform fees, not rent, deposit or brokerage.",
       "Disputes about the room, rent, deposit, house rules or behaviour are between tenant and owner. We may help (for example by suspending a bad actor), but that doesn't make us a party.",
     ] },
     { id: "accounts", title: "Your account", body: [
@@ -94,7 +108,15 @@ export function termsFor(fee: FeeView): LegalSection[] {
       "Browsing, saving, listing, applying and chatting are free.",
       "Owner chats are free for renters once your phone is verified. There are no chat passes.",
       "Listing is free for owners. There are no paid boosts or paid fast-track reviews right now.",
-      ...(fee.on
+      ...(ownerModel
+        ? [
+            `${FREE_TENANTS}: renters pay Roomeo nothing, ever, to search, chat, lock a bed or move in.`,
+            `Owners pay Roomeo a placement commission of ${o.ratePct}% of one month's rent for each tenant who moves in through Roomeo, plus GST as applicable, shown separately on the invoice. A tenant counts as coming through Roomeo when they move in within ${o.attributionDays} days of their first Roomeo enquiry to that owner (the enquiry day is day 0; day ${o.attributionDays} counts, day ${o.attributionDays + 1} doesn't).`,
+            `The commission is due within ${o.dueDays} days of the tenant paying the deposit or first rent, by a Razorpay payment link Roomeo sends. Amounts are rounded to the nearest rupee.`,
+            `Founding partners, as confirmed by Roomeo in writing, pay ${o.foundingPct}% instead of ${o.ratePct}% for ${o.foundingMonths} months from the date Roomeo confirms them, on move-ins up to the end date we tell them.`,
+            "Owners must not charge a Roomeo tenant any brokerage, finder's fee or similar charge. Doing so can get the listing removed and the account closed.",
+          ]
+        : fee.on
         ? [
             `Roomeo charges a flat platform fee of ₹${fee.baseInr} plus 18% GST (₹${fee.totalInr} in total), once, to the renter and ₹${fee.baseInr} plus 18% GST (₹${fee.totalInr}), once, to the owner, per person, per stay, when the stay is confirmed. No monthly fee. Roomeo never takes a cut of rent or deposit.`,
             `GST is added on top of the ₹${fee.baseInr} as shown at checkout, and you get a GST invoice for platform fees. We may change prices for the future; we'll never change the price of something you already paid for.`,
@@ -106,7 +128,9 @@ export function termsFor(fee: FeeView): LegalSection[] {
     ] },
     { id: "refunds", title: "Refunds", body: [
       "Pass promise: if every owner you contact during a pass declines or doesn't reply within 48 hours, the full pass price goes back to your UPI ID automatically.",
-      fee.on
+      ownerModel
+        ? `Owner commission: if the tenant leaves within ${o.refundDays} days of moving in, Roomeo refunds ${o.refundPct}% of the commission and its GST to the owner. After that it isn't refundable. Tenants pay nothing, so there's nothing to refund them. Deposits are paid directly to the owner and are never held or refunded by Roomeo.`
+        : fee.on
         ? `Platform fee: the ₹${fee.totalInr} (₹${fee.baseInr} + GST) fee is refunded in full only if the tenant vacates within 7 days of paying it. The owner's fee is refunded too if the stay ends within 7 days of the owner's payment. In every other case, including moving out later, the fee is not refundable. Deposits are paid directly to the owner and are never held or refunded by Roomeo.`
         : "Platform fee: there is none right now, so there's nothing to refund. Deposits are paid directly to the owner and are never held or refunded by Roomeo.",
       "Refunds go back to the UPI ID that paid, usually within 7 working days after we approve them. Boost and fast-track aren't refundable once they've started.",
