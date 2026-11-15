@@ -77,10 +77,10 @@ export const getDealAgreement = createServerFn({ method: "GET" })
     if (!a && d.accepted) {
       // No fee clauses while the success fee is off (code review, 14 Nov 2026).
       const feeBaseInr = agreementFeeBaseInr(cfg);
-      // Owner-fee model: the commission clause, at this host's current rate (15% founding / 20%).
-      const { hostRateNow, ownerFeeActive } = await import("@/lib/roomsetu/owner-fee-db");
-      const ownerFeePct = feeBaseInr === 0 && ownerFeeActive() ? await hostRateNow(sql, d.ownerId) : 0;
-      const terms = { ...d.terms, feeBaseInr, ownerFeePct };
+      // Owner-fee model: a tenant-safe clause only (free for the tenant, no brokerage). The owner's rate and
+      // amount never go into the shared agreement; the owner sees them in `ownerFee`/`ownerNote` below (null for a tenant).
+      const { ownerFeeActive } = await import("@/lib/roomsetu/owner-fee-db");
+      const terms = { ...d.terms, feeBaseInr, ownerFee: feeBaseInr === 0 && ownerFeeActive() };
       await sql.query(`insert into deal_agreements (id, application_id, listing_id, seeker_id, owner_id, terms_json, body, squad_request_id)
         values ($1,$2,$3,$4,$5,$6,$7,$8) on conflict (application_id) do nothing`,
         [crypto.randomUUID(), d.key, d.listingId, d.leadTenantId, d.ownerId, JSON.stringify(terms), agreementBody(terms), data.kind === "squad" ? data.id : null]);
@@ -96,8 +96,13 @@ export const getDealAgreement = createServerFn({ method: "GET" })
     const feeOn = cfg.successFeeEnabled && base > 0;
     // Owner-fee model: what the owner will owe on move-in (shown to the owner only). Tenants see nothing to pay.
     const { hostRateNow, ownerFeeActive } = await import("@/lib/roomsetu/owner-fee-db");
-    const { commissionAmounts } = await import("@/lib/roomsetu/owner-fee");
-    const ownerFee = !feeOn && isOwner && ownerFeeActive() && d.terms.monthlyRent > 0 ? commissionAmounts(d.terms.monthlyRent, await hostRateNow(sql, d.ownerId)) : null;
+    const { commissionAmounts, ownerFeeGstPct, ownerFeeForViewer, ownerCommissionNote, squadBedRentInr } = await import("@/lib/roomsetu/owner-fee");
+    // Owner and admin only. A tenant's response never carries the owner's rate or amount. Squads: per tenant, on each one's share.
+    const beds = data.kind === "squad" ? Math.max(1, d.tenantIds.length) : 1;
+    const bedRent = squadBedRentInr(d.terms.monthlyRent, beds);
+    const ownerAmounts = !feeOn && isOwner && ownerFeeActive() && bedRent > 0 ? commissionAmounts(bedRent, await hostRateNow(sql, d.ownerId), ownerFeeGstPct()) : null;
+    const ownerFee = ownerFeeForViewer(isOwner ? "owner" : "tenant", ownerAmounts);
+    const ownerNote = ownerFee ? ownerCommissionNote(ownerFee, beds) : "";
     const f = feeWithGst(base);
     // What this person actually pays: the open/paid payment row if any, else ₹589 less a ₹99 trial credit if one applies.
     let trialCredit = 0;
@@ -120,13 +125,14 @@ export const getDealAgreement = createServerFn({ method: "GET" })
       refundBy: fee?.status === "PAID" ? refundDeadline(fee.paid_at) : "",
       feeEnabled: feeOn,
       ownerFee,
+      ownerNote,
       fee: f,
       trialCredit,
       payable,
       refundState,
       feeStatus: str(fee?.status),
       feePaymentId: fee?.status === "PAID" ? str(fee.id) : "",
-      steps: dealSteps({ role: isOwner ? "owner" : "tenant", squad: data.kind === "squad", iSigned, issued: Boolean(a.issued_at), cancelled: Boolean(a.cancelled_at), feeOn, feePaid: fee?.status === "PAID" || Boolean(refundState), feeTotal: payable, feeBase: base, movedIn: d.movedIn, ownerFeeTotal: ownerFee?.totalInr }),
+      steps: dealSteps({ role: isOwner ? "owner" : "tenant", squad: data.kind === "squad", iSigned, issued: Boolean(a.issued_at), cancelled: Boolean(a.cancelled_at), feeOn, feePaid: fee?.status === "PAID" || Boolean(refundState), feeTotal: payable, feeBase: base, movedIn: d.movedIn, ownerFeeTotal: ownerFee ? ownerFee.totalInr * beds : undefined }),
     };
   });
 

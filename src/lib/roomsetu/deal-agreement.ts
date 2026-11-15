@@ -65,8 +65,8 @@ export type DealTerms = {
   ownerName: string;
   /** Per-side success fee base, ₹. 0 while the fee is off: the agreement then has no fee clauses. */
   feeBaseInr: number;
-  /** Owner commission % (owner-fee model). 0/missing = no commission clause. Ignored while the success fee is on. */
-  ownerFeePct?: number;
+  /** Owner-fee model is active: add the tenant-safe "free for the tenant, no brokerage" clause. It never names the owner's rate or amount. */
+  ownerFee?: boolean;
 };
 
 /** Fee base written into a new agreement: the tenant fee while the success fee is ON, else 0. */
@@ -81,8 +81,8 @@ export function agreementBody(t: DealTerms): string {
           `Both sides pay Roomeo a one-time platform success fee of ${feeBreakdownText(t.feeBaseInr)} each, once this agreement is issued and before move in.`,
           `Roomeo's fee is refunded only if the tenant vacates within ${REFUND_WINDOW_DAYS} days of paying it. The owner's fee is refunded too if the stay ends within ${REFUND_WINDOW_DAYS} days of the owner's payment. Otherwise the fee is not refundable. The deposit is paid directly to the owner and Roomeo never holds or refunds it.`,
         ]
-      : t.ownerFeePct && t.ownerFeePct > 0 && t.monthlyRent > 0
-        ? [ownerFeeAgreementClause(t.ownerFeePct, t.monthlyRent)]
+      : t.ownerFee
+        ? [ownerFeeAgreementClause()]
         : [];
   const clauses = [
     `The tenant takes the room above at the rent and deposit shown. Rent and deposit are paid directly to the owner; Roomeo never holds them or takes a cut.`,

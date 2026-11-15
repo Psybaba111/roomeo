@@ -873,6 +873,9 @@ export const confirmSquadMoveIn = createServerFn({ method: "POST" })
     const done = squadMoveInConfirmed({ memberIds: after.members, confirmedIds: after.confirmedIds, ownerConfirmed: Boolean(after.m?.owner_confirmed_at) });
     if (done && !after.m?.confirmed_at) {
       await sql`update squad_move_ins set confirmed_at = now() where id = ${mid} and confirmed_at is null`;
+      // Owner commission per bed (OWNER_FEE_ENABLED, off by default). Never throws.
+      const { commissionsOnSquadMoveIn } = await import("@/lib/roomsetu/owner-fee-db");
+      await commissionsOnSquadMoveIn(sql, mid);
       for (const u of [...after.members, after.req.owner_id])
         await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${u}, 'squad', 'Move in confirmed', 'Everyone confirmed the move in. Welcome home.', ${"/squads/" + after.req.squad_id})`;
     }

@@ -3,7 +3,7 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { pricingConfig } from "@/lib/roomsetu/pricing";
 import { assertAdmin, audit } from "@/lib/roomsetu/admin-api";
-import { OWNER_FEE_OFF, ownerFeeState, ownerFeeView, type CommissionStatus } from "@/lib/roomsetu/owner-fee";
+import { OWNER_FEE_OFF, ownerFeeGstPct, ownerFeeState, ownerFeeView, type CommissionStatus } from "@/lib/roomsetu/owner-fee";
 import * as db from "@/lib/roomsetu/owner-fee-db";
 
 const rec = (v: unknown) => (v && typeof v === "object" ? (v as Record<string, unknown>) : {});
@@ -20,7 +20,8 @@ const ref = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 80) : "")
 function state() {
   const cfg = pricingConfig();
   const s = ownerFeeState(cfg.successFeeEnabled);
-  return { ...s, tenantFeeOn: cfg.successFeeEnabled, tenantFeeSource: cfg.tenantFeeSource, view: s.active ? ownerFeeView(true) : OWNER_FEE_OFF };
+  const gstPct = ownerFeeGstPct();
+  return { ...s, gstPct, tenantFeeOn: cfg.successFeeEnabled, tenantFeeSource: cfg.tenantFeeSource, view: s.active ? ownerFeeView(true, gstPct) : OWNER_FEE_OFF };
 }
 
 /** Owner: my commissions (works even with the switch off, so past rows stay visible). */
@@ -42,7 +43,7 @@ export const adminCommissions = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .validator((i: unknown) => {
     const s = rec(i).status;
-    return { status: s === "due" || s === "paid" || s === "refunded_50" ? (s as CommissionStatus) : undefined };
+    return { status: s === "due" || s === "due_50" || s === "paid" || s === "refunded_50" ? (s as CommissionStatus) : undefined };
   })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
@@ -66,7 +67,22 @@ export const adminMarkCommissionPaid = createServerFn({ method: "POST" })
     const sql = await getSql();
     await assertAdmin(sql, context.userId);
     const row = await db.markCommissionPaid(sql, data.id, context.userId, data.paidOn, data.ref);
-    await audit(sql, context.userId, "COMMISSION_PAID", "owner_commission", data.id, `₹${row.totalInr} paid ${data.paidOn} ${data.ref}`.trim());
+    await audit(sql, context.userId, "COMMISSION_PAID", "owner_commission", data.id, `₹${row.paidInr ?? row.amountDueInr} paid ${data.paidOn} ${data.ref}`.trim());
+    return row;
+  });
+
+/** Admin: tenant left within 15 days before the owner paid → the owner owes 50% (status due_50). */
+export const adminRecordEarlyExit = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((i: unknown) => {
+    const o = rec(i);
+    return { id: id(o.id), vacatedOn: ymd(o.vacatedOn, "move-out date") };
+  })
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    const row = await db.recordEarlyExit(sql, data.id, context.userId, data.vacatedOn);
+    await audit(sql, context.userId, "COMMISSION_EARLY_EXIT_50", "owner_commission", data.id, `moved out ${data.vacatedOn}; ₹${row.amountDueInr} now due`);
     return row;
   });
 

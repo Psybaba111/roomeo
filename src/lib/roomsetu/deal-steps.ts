@@ -13,7 +13,7 @@ export function dealSteps(p: { role: "tenant" | "owner"; squad?: boolean; iSigne
     ? p.role === "tenant"
       ? "Free for tenants. Nothing to pay Roomeo. Skip ahead 🙌"
       : p.ownerFeeTotal
-        ? `Nothing to pay now. Roomeo's commission (₹${p.ownerFeeTotal} incl. GST) is due within 7 days of move-in.`
+        ? `Nothing to pay now. Roomeo's commission (₹${p.ownerFeeTotal}) is due within 7 days of move-in.`
         : "No fee right now. Skip ahead 🙌"
     : p.feePaid ? "Paid. Invoice is ready." : `You pay ₹${p.feeTotal} once (₹${f.base} + 18% GST = ₹${f.total}${p.feeTotal < f.total ? ", less your ₹99 trial credit, which is non-refundable" : ""}), before move in. The ${p.role === "tenant" ? "owner" : "tenant"} pays ₹${f.total} once too. If the stay ends within 7 days of paying, both sides get their fee back.`;
   const steps: Omit<DealStep, "state">[] = [

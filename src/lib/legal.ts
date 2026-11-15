@@ -111,8 +111,8 @@ export function termsFor(fee: FeeView): LegalSection[] {
       ...(ownerModel
         ? [
             `${FREE_TENANTS}: renters pay Roomeo nothing, ever, to search, chat, lock a bed or move in.`,
-            `Owners pay Roomeo a placement commission of ${o.ratePct}% of one month's rent for each tenant who moves in through Roomeo, plus GST as applicable, shown separately on the invoice. A tenant counts as coming through Roomeo when they move in within ${o.attributionDays} days of their first Roomeo enquiry to that owner (the enquiry day is day 0; day ${o.attributionDays} counts, day ${o.attributionDays + 1} doesn't).`,
-            `The commission is due within ${o.dueDays} days of the tenant paying the deposit or first rent, by a Razorpay payment link Roomeo sends. Amounts are rounded to the nearest rupee.`,
+            `Owners pay Roomeo a placement commission of ${o.ratePct}% of one month's rent for each tenant who moves in through Roomeo (for a squad, for each tenant, i.e. each bed). ${o.gstPct ? `GST at ${o.gstPct}% is added as a separate line on the invoice.` : "No GST is added to the commission at present; if that changes, GST will be shown as a separate line and will only apply to move-ins after we tell you."} A tenant counts as coming through Roomeo when they move in within ${o.attributionDays} days of their first Roomeo enquiry to that owner (the enquiry day is day 0; day ${o.attributionDays} counts, day ${o.attributionDays + 1} doesn't).`,
+            `The commission is due within ${o.dueDays} days of the move-in being confirmed on Roomeo, by a Razorpay payment link Roomeo sends. Amounts are rounded to the nearest rupee. The tenant never sees or pays the owner's commission.`,
             `Founding partners, as confirmed by Roomeo in writing, pay ${o.foundingPct}% instead of ${o.ratePct}% for ${o.foundingMonths} months from the date Roomeo confirms them, on move-ins up to the end date we tell them.`,
             "Owners must not charge a Roomeo tenant any brokerage, finder's fee or similar charge. Doing so can get the listing removed and the account closed.",
           ]
@@ -129,7 +129,7 @@ export function termsFor(fee: FeeView): LegalSection[] {
     { id: "refunds", title: "Refunds", body: [
       "Pass promise: if every owner you contact during a pass declines or doesn't reply within 48 hours, the full pass price goes back to your UPI ID automatically.",
       ownerModel
-        ? `Owner commission: if the tenant leaves within ${o.refundDays} days of moving in, Roomeo refunds ${o.refundPct}% of the commission and its GST to the owner. After that it isn't refundable. Tenants pay nothing, so there's nothing to refund them. Deposits are paid directly to the owner and are never held or refunded by Roomeo.`
+        ? `Owner commission: if the tenant leaves within ${o.refundDays} days of moving in, the owner pays only ${o.refundPct}%. If the commission isn't paid yet, only ${o.refundPct}% is due; if it's already paid, Roomeo refunds ${o.refundPct}% of the commission${o.gstPct ? " and 50% of the GST charged" : ""}. After that it isn't refundable. Tenants pay nothing, so there's nothing to refund them. Deposits are paid directly to the owner and are never held or refunded by Roomeo.`
         : fee.on
         ? `Platform fee: the ₹${fee.totalInr} (₹${fee.baseInr} + GST) fee is refunded in full only if the tenant vacates within 7 days of paying it. The owner's fee is refunded too if the stay ends within 7 days of the owner's payment. In every other case, including moving out later, the fee is not refundable. Deposits are paid directly to the owner and are never held or refunded by Roomeo.`
         : "Platform fee: there is none right now, so there's nothing to refund. Deposits are paid directly to the owner and are never held or refunded by Roomeo.",

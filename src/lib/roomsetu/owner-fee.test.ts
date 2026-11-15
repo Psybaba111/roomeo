@@ -16,6 +16,14 @@ import {
   refundInr,
   canMarkPaid,
   canRefund50,
+  canRecordEarlyExit,
+  earlyExitDueInr,
+  ownerFeeGstPct,
+  ownerFeeView,
+  ownerFeeForViewer,
+  ownerCommissionNote,
+  commissionLine,
+  squadBedRentInr,
 } from "./owner-fee.ts";
 import { pricingConfig, tenantFeeSetting } from "./pricing.ts";
 import { feeViewOf, feeLine, feeUnderPrice, homeChatStep, pricingCopy, cityFeeTail, inviteBody, inviteDescription, ogFeeLabel, rentPartnerMissingLine, mentionsFeeAmount, asFeeView, FREE_TENANTS } from "./fee-copy.ts";
@@ -44,11 +52,23 @@ describe("commission amounts (nearest rupee, halves up)", () => {
     assert.throws(() => commissionInr(5999.5, 20));
     assert.throws(() => commissionInr(5999, 0));
   });
-  test("GST is a separate line on the rounded commission", () => {
-    assert.deepEqual(commissionAmounts(5999, 20), { rentInr: 5999, ratePct: 20, feeInr: 1200, gstPct: 18, gstInr: 216, totalInr: 1416 });
-    assert.deepEqual(commissionAmounts(5999, 15), { rentInr: 5999, ratePct: 15, feeInr: 900, gstPct: 18, gstInr: 162, totalInr: 1062 });
-    assert.equal(commissionAmounts(8999, 20).gstInr, 324);
-    assert.equal(commissionAmounts(5999, 20, 0).totalInr, 1200);
+  test("GST off (default): commission only, ₹1,200 on ₹5,999, no GST line", () => {
+    assert.deepEqual(commissionAmounts(5999, 20), { rentInr: 5999, ratePct: 20, feeInr: 1200, gstPct: 0, gstInr: 0, totalInr: 1200 });
+    assert.equal(commissionLine({ ...commissionAmounts(5999, 20), founding: false }), "20% of ₹5999 rent = ₹1200");
+    assert.doesNotMatch(commissionLine({ ...commissionAmounts(5999, 20), founding: false }), /GST/);
+  });
+  test("GST on: 18% as a separate line on the rounded commission", () => {
+    assert.deepEqual(commissionAmounts(5999, 20, 18), { rentInr: 5999, ratePct: 20, feeInr: 1200, gstPct: 18, gstInr: 216, totalInr: 1416 });
+    assert.deepEqual(commissionAmounts(5999, 15, 18), { rentInr: 5999, ratePct: 15, feeInr: 900, gstPct: 18, gstInr: 162, totalInr: 1062 });
+    assert.equal(commissionAmounts(8999, 20, 18).gstInr, 324);
+    assert.match(commissionLine({ ...commissionAmounts(5999, 20, 18), founding: false }), /\+ ₹216 GST \(18%\) = ₹1416/);
+  });
+  test("OWNER_FEE_GST_ENABLED: default off; on → 18%", () => {
+    assert.equal(ownerFeeGstPct({}), 0);
+    assert.equal(ownerFeeGstPct({ OWNER_FEE_GST_ENABLED: "false" }), 0);
+    assert.equal(ownerFeeGstPct({ OWNER_FEE_GST_ENABLED: "true" }), 18);
+    assert.equal(ownerFeeView(true).gstPct, 0);
+    assert.equal(ownerFeeView(true, 18).gstPct, 18);
   });
 });
 
@@ -100,15 +120,32 @@ describe("due date, refund, status moves", () => {
     assert.equal(refundEligible("2026-11-01", "2026-11-16"), true); // day 15
     assert.equal(refundEligible("2026-11-01", "2026-11-17"), false); // day 16
     assert.equal(refundEligible("2026-11-01", "2026-11-01"), true);
-    assert.equal(refundInr(1416), 708);
-    assert.equal(refundInr(1062), 531);
+  });
+  test("refund after payment = 50% of the commission + 50% of any GST", () => {
+    assert.equal(refundInr(1200), 600); // GST off
+    assert.equal(refundInr(1200, 0), 600);
+    assert.equal(refundInr(1200, 216), 708); // GST on: 600 + 108
+    assert.equal(refundInr(900), 450); // founding, GST off
+    assert.equal(refundInr(900, 162), 531); // founding, GST on: 450 + 81
     assert.equal(refundInr(1001), 501); // 500.5 → 501
   });
-  test("due → paid → refunded_50 only", () => {
+  test("early exit before payment: the owner owes 50%", () => {
+    assert.equal(earlyExitDueInr(1200), 600);
+    assert.equal(earlyExitDueInr(1200, 216), 708);
+    assert.equal(earlyExitDueInr(900), 450);
+    assert.equal(earlyExitDueInr(1001), 501);
+  });
+  test("status moves: due → due_50 (early exit) → paid; due → paid → refunded_50", () => {
     assert.equal(canMarkPaid("due"), true);
+    assert.equal(canMarkPaid("due_50"), true);
     assert.equal(canMarkPaid("paid"), false);
+    assert.equal(canRecordEarlyExit("due"), true);
+    assert.equal(canRecordEarlyExit("due_50"), false);
+    assert.equal(canRecordEarlyExit("paid"), false);
     assert.equal(canRefund50("paid"), true);
+    assert.equal(canRefund50("paid", true), false, "already halved by an early exit");
     assert.equal(canRefund50("due"), false);
+    assert.equal(canRefund50("due_50"), false);
     assert.equal(canRefund50("refunded_50"), false);
   });
   test("payment link is a stub (no Razorpay call)", () => {
@@ -171,28 +208,64 @@ describe("tenant never sees a Roomeo fee while the tenant fee is off", () => {
     assert.match(t, /20% of one month's rent/);
     assert.match(t, /15% instead of 20% for 6 months/);
     assert.match(t, /day 60 counts, day 61 doesn't/);
-    assert.match(t, /within 7 days of the tenant paying the deposit or first rent/);
-    assert.match(t, /refunds 50% of the commission/);
+    assert.match(t, /within 7 days of the move-in being confirmed on Roomeo/);
+    assert.match(t, /each tenant, i\.e\. each bed/);
+    assert.match(t, /No GST is added to the commission at present/);
+    assert.match(t, /If the commission isn't paid yet, only 50% is due/);
+    assert.match(t, /refunds 50% of the commission\./);
+    assert.match(t, /The tenant never sees or pays the owner's commission/);
     assert.match(t, /must not charge a Roomeo tenant any brokerage/);
     assert.doesNotMatch(t, /we take no commission/);
     assert.equal(mentionsFeeAmount(t), false);
     assert.equal(termsUpdated(f), OWNER_FEE_TERMS_UPDATED);
+  });
+  test("terms with GST on: separate 18% line, refund includes 50% of the GST", () => {
+    const g = { ...env, OWNER_FEE_GST_ENABLED: "true" };
+    const t = termsFor(feeViewOf(pricingConfig(g), g)).flatMap((s) => s.body).join("\n");
+    assert.match(t, /GST at 18% is added as a separate line/);
+    assert.match(t, /refunds 50% of the commission and 50% of the GST charged/);
   });
   test("terms date unchanged unless the owner-fee copy is live", () => {
     const prod = { ROOMEO_FEE_ENABLED: "true", OWNER_FEE_ENABLED: "true" };
     assert.equal(termsUpdated(feeViewOf(pricingConfig(prod), prod)), LEGAL_UPDATED);
     assert.equal(termsUpdated(feeViewOf(pricingConfig({}), {})), LEGAL_UPDATED);
   });
-  test("agreement: no tenant fee clause, owner commission clause with the amount and no-brokerage", () => {
+  test("shared agreement (the tenant's copy) never shows the owner's commission rate or amount", () => {
     const cfg = pricingConfig(env);
     const body = agreementBody({ listingTitle: "Mud Home", address: "62 MPT Road", city: "Mangaluru", locality: "Bunder", monthlyRent: 5999, deposit: 5999, moveIn: "2026-11-20",
-      tenantName: "ZZ TEST Tenant", ownerName: "ZZ TEST Owner", feeBaseInr: agreementFeeBaseInr(cfg), ownerFeePct: 20 });
+      tenantName: "ZZ TEST Tenant", ownerName: "ZZ TEST Owner", feeBaseInr: agreementFeeBaseInr(cfg), ownerFee: true });
     assert.equal(agreementFeeBaseInr(cfg), 0);
     assert.match(body, /Roomeo is free for the tenant/);
-    assert.match(body, /20% of one month's rent \(₹1200\) plus GST/);
     assert.match(body, /will not charge the tenant any brokerage/);
     assert.doesNotMatch(body, /₹(499|589)/);
-    assert.match(ownerFeeAgreementClause(15, 5999), /₹900/);
+    for (const leak of [/₹\s?1,?200\b/, /₹\s?1,?416\b/, /₹\s?900\b/, /\b20 ?%/, /\b15 ?%/, /\bcommission\b/i, /GST/]) assert.doesNotMatch(body, leak, String(leak));
+    assert.equal(ownerFeeAgreementClause(), ownerFeeAgreementClause(), "clause takes no rate or amount");
+  });
+  test("owner/admin only: the commission note and amounts are null for a tenant viewer", () => {
+    const a = commissionAmounts(5999, 20);
+    assert.equal(ownerFeeForViewer("tenant", a), null);
+    assert.equal(ownerFeeForViewer("owner", a), a);
+    assert.equal(ownerFeeForViewer("admin", a), a);
+    assert.equal(ownerFeeForViewer("owner", null), null);
+    assert.match(ownerCommissionNote(a), /only you see this/);
+    assert.match(ownerCommissionNote(a), /₹1200/);
+    assert.doesNotMatch(ownerCommissionNote(a), /GST/);
+    assert.match(ownerCommissionNote(commissionAmounts(5999, 20, 18)), /₹216 GST/);
+  });
+  test("squad: each bed's rent is an equal share of the unit rent (nearest rupee); owner note counts beds", () => {
+    assert.equal(squadBedRentInr(14000, 2), 7000);
+    assert.equal(squadBedRentInr(6999, 2), 3500);
+    assert.equal(squadBedRentInr(10000, 3), 3333);
+    assert.equal(squadBedRentInr(5999, 1), 5999);
+    assert.equal(commissionInr(squadBedRentInr(14000, 2), 20), 1400);
+    assert.match(ownerCommissionNote(commissionAmounts(7000, 20), 2), /₹1400 per tenant, for each of the 2 tenants \(₹7000 rent each; ₹2800 in all\)/);
+  });
+  test("move-in agreement PDF text (the tenant can download it) has no commission", async () => {
+    const { agreementText } = await import("./movein.ts");
+    const txt = agreementText({ ownerName: "ZZ TEST Owner", tenantName: "ZZ TEST Tenant", propertyTitle: "ZZ TEST Mud Home", propertyAddress: "62 MPT Road", bedLabel: "B1",
+      rentInr: 5999, depositInr: 5999, startDate: "2026-11-20", madeOn: "2026-11-15", minStayMonths: 3, noticeDays: 30, houseRules: "No smoking" }).join("\n");
+    assert.match(txt, /₹5,999/);
+    for (const leak of [/commission/i, /₹1,?200\b/, /\b20 ?%/, /GST/, /Roomeo/]) assert.doesNotMatch(txt, leak, String(leak));
   });
 });
 
@@ -202,7 +275,7 @@ test("deal steps: tenant sees Free for tenants; owner sees the commission is due
   const tenant = dealSteps({ ...base, role: "tenant" }).find((s) => s.key === "pay")!;
   assert.match(tenant.hint, /Free for tenants/);
   assert.doesNotMatch(tenant.hint, /₹/);
-  const owner = dealSteps({ ...base, role: "owner", ownerFeeTotal: 1416 }).find((s) => s.key === "pay")!;
-  assert.match(owner.hint, /₹1416 incl\. GST\) is due within 7 days of move-in/);
+  const owner = dealSteps({ ...base, role: "owner", ownerFeeTotal: 1200 }).find((s) => s.key === "pay")!;
+  assert.match(owner.hint, /\(₹1200\) is due within 7 days of move-in/);
   assert.equal(dealSteps({ ...base, role: "owner" }).find((s) => s.key === "pay")!.hint, "No fee right now. Skip ahead 🙌");
 });

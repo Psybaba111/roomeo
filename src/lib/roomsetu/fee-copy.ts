@@ -7,7 +7,7 @@
  * While the fee is OFF no line may show a fee amount (code review, 14 Nov 2026).
  */
 import { feeWithGst } from "./deal-agreement.ts";
-import { OWNER_FEE_OFF, ownerFeeState, ownerFeeView, type OwnerFeeView } from "./owner-fee.ts";
+import { OWNER_FEE_OFF, ownerFeeGstPct, ownerFeeState, ownerFeeView, type OwnerFeeView } from "./owner-fee.ts";
 
 export type FeeView = {
   /** Fee is switched on (collection live). */
@@ -27,7 +27,7 @@ export const FEE_OFF: FeeView = { on: false, baseInr: 0, totalInr: 0 };
 
 export function feeViewOf(cfg: { successFeeEnabled: boolean; successFeeTenantInr: number }, env?: Record<string, string | undefined>): FeeView {
   if (!cfg.successFeeEnabled || !(cfg.successFeeTenantInr > 0)) {
-    const owner = ownerFeeView(ownerFeeState(false, env).active);
+    const owner = ownerFeeView(ownerFeeState(false, env).active, ownerFeeGstPct(env));
     return owner.on ? { ...FEE_OFF, owner } : FEE_OFF;
   }
   return { on: true, baseInr: cfg.successFeeTenantInr, totalInr: feeWithGst(cfg.successFeeTenantInr).total };
@@ -38,7 +38,7 @@ export function asFeeView(v: unknown): FeeView {
   const f = v as Partial<FeeView> | null | undefined;
   if (!f || f.on !== true || !(Number(f.baseInr) > 0)) {
     const o = f?.owner as Partial<OwnerFeeView> | undefined;
-    return o && o.on === true ? { ...FEE_OFF, owner: ownerFeeView(true) } : FEE_OFF;
+    return o && o.on === true ? { ...FEE_OFF, owner: ownerFeeView(true, Number(o.gstPct) || 0) } : FEE_OFF;
   }
   const baseInr = Number(f.baseInr);
   return { on: true, baseInr, totalInr: Number(f.totalInr) > 0 ? Number(f.totalInr) : feeWithGst(baseInr).total };
@@ -131,18 +131,18 @@ export function pricingCopy(f: FeeView, trial: { feeInr: number; windowDays: num
       headTitle: "Pricing: free for tenants, not a broker's month",
       h1: `${FREE_TENANTS}. Not a broker's month.`,
       sub: o.on
-        ? `Tenants pay Roomeo nothing. Owners pay ${o.ratePct}% of one month's rent, plus GST, only when a tenant moves in through Roomeo. Rent and deposit go straight to the owner. No chat passes.`
+        ? `Tenants pay Roomeo nothing. Owners pay ${o.ratePct}% of one month's rent${o.gstPct ? ", plus GST," : ""} only when a tenant moves in through Roomeo. Rent and deposit go straight to the owner. No chat passes.`
         : "No Roomeo fee for renters or owners right now. Rent and deposit go straight to the owner. No chat passes. No cut of your rent.",
       planPrice: "₹0",
       planNote: FREE_TENANTS,
       tagline: [`${FREE_TENANTS}.`, "Not a broker's month."],
       faq: [
         o.on
-          ? ["What does Roomeo cost?", `Nothing for tenants. Searching, chatting, squads and locking a bed are free. Owners list free and pay Roomeo ${o.ratePct}% of one month's rent (${o.foundingPct}% for founding partners, for ${o.foundingMonths} months), plus GST shown separately, only for a tenant who moves in within ${o.attributionDays} days of their first Roomeo enquiry. It's due within ${o.dueDays} days of the tenant's deposit or first rent, by a Razorpay payment link.`]
+          ? ["What does Roomeo cost?", `Nothing for tenants. Searching, chatting, squads and locking a bed are free. Owners list free and pay Roomeo ${o.ratePct}% of one month's rent (${o.foundingPct}% for founding partners, for ${o.foundingMonths} months)${o.gstPct ? `, plus ${o.gstPct}% GST shown separately,` : ""} only for a tenant who moves in within ${o.attributionDays} days of their first Roomeo enquiry. It's due within ${o.dueDays} days of the tenant's deposit or first rent, by a Razorpay payment link.`]
           : ["What does Roomeo cost?", "Nothing right now. Searching, chatting, squads, listing and locking a bed are free while we pilot. If that ever changes, the price is shown with GST before anyone signs or pays, and it never applies to a stay that's already confirmed."],
         ...(o.on
           ? ([
-              ["Is the owner commission refundable?", `If the tenant leaves within ${o.refundDays} days of moving in, ${o.refundPct}% of the commission (and its GST) goes back to the owner. After that, no refund.`],
+              ["Is the owner commission refundable?", `If the tenant leaves within ${o.refundDays} days of moving in, the owner pays only ${o.refundPct}%: half is waived if it isn't paid yet, or ${o.refundPct}% of the commission${o.gstPct ? " and its GST" : ""} goes back if it is. After that, no refund.`],
               ["Can an owner charge me brokerage?", "No. Owners on Roomeo agree not to charge Roomeo tenants any brokerage. Report it if anyone asks."],
             ] as [string, string][])
           : []),

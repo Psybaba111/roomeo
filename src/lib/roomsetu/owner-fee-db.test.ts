@@ -21,12 +21,15 @@ import {
   markCommissionPaid,
   ownerCommissions,
   recordCommissionRefund,
+  recordEarlyExit,
   setFoundingPartner,
+  createCommissionsForSquadMoveIn,
+  commissionsOnSquadMoveIn,
 } from "./owner-fee-db.ts";
 
 const MODEL = { ROOMEO_TENANT_FEE_ENABLED: "false", OWNER_FEE_ENABLED: "true" };
 async function withEnv<T>(env: Record<string, string | undefined>, fn: () => Promise<T>): Promise<T> {
-  const keys = ["ROOMEO_FEE_ENABLED", "ROOMEO_TENANT_FEE_ENABLED", "OWNER_FEE_ENABLED"];
+  const keys = ["ROOMEO_FEE_ENABLED", "ROOMEO_TENANT_FEE_ENABLED", "OWNER_FEE_ENABLED", "OWNER_FEE_GST_ENABLED"];
   const prev = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
   for (const k of keys) {
     if (env[k] === undefined) delete process.env[k];
@@ -70,7 +73,8 @@ async function flow(pg: PGlite, sql: never, o: { owner: string; tenant: string; 
   // 4. Agreement drafted and signed by both sides.
   const cfg = pricingConfig();
   const terms = { listingTitle: "ZZ TEST Mud Home", address: "62 MPT Road, Bunder", city: "Mangaluru", locality: "Bunder", monthlyRent: o.rent, deposit: o.rent, moveIn: "2026-11-20",
-    tenantName: "ZZ TEST Tenant", ownerName: "ZZ TEST Owner", feeBaseInr: agreementFeeBaseInr(cfg), ownerFeePct: await hostRateNow(sql, o.owner) };
+    tenantName: "ZZ TEST Tenant", ownerName: "ZZ TEST Owner", feeBaseInr: agreementFeeBaseInr(cfg), ownerFee: true };
+  await hostRateNow(sql, o.owner);
   await pg.query(`insert into deal_agreements (id, application_id, listing_id, seeker_id, owner_id, terms_json, body) values ($1,$2,$3,$4,$5,$6,$7)`,
     [`DA-${app}`, app, o.listingId, o.tenant, o.owner, JSON.stringify(terms), agreementBody(terms)]);
   const locked = await locationAccess(sql, o.listingId, o.owner, o.tenant);
@@ -89,22 +93,25 @@ async function flow(pg: PGlite, sql: never, o: { owner: string; tenant: string; 
 }
 
 describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
-  test("20% commission on move-in, due 7 days later, paid, then 50% refund", () => withEnv(MODEL, async () => {
+  test("GST off (default): 20% commission ₹1,200 on move-in, due 7 days later, paid, then 50% refund ₹600", () => withEnv(MODEL, async () => {
     const { pg, sql } = await testDb();
     await person(pg, "zz-owner-1", "ZZ TEST Owner", "LISTING");
     await person(pg, "zz-tenant-1", "ZZ TEST Tenant");
     await listing(pg, "ZZL1", "zz-owner-1", 5999);
     const { commission: c, body } = await flow(pg, sql, { owner: "zz-owner-1", tenant: "zz-tenant-1", listingId: "ZZL1", rent: 5999, enquiryDaysAgo: 10 });
-    assert.match(body, /20% of one month's rent \(₹1200\)/);
     assert.doesNotMatch(body, /₹(499|589)/);
+    assert.doesNotMatch(body, /₹1200|20%|commission/i, "tenant's copy of the agreement has no commission");
     assert.ok(c, "commission created");
     const today = istYmd(new Date());
     assert.equal(c.ratePct, 20);
     assert.equal(c.founding, false);
     assert.equal(c.rentInr, 5999);
     assert.equal(c.feeInr, 1200);
-    assert.equal(c.gstInr, 216);
-    assert.equal(c.totalInr, 1416);
+    assert.equal(c.gstPct, 0);
+    assert.equal(c.gstInr, 0);
+    assert.equal(c.totalInr, 1200);
+    assert.equal(c.amountDueInr, 1200);
+    assert.equal(c.squad, false);
     assert.equal(c.moveInOn, today);
     assert.equal(c.dueOn, addDays(today, 7));
     assert.equal(c.status, "due");
@@ -114,17 +121,99 @@ describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
     assert.equal((await ownerCommissions(sql, "zz-tenant-1")).length, 0, "tenant has nothing to pay");
     const note = (await pg.query(`select body from notifications where user_id = 'zz-owner-1' and title = 'Roomeo commission due'`)).rows;
     assert.equal(note.length, 1);
+    assert.doesNotMatch(String((note[0] as { body: string }).body), /GST/);
     // Re-confirming never creates a second commission.
     assert.equal((await createCommissionForMoveIn(sql, c.moveInId, { force: true })).created, false);
     // Refund before payment isn't allowed; mark paid; refund at day 16 refused; day 15 OK.
     await assert.rejects(recordCommissionRefund(sql, c.id, "zz-admin", { vacatedOn: addDays(today, 3), refundedOn: addDays(today, 4), ref: "x" }), /Only a paid commission/);
     const paid = await markCommissionPaid(sql, c.id, "zz-admin", today, "ZZTEST-PAY-1");
     assert.equal(paid.status, "paid");
+    assert.equal(paid.paidInr, 1200);
+    await assert.rejects(recordEarlyExit(sql, c.id, "zz-admin", addDays(today, 3)), /only be recorded on an unpaid commission/);
     await assert.rejects(markCommissionPaid(sql, c.id, "zz-admin", today, "again"), /Only a due commission/);
     await assert.rejects(recordCommissionRefund(sql, c.id, "zz-admin", { vacatedOn: addDays(today, 16), refundedOn: addDays(today, 17), ref: "x" }), /more than 15 days/);
     const ref = await recordCommissionRefund(sql, c.id, "zz-admin", { vacatedOn: addDays(today, 15), refundedOn: addDays(today, 16), ref: "ZZTEST-REF-1" });
     assert.equal(ref.status, "refunded_50");
+    assert.equal(ref.refundInr, 600);
+  }));
+
+  test("GST on: ₹1,200 + ₹216 GST = ₹1,416; refund is 50% of both = ₹708", () => withEnv({ ...MODEL, OWNER_FEE_GST_ENABLED: "true" }, async () => {
+    const { pg, sql } = await testDb();
+    await person(pg, "zz-owner-g", "ZZ TEST Owner GST", "LISTING");
+    await person(pg, "zz-tenant-g", "ZZ TEST Tenant GST");
+    await listing(pg, "ZZLG", "zz-owner-g", 5999);
+    const { commission: c } = await flow(pg, sql, { owner: "zz-owner-g", tenant: "zz-tenant-g", listingId: "ZZLG", rent: 5999, enquiryDaysAgo: 4 });
+    assert.ok(c);
+    assert.equal(c.gstPct, 18);
+    assert.equal(c.gstInr, 216);
+    assert.equal(c.totalInr, 1416);
+    assert.equal(c.amountDueInr, 1416);
+    const today = istYmd(new Date());
+    await markCommissionPaid(sql, c.id, "zz-admin", today, "ZZTEST-PAY-G");
+    const ref = await recordCommissionRefund(sql, c.id, "zz-admin", { vacatedOn: addDays(today, 5), refundedOn: addDays(today, 6), ref: "ZZTEST-REF-G" });
     assert.equal(ref.refundInr, 708);
+  }));
+
+  test("early exit before payment: owner owes 50% (due_50), then pays it; no further refund; day 16 refused", () => withEnv(MODEL, async () => {
+    const { pg, sql } = await testDb();
+    await person(pg, "zz-owner-e", "ZZ TEST Owner Early", "LISTING");
+    await person(pg, "zz-tenant-e", "ZZ TEST Tenant Early");
+    await person(pg, "zz-tenant-e2", "ZZ TEST Tenant Early Two");
+    await listing(pg, "ZZLE", "zz-owner-e", 5999);
+    await listing(pg, "ZZLE2", "zz-owner-e", 5999);
+    const today = istYmd(new Date());
+    const { commission: c } = await flow(pg, sql, { owner: "zz-owner-e", tenant: "zz-tenant-e", listingId: "ZZLE", rent: 5999, enquiryDaysAgo: 2 });
+    assert.ok(c);
+    await assert.rejects(recordEarlyExit(sql, c.id, "zz-admin", addDays(today, 16)), /more than 15 days/);
+    await assert.rejects(recordEarlyExit(sql, c.id, "zz-admin", addDays(today, -1)), /before the move-in/);
+    const e = await recordEarlyExit(sql, c.id, "zz-admin", addDays(today, 15));
+    assert.equal(e.status, "due_50");
+    assert.equal(e.amountDueInr, 600);
+    assert.equal(e.feeInr, 1200, "the full commission stays on record");
+    assert.equal(e.earlyExit, true);
+    assert.equal(e.vacatedOn, addDays(today, 15));
+    await assert.rejects(recordEarlyExit(sql, c.id, "zz-admin", addDays(today, 3)), /only be recorded on an unpaid commission/);
+    await assert.rejects(recordCommissionRefund(sql, c.id, "zz-admin", { vacatedOn: addDays(today, 3), refundedOn: today, ref: "x" }), /Only a paid commission|early exit/);
+    const paid = await markCommissionPaid(sql, c.id, "zz-admin", today, "ZZTEST-PAY-E");
+    assert.equal(paid.status, "paid");
+    assert.equal(paid.paidInr, 600);
+    await assert.rejects(recordCommissionRefund(sql, c.id, "zz-admin", { vacatedOn: addDays(today, 3), refundedOn: today, ref: "x" }), /early exit/);
+    // GST on: early exit owes 50% of the commission and 50% of the GST.
+    await withEnv({ ...MODEL, OWNER_FEE_GST_ENABLED: "true" }, async () => {
+      const { commission: g } = await flow(pg, sql, { owner: "zz-owner-e", tenant: "zz-tenant-e2", listingId: "ZZLE2", rent: 5999, enquiryDaysAgo: 2 });
+      assert.ok(g);
+      assert.equal((await recordEarlyExit(sql, g.id, "zz-admin", today)).amountDueInr, 708);
+    });
+  }));
+
+  test("squad move-in: one commission per bed (per tenant) on each one's share of the unit rent, idempotent", () => withEnv(MODEL, async () => {
+    const { pg, sql } = await testDb();
+    await person(pg, "zz-owner-s", "ZZ TEST Owner Squad", "LISTING");
+    for (const t of ["zz-sq-a", "zz-sq-b", "zz-sq-c"]) await person(pg, t, `ZZ TEST ${t}`);
+    await listing(pg, "ZZLS", "zz-owner-s", 6999);
+    await pg.query(`insert into squads (id, creator_id, name, area, budget_per_person, size, invite_code) values ('ZZSQ','zz-sq-a','ZZ TEST Squad','Bunder',7000,3,'ZZTESTSQ')`);
+    for (const t of ["zz-sq-a", "zz-sq-b", "zz-sq-c"]) await pg.query(`insert into squad_members (squad_id, user_id, joined_at) values ('ZZSQ',$1, now() - interval '30 days')`, [t]);
+    // c left the squad before moving in → no commission for c.
+    await pg.query(`update squad_members set left_at = now() - interval '1 day' where user_id = 'zz-sq-c'`);
+    await pg.query(`insert into squad_requests (id, squad_id, listing_id, owner_id, status, created_at) values ('ZZSR','ZZSQ','ZZLS','zz-owner-s','ACCEPTED', now() - interval '12 days')`);
+    await pg.query(`insert into squad_move_ins (id, squad_request_id, squad_id, listing_id, owner_id, owner_confirmed_at, confirmed_at) values ('ZZSM','ZZSR','ZZSQ','ZZLS','zz-owner-s', now(), now())`);
+    for (const t of ["zz-sq-a", "zz-sq-b", "zz-sq-c"]) await pg.query(`insert into squad_move_in_confirms (squad_move_in_id, user_id) values ('ZZSM',$1)`, [t]);
+    assert.ok(await firstEnquiryAt(sql, "zz-sq-a", "zz-owner-s"), "squad request counts as the first enquiry");
+    const res = await commissionsOnSquadMoveIn(sql, "ZZSM");
+    assert.equal(res?.filter((r) => r.created).length, 2);
+    const rows = (await allCommissions(sql)).filter((c) => c.squad);
+    assert.equal(rows.length, 2, "one per bed: a and b");
+    assert.deepEqual(rows.map((c) => c.tenantId).sort(), ["zz-sq-a", "zz-sq-b"]);
+    for (const c of rows) {
+      assert.match(c.moveInId, /^squad:ZZSM:zz-sq-[ab]$/);
+      assert.equal(c.rentInr, 3500); // ₹6,999 unit split by 2 tenants → ₹3,499.50 → ₹3,500 each
+      assert.equal(c.feeInr, 700); // 20% of ₹3,500
+      assert.equal(c.totalInr, 700);
+      assert.equal(c.attributionDays, 12);
+    }
+    assert.equal((await ownerCommissions(sql, "zz-owner-s")).length, 2);
+    assert.equal((await createCommissionsForSquadMoveIn(sql, "ZZSM", { force: true })).filter((r) => r.created).length, 0, "re-running never doubles");
+    assert.equal((await allCommissions(sql)).length, 2);
   }));
 
   test("founding host pays 15%; the rate ends after the end date", () => withEnv(MODEL, async () => {
@@ -137,13 +226,13 @@ describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
     const set = await setFoundingPartner(sql, "zz-owner-2", "zz-admin", { on: true, note: "ZZ TEST brought 2 PGs" });
     assert.equal(set.foundingUntil, (await import("./owner-fee.ts")).defaultFoundingUntil(today));
     const { commission: c, body } = await flow(pg, sql, { owner: "zz-owner-2", tenant: "zz-tenant-2", listingId: "ZZL2", rent: 5999, enquiryDaysAgo: 3 });
-    assert.match(body, /15% of one month's rent \(₹900\)/);
+    assert.doesNotMatch(body, /15%|₹900/);
     assert.ok(c);
     assert.equal(c.ratePct, 15);
     assert.equal(c.founding, true);
     assert.equal(c.feeInr, 900);
-    assert.equal(c.gstInr, 162);
-    assert.equal(c.totalInr, 1062);
+    assert.equal(c.gstInr, 0);
+    assert.equal(c.totalInr, 900);
     // Founding period over (ended yesterday) → next move-in is 20%. Past end dates can't be set through the admin path.
     await assert.rejects(setFoundingPartner(sql, "zz-owner-2", "zz-admin", { on: true, until: addDays(today, -1) }), /in the past/);
     await pg.query(`update host_fee_settings set founding_until = $1::date where owner_id = 'zz-owner-2'`, [addDays(today, -1)]);
