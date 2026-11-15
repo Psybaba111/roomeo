@@ -5,7 +5,9 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { buildUpiLink, makeRef, upiPayee } from "@/lib/roomsetu/upi";
 import { bookTrial, listingTrial, markTrialIdChecked, myOpenTrial, ownerTrialBookings, setListingTrial } from "@/lib/roomsetu/trial-db";
 import { idVerificationEnabled } from "@/lib/roomsetu/id-verify";
-import { TRIAL_ARRIVAL_CHECKLIST, TRIAL_MAX_NIGHTS, trialFeeBreakdown, trialNightsEnabled } from "@/lib/roomsetu/trial-nights";
+import { TRIAL_MAX_NIGHTS, trialArrivalChecklist, trialFeeBreakdown, trialNightsEnabled } from "@/lib/roomsetu/trial-nights";
+import { feeViewOf } from "@/lib/roomsetu/fee-copy";
+import { pricingConfig } from "@/lib/roomsetu/pricing";
 
 function rec(i: unknown): Record<string, unknown> {
   return i && typeof i === "object" ? (i as Record<string, unknown>) : {};
@@ -22,7 +24,7 @@ export const getListingTrial = createServerFn({ method: "GET" })
     if (!trialNightsEnabled()) return { available: false as const };
     const t = await listingTrial(await getSql(), data);
     if (!t?.enabled) return { available: false as const };
-    return { available: true as const, idRequired: idVerificationEnabled(), nightlyInr: t.nightlyInr, maxNights: TRIAL_MAX_NIGHTS, fee: trialFeeBreakdown(), checklist: [...TRIAL_ARRIVAL_CHECKLIST] };
+    return { available: true as const, idRequired: idVerificationEnabled(), nightlyInr: t.nightlyInr, maxNights: TRIAL_MAX_NIGHTS, fee: trialFeeBreakdown(), checklist: trialArrivalChecklist(feeViewOf(pricingConfig())) };
   });
 
 /** Owner: switch trial nights on/off with a nightly price. Saving works even while the flag is off. */

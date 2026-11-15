@@ -1,3 +1,5 @@
+import { cityFeeTail, FEE_OFF, type FeeView } from "./fee-copy.ts";
+
 /**
  * Cities are open: any city a person types. No city is the default and none is featured.
  * Known area centroids are kept only as map data for the coarse area map.
@@ -63,9 +65,9 @@ export function citySeoTitle(name: string): string {
   return c ? `Spare beds and PG rooms in ${c}` : "Spare beds and PG rooms";
 }
 
-export function citySeoDescription(name: string): string {
+export function citySeoDescription(name: string, fee: FeeView = FEE_OFF): string {
   const c = searchCity(name);
-  return `Shared rooms, PG beds and whole flats${c ? ` in ${c}` : ""}. Chat free, ₹589 once when you lock a bed.`;
+  return `Shared rooms, PG beds and whole flats${c ? ` in ${c}` : ""}. ${cityFeeTail(fee)}`;
 }
 
 /** Search URLs for the sitemap. */

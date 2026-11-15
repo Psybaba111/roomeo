@@ -2,13 +2,18 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getSql } from "@/lib/db";
 import { ogCardModel } from "@/lib/og/listing-card";
 import { renderOgCard } from "@/lib/og/listing-card.server";
+import { feeViewOf, ogFeeLabel } from "@/lib/roomsetu/fee-copy";
+import { pricingConfig } from "@/lib/roomsetu/pricing";
 
 const ID = /^[0-9A-Za-z_-]{6,80}$/;
 
 /** Generic brand card when the bed is missing, held or the DB hiccups. Never leaks hidden listings. */
-const BRAND_CARD = { headline: "Find your bed. No broker's month.", priceLabel: "₹499 once", priceNote: "not a broker's month", area: "Mangaluru", verified: false, photo: null };
+function brandCard() {
+  return { headline: "Find your bed. No broker's month.", ...ogFeeLabel(feeViewOf(pricingConfig())), area: "Mangaluru", verified: false, photo: null };
+}
 
 async function loadModel(id: string) {
+  const BRAND_CARD = brandCard();
   if (!ID.test(id)) return BRAND_CARD;
   const sql = await getSql();
   // to_jsonb keeps this working before migration 0016 (all_in_inr) lands on a database.
@@ -48,7 +53,7 @@ export const Route = createFileRoute("/api/og/listing/$id")({
           model = await loadModel(id);
         } catch (err) {
           console.error("[og] listing load failed", err);
-          model = BRAND_CARD;
+          model = brandCard();
         }
         let body: Uint8Array;
         try {

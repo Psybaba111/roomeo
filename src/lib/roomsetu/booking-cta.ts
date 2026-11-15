@@ -20,7 +20,7 @@ export function requestCtaLabel(s: CtaState, compact = false): string {
 export function ctaDisabled(s: Pick<CtaState, "requesting" | "sessionPending">): boolean {
   return s.requesting || s.sessionPending;
 }
-export const FEE_UNDER_PRICE = "₹589 one-time Roomeo fee, only after the owner says yes · rent & deposit go straight to the owner";
+// The fee line under the price is `feeUnderPrice(fee)` in `fee-copy.ts` (built from the fee setting).
 
 /** applyToListing throws this when a live request already exists; we still open the chat. */
 export function isAlreadyRequested(message: string): boolean {

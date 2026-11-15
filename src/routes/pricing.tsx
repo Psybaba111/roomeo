@@ -5,12 +5,17 @@ import { Shell } from "@/components/shell";
 import { TaglineReveal } from "@/components/tagline-reveal";
 import { btnPrimary, btnSecondary, card } from "@/components/ui-tokens";
 import { TRIAL_CREDIT_WINDOW_DAYS, TRIAL_FEE_INR, TRIAL_MAX_NIGHTS, TRIAL_MIN_NIGHTS, trialFeeBreakdown } from "@/lib/roomsetu/trial-nights";
+import { asFeeView, pricingCopy, pricingTrialCreditBullet } from "@/lib/roomsetu/fee-copy";
+import { getFeeView } from "@/lib/roomsetu/pricing-api";
 
 const tf = trialFeeBreakdown();
 
+const TRIAL = { feeInr: TRIAL_FEE_INR, windowDays: TRIAL_CREDIT_WINDOW_DAYS };
+
 export const Route = createFileRoute("/pricing")({
-  head: () =>
-    pageHead("Pricing: ₹499 once, not a broker's month", {
+  loader: () => getFeeView(),
+  head: ({ loaderData }) =>
+    pageHead(pricingCopy(asFeeView(loaderData), TRIAL).headTitle, {
       description: SHARE_DESCRIPTION,
     }),
   component: Pricing,
@@ -26,14 +31,17 @@ const TRUST_PROMISES: { icon: React.ReactNode; title: string; body: string }[] =
 ];
 
 function Pricing() {
+  const fee = asFeeView(Route.useLoaderData());
+  const copy = pricingCopy(fee, TRIAL);
+  const creditBullet = pricingTrialCreditBullet(fee, TRIAL_FEE_INR, TRIAL_CREDIT_WINDOW_DAYS);
+  const [costFaq, ...feeFaqs] = copy.faq;
   const faq: [string, string][] = [
-    ["What does Roomeo cost?", "₹499 + 18% GST (₹589) once. The renter pays it once and the owner pays it once, per person, per stay. Not every month, and not a cut of the rent. Searching, chatting, squads and listing are free."],
+    costFaq,
     ["Do I pay to message an owner?", "No. Verify your phone once (keeps bots and spam out) and message as many owners as you want."],
     ["Does Roomeo hold my deposit?", "No. Roomeo shows the deposit on the listing, but you pay it directly to the owner. Roomeo never holds or refunds deposits, and never takes a cut of rent."],
-    ["Is the fee refundable?", "Only if the renter moves out within 7 days of paying it. Then the renter's ₹589 (or ₹490 after a trial credit) is refunded to the UPI ID that paid, and the owner's fee too if the stay ended within 7 days of the owner's payment. After that, no refund."],
-    ["Is the ₹99 trial night fee refundable?", "No. The ₹99 trial fee is never refunded. If you stay on and sign within 14 days of your trial, it comes off your ₹589 fee once, so you pay ₹490, then monthly rent goes straight to the owner."],
+    ...feeFaqs.filter(([q]) => !q.startsWith("Why ")),
     ["Is food included at Mud Home Premium PG?", "Food is optional: +₹3,500/mo if you want meals. The bed price covers rent + bills: ₹5,999 (6-sharing), ₹6,999 (4-sharing), ₹7,999 (3-sharing) or ₹8,999 (2-sharing) per bed per month. AC beds for working men on MPT Road, Bunder."],
-    ["Why ₹499?", "A broker usually takes a month's rent. ₹499 once beats that on any bed. The next months cost no fee."],
+    ...feeFaqs.filter(([q]) => q.startsWith("Why ")),
     ["What if the owner doesn't return my deposit?", "The deposit is between you and the owner. Report the owner from the listing and repeat offenders get removed."],
   ];
   return (
@@ -41,10 +49,10 @@ function Pricing() {
       <section className="pt-16 pb-12 text-center">
         <p className="text-sm font-semibold text-brand">Pricing</p>
         <h1 className="mx-auto mt-4 max-w-[680px] bg-gradient-to-r from-[#000000] to-[#666666] bg-clip-text text-4xl font-semibold tracking-tight text-transparent [text-wrap:balance] md:text-5xl dark:from-[#FFFFFF] dark:to-[#9B9B9B]">
-          ₹499 once. Not a broker's month.
+          {copy.h1}
         </h1>
         <p className="mx-auto mt-4 max-w-[680px] text-lg text-muted [text-wrap:pretty]">
-          ₹499 + GST from the renter and ₹499 + GST from the owner, once per stay. Refunded if the renter moves out within 7 days of paying. No chat passes. No cut of your rent.
+          {copy.sub}
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-2">
           <Link to="/search" search={EMPTY_SEARCH} className={btnPrimary} data-testid="pricing-cta">
@@ -61,8 +69,8 @@ function Pricing() {
         <div className="mt-8 grid gap-4 md:grid-cols-2" data-testid="free-plans">
           <div className={card} data-testid="plan">
             <p className="flex items-center gap-2 text-base font-semibold"><ChatCircleDots size={24} aria-hidden="true" /> Renters</p>
-            <p className="mt-4 text-4xl font-semibold tabular-nums">₹499 once</p>
-            <p className="mt-1 text-sm text-muted">plus 18% GST (₹589 total)</p>
+            <p className="mt-4 text-4xl font-semibold tabular-nums">{copy.planPrice}</p>
+            <p className="mt-1 text-sm text-muted">{copy.planNote}</p>
             <ul className="mt-4 space-y-2 text-sm">
               <li>Search, map and listing pages</li>
               <li>Unlimited owner chats after a quick phone check</li>
@@ -71,8 +79,8 @@ function Pricing() {
           </div>
           <div className={card} data-testid="plan">
             <p className="flex items-center gap-2 text-base font-semibold"><ShieldCheck size={24} aria-hidden="true" /> Owners</p>
-            <p className="mt-4 text-4xl font-semibold tabular-nums">₹499 once</p>
-            <p className="mt-1 text-sm text-muted">plus 18% GST (₹589 total)</p>
+            <p className="mt-4 text-4xl font-semibold tabular-nums">{copy.planPrice}</p>
+            <p className="mt-1 text-sm text-muted">{copy.planNote}</p>
             <ul className="mt-4 space-y-2 text-sm">
               <li>List every bed free</li>
               <li>Free ID check and Verified badge</li>
@@ -92,12 +100,12 @@ function Pricing() {
             <li>Stay {TRIAL_MIN_NIGHTS} to {TRIAL_MAX_NIGHTS} nights at the owner's nightly price, paid directly to the owner. Roomeo never holds it.</li>
             <li>Pay the ₹{TRIAL_FEE_INR} by UPI and enter the UTR. Your trial is confirmed once Roomeo approves the payment. The ₹{TRIAL_FEE_INR} is non-refundable.</li>
             <li>Carry a photo ID. The owner checks it when you arrive.</li>
-            <li>Sign the full deal within {TRIAL_CREDIT_WINDOW_DAYS} days of your trial and the ₹{TRIAL_FEE_INR} comes off your ₹589 fee, so you pay ₹{589 - TRIAL_FEE_INR}. Then pay your monthly rent straight to the owner. The credit is used once; if the ₹589 fee is later refunded under the 7-day rule, you get the ₹{589 - TRIAL_FEE_INR} you paid back, not the ₹{TRIAL_FEE_INR}.</li>
+            {creditBullet ? <li>{creditBullet}</li> : <li>After your trial, pay your monthly rent straight to the owner.</li>}
           </ul>
         </div>
       </section>
 
-      <TaglineReveal id="tagline" lines={["₹499 once.", "Not a broker's month."]} />
+      <TaglineReveal id="tagline" lines={copy.tagline} />
 
       <section aria-labelledby="trust-h" className="py-12">
         <h2 id="trust-h" className="text-3xl font-semibold tracking-tight">The Roomeo trust kit</h2>

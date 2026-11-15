@@ -6,11 +6,14 @@ import { normalizeCode } from "@/lib/roomsetu/referrals";
 import { getInviteStatus } from "@/lib/roomsetu/referral-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { pageHead } from "@/lib/seo";
+import { asFeeView, inviteBody, inviteDescription } from "@/lib/roomsetu/fee-copy";
+import { getFeeView } from "@/lib/roomsetu/pricing-api";
 
 export const Route = createFileRoute("/r/$code")({
-  head: () =>
+  loader: () => getFeeView(),
+  head: ({ loaderData }) =>
     pageHead("You're invited to roomeo", {
-      description: "Find a verified shared room or PG bed. Chat free, ₹499 + GST (₹589) once when you lock a bed, not a broker's month.",
+      description: inviteDescription(asFeeView(loaderData)),
       noindex: true,
     }),
   component: Invite,
@@ -18,6 +21,7 @@ export const Route = createFileRoute("/r/$code")({
 
 function Invite() {
   const { code } = Route.useParams();
+  const fee = asFeeView(Route.useLoaderData());
   const valid = normalizeCode(code);
   const navigate = useNavigate();
   const { user } = useCurrentUserState();
@@ -38,7 +42,7 @@ function Invite() {
         {offer
           ? `Make an account, find your bed, move in. You and your friend both get ₹${offer} off. Zero broker fees, always.`
           : valid
-            ? "Make an account, find your bed, move in. Chat free; you pay ₹499 + GST (₹589) once when you lock a bed. Zero broker fees."
+            ? inviteBody(fee)
             : "This invite link looks off. You can still sign up, it's free."}
       </p>
       <div className="mt-6 flex flex-wrap gap-3">

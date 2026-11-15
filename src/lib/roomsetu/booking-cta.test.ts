@@ -1,19 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { CTA_LOADING, FEE_UNDER_PRICE, MESSAGE_CTA, REQUEST_CTA, REQUEST_CTA_SIGNED_OUT, ctaDisabled, isAlreadyRequested, requestCtaLabel, istStamp, requestHref, withdrawalLine, pinnedRequestFor, requestSentLine, requestStatusLabel } from "./booking-cta.ts";
+import { CTA_LOADING, MESSAGE_CTA, REQUEST_CTA, REQUEST_CTA_SIGNED_OUT, ctaDisabled, isAlreadyRequested, requestCtaLabel, istStamp, requestHref, withdrawalLine, pinnedRequestFor, requestSentLine, requestStatusLabel } from "./booking-cta.ts";
 import { dealSteps } from "./deal-steps.ts";
+import { FEE_OFF, feeUnderPrice } from "./fee-copy.ts";
 
 test("one CTA label, signed in and out", () => {
   assert.equal(REQUEST_CTA, "Request this bed");
   assert.equal(REQUEST_CTA_SIGNED_OUT, "Sign in to request this bed");
-  assert.match(FEE_UNDER_PRICE, /₹589 one-time Roomeo fee, only after the owner says yes/);
+  assert.match(feeUnderPrice({ on: true, baseInr: 499, totalInr: 589 }), /₹589 one-time Roomeo fee, only after the owner says yes/);
+  assert.doesNotMatch(feeUnderPrice(FEE_OFF), /₹\d/);
 });
 
 test("listing page uses only the new CTA", () => {
   const src = readFileSync(new URL("../../routes/listing.$id.tsx", import.meta.url), "utf8");
   for (const old of ["Join this bed", "Chat the owner", "Sign in to chat", "Sign in to message the owner"]) assert.ok(!src.includes(old), old);
-  assert.ok(src.includes("requestCtaLabel(cta)") && src.includes("FEE_UNDER_PRICE"));
+  assert.ok(src.includes("requestCtaLabel(cta)") && src.includes("feeUnderPrice("));
 });
 
 test("already requested is not an error for the CTA", () => {

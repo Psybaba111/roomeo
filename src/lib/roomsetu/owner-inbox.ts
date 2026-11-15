@@ -1,4 +1,5 @@
 // Owner Inbox helpers. Pure, testable.
+import { FEE_OFF, type FeeView } from "./fee-copy.ts";
 
 export type InboxCounts = { newRequests: number; unreadChats: number; paymentsWaiting: number };
 
@@ -26,16 +27,16 @@ export function unreadChatCount(threads: { unread: number }[]): number {
 
 export type DealRow = { issued: boolean; cancelled: boolean; ownerSigned: boolean; seekerSigned: boolean; feeStatus: string };
 
-/** Where an accepted deal is stuck, in owner words. Null when nothing is waiting. */
-export function dealWaiting(d: DealRow): { step: string; hint: string; reviewable: boolean } | null {
+/** Where an accepted deal is stuck, in owner words. Null when nothing is waiting. No fee step while the fee is off. */
+export function dealWaiting(d: DealRow, fee: FeeView = FEE_OFF): { step: string; hint: string; reviewable: boolean } | null {
   if (d.cancelled) return null;
   if (!d.issued) {
     if (!d.ownerSigned) return { step: "Sign agreement", hint: "Your turn: read it and sign ✍️", reviewable: false };
     return { step: "Sign agreement", hint: "You signed. Waiting on the tenant.", reviewable: false };
   }
-  if (d.feeStatus === "PAID") return null;
-  if (d.feeStatus === "SUBMITTED") return { step: "Pay fee", hint: "Tenant paid ₹589. UTR is in, needs a check.", reviewable: true };
-  return { step: "Pay fee", hint: "Waiting on the tenant's ₹589 fee.", reviewable: false };
+  if (!fee.on || d.feeStatus === "PAID") return null;
+  if (d.feeStatus === "SUBMITTED") return { step: "Pay fee", hint: `Tenant paid ₹${fee.totalInr}. UTR is in, needs a check.`, reviewable: true };
+  return { step: "Pay fee", hint: `Waiting on the tenant's ₹${fee.totalInr} fee.`, reviewable: false };
 }
 
 export const INBOX_EMPTY = "All caught up ✨ Share your listing to get DMs";

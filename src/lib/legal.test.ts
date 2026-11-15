@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { PRIVACY, TERMS, OPERATOR, LEGAL_UPDATED, LEGAL_NOTE } from "./legal.ts";
+import { PRIVACY, TERMS, OPERATOR, LEGAL_UPDATED, LEGAL_NOTE, termsFor } from "./legal.ts";
+import { feeViewOf } from "./roomsetu/fee-copy.ts";
 import { pricingConfig, SUCCESS_FEE_INR } from "./roomsetu/pricing.ts";
 
 const text = (s: { title: string; body: string[] }[]) => s.map((x) => x.title + "\n" + x.body.join("\n")).join("\n");
@@ -22,12 +23,19 @@ test("terms fees match pricing defaults", () => {
   assert.equal(c.successFeeEnabled, false);
   assert.equal(c.passesEnabled, false);
   assert.ok(T.includes("Owner chats are free"));
-  assert.ok(T.includes("₹499 plus 18% GST (₹589 in total), once"));
-  assert.ok(T.includes("vacates within 7 days of paying"));
+  // Fee OFF (default): no fee amounts, no fee-refund rule.
+  assert.ok(T.includes("no platform fee to renters or owners while we pilot"));
+  assert.ok(!T.includes(`₹${SUCCESS_FEE_INR}`) && !T.includes("₹589"));
+  assert.ok(!T.includes("vacates within 7 days of paying"));
   assert.ok(!T.includes("issue date"));
-  assert.ok(T.includes(`₹${SUCCESS_FEE_INR}`));
   assert.ok(T.includes(`within ${c.noReplyHours} hours`));
-  for (const k of ["not the owner, landlord", "within 7 days", "acceptable use", "Mangaluru, Karnataka", "Limitation of liability", "Indemnity", "Intermediary Rules, 2021", "broker"]) assert.ok(T.includes(k), k);
+  for (const k of ["not the owner, landlord", "acceptable use", "Mangaluru, Karnataka", "Limitation of liability", "Indemnity", "Intermediary Rules, 2021", "broker"]) assert.ok(T.includes(k), k);
+  // Fee ON: the configured fee and the 7-day refund rule.
+  const on = text(termsFor(feeViewOf(pricingConfig({ ROOMEO_FEE_ENABLED: "true" }))));
+  assert.ok(on.includes("₹499 plus 18% GST (₹589 in total), once"));
+  assert.ok(on.includes("vacates within 7 days of paying"));
+  assert.ok(on.includes(`₹${SUCCESS_FEE_INR}`));
+  assert.ok(on.includes("within 7 days"));
 });
 
 test("sitemap lists /privacy and /terms", () => {

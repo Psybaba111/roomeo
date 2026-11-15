@@ -1,4 +1,6 @@
 import { locationAccess, locationUnlocked, mapsUrl } from "@/lib/roomsetu/location-gate";
+import { feeViewOf } from "@/lib/roomsetu/fee-copy";
+import { pricingConfig } from "@/lib/roomsetu/pricing";
 import { readPhotoDates, readTrust } from "@/lib/roomsetu/trust-db";
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { notFound } from "@tanstack/react-router";
@@ -126,6 +128,7 @@ export const getHome = createServerFn({ method: "GET" })
   const stats = statsRow[0] ?? {};
   return {
     city,
+    fee: feeViewOf(pricingConfig()),
     listings: listings.map(listingCard),
     wanted: wanted.map((w) => ({
       id: str(w.id),
@@ -278,10 +281,11 @@ export const getListing = createServerFn({ method: "POST" })
       [id],
     );
     const card = listingCard({ ...row, photo: images[0] ? str(images[0].url) : null });
+    const fee = feeViewOf(pricingConfig());
     const [trust, photoDates, access] = await Promise.all([
       readTrust(sql, id),
       readPhotoDates(sql, id),
-      locationAccess(sql, id, str(row.owner_id), context.userId),
+      locationAccess(sql, id, str(row.owner_id), context.userId, fee.on),
     ]);
     // Exact address / pin / coordinates only leave the server once the gate opens.
     const exactLocation = locationUnlocked(access)
@@ -296,6 +300,7 @@ export const getListing = createServerFn({ method: "POST" })
     return {
       held: false as const,
       onlyYou: !visible,
+      fee,
       ...card,
       verification: str(row.host_identity) === "VERIFIED" && row.host_phone_verified_at ? "VERIFIED" : "UNVERIFIED",
       description: str(row.description),

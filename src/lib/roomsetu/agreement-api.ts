@@ -6,7 +6,7 @@ import { num, str } from "@/lib/roomsetu/map";
 import { buildUpiLink, makeRef, upiPayee } from "@/lib/roomsetu/upi";
 import { pricingConfig } from "@/lib/roomsetu/pricing";
 import { tenantFeeWithTrialCredit } from "@/lib/roomsetu/trial-db";
-import { agreementBody, agreementBodyForView, agreementState, feeWithGst, refundableOnVacate, refundDeadline, validSignName } from "@/lib/roomsetu/deal-agreement";
+import { agreementBody, agreementFeeBaseInr, agreementBodyForView, agreementState, feeWithGst, refundableOnVacate, refundDeadline, validSignName } from "@/lib/roomsetu/deal-agreement";
 import { dealSteps } from "@/lib/roomsetu/deal-steps";
 import { pdfBase64 } from "@/lib/roomsetu/pdf";
 import { invoicePdfLines, type InvoiceView } from "@/lib/roomsetu/invoice";
@@ -75,7 +75,8 @@ export const getDealAgreement = createServerFn({ method: "GET" })
     const d = await resolveDeal(sql, data, context.userId);
     let a = await loadAgreement(sql, d.key);
     if (!a && d.accepted) {
-      const terms = { ...d.terms, feeBaseInr: cfg.successFeeTenantInr };
+      // No fee clauses while the success fee is off (code review, 14 Nov 2026).
+      const terms = { ...d.terms, feeBaseInr: agreementFeeBaseInr(cfg) };
       await sql.query(`insert into deal_agreements (id, application_id, listing_id, seeker_id, owner_id, terms_json, body, squad_request_id)
         values ($1,$2,$3,$4,$5,$6,$7,$8) on conflict (application_id) do nothing`,
         [crypto.randomUUID(), d.key, d.listingId, d.leadTenantId, d.ownerId, JSON.stringify(terms), agreementBody(terms), data.kind === "squad" ? data.id : null]);
@@ -116,7 +117,7 @@ export const getDealAgreement = createServerFn({ method: "GET" })
       refundState,
       feeStatus: str(fee?.status),
       feePaymentId: fee?.status === "PAID" ? str(fee.id) : "",
-      steps: dealSteps({ role: isOwner ? "owner" : "tenant", squad: data.kind === "squad", iSigned, issued: Boolean(a.issued_at), cancelled: Boolean(a.cancelled_at), feeOn, feePaid: fee?.status === "PAID" || Boolean(refundState), feeTotal: payable, movedIn: d.movedIn }),
+      steps: dealSteps({ role: isOwner ? "owner" : "tenant", squad: data.kind === "squad", iSigned, issued: Boolean(a.issued_at), cancelled: Boolean(a.cancelled_at), feeOn, feePaid: fee?.status === "PAID" || Boolean(refundState), feeTotal: payable, feeBase: base, movedIn: d.movedIn }),
     };
   });
 

@@ -1,4 +1,5 @@
-import { LOCKED_LOCATION_LINE, locationAccess, locationUnlocked } from "@/lib/roomsetu/location-gate";
+import { lockedLine, locationAccess, locationUnlocked } from "@/lib/roomsetu/location-gate";
+import { feeViewOf } from "@/lib/roomsetu/fee-copy";
 import { audit } from "@/lib/roomsetu/admin-api";
 import { trustOf, type TrustFields } from "@/lib/roomsetu/trust";
 import { writeTrust } from "@/lib/roomsetu/trust-db";
@@ -24,6 +25,7 @@ import { listingCard, bool, num, str } from "@/lib/roomsetu/map";
 import { searchCity } from "@/lib/roomsetu/cities";
 import { fitsSeeker, type SeekerFacts } from "@/lib/roomsetu/match";
 import { rentQuote } from "@/lib/roomsetu/money";
+import { pricingConfig } from "@/lib/roomsetu/pricing";
 import { photoUrlError, logEvent } from "@/lib/roomsetu/services";
 import {
   FURNISHED,
@@ -1154,8 +1156,9 @@ export const listApplications = createServerFn({ method: "GET" })
        order by a.created_at desc`,
       [context.userId],
     );
+    const feeCfg = pricingConfig();
     return rows.map((r) => {
-      const quote = rentQuote(num(r.monthly_rent), num(r.deposit));
+      const quote = rentQuote(num(r.monthly_rent), num(r.deposit), true, feeCfg.successFeeEnabled, feeCfg.successFeeTenantInr);
       return {
         id: str(r.id),
         status: str(r.status),
@@ -1305,7 +1308,7 @@ export const getListingAddress = createServerFn({ method: "POST" })
     const row = rows[0];
     if (!row || row.status === "REMOVED") throw new Error("Address unavailable.");
     const access = await locationAccess(sql, data, row.owner_id, context.userId);
-    if (!locationUnlocked(access)) throw new Error(LOCKED_LOCATION_LINE);
+    if (!locationUnlocked(access)) throw new Error(lockedLine(feeViewOf(pricingConfig())));
     return { address: row.address, pincode: row.pincode };
   });
 

@@ -119,7 +119,7 @@ function Payments() {
           Record a move-out
         </h2>
         <p className="mt-2 text-sm text-muted [text-wrap:pretty]">
-          The ₹499 + GST fee is refunded only if the renter vacates within 7 days of paying it. Tap "Use for move-out" on a
+          A paid success fee is refunded only if the renter vacates within 7 days of paying it. Tap "Use for move-out" on a
           paid success fee above (it shows the Agreement ID), or paste the ID, then pick the move-out date: fees paid within 7 days before that date (renter and owner) move to Refunds below.
         </p>
         <div className="mt-4 flex flex-wrap gap-2" data-testid="vacate-form">
@@ -162,7 +162,7 @@ function Payments() {
         </h2>
         <p className="mt-2 text-sm text-muted [text-wrap:pretty]">
           ₹99 incl. GST (₹83.90 + ₹15.10 GST) per trial booking, approved above like any UPI payment. Stay money goes to the
-          owner directly. A trial earns ₹99 off the ₹589 fee if the deal is issued within 14 days of check-out. The ₹99 is never refunded, and a credit used on a fee that is later refunded is not given again.
+          owner directly. While the success fee is on, a trial earns ₹99 off it if the deal is issued within 14 days of check-out. The ₹99 is never refunded, and a credit used on a fee that is later refunded is not given again.
         </p>
         <ul className="mt-4 space-y-2" data-testid="trial-bookings">
           {trials.map((t) => (

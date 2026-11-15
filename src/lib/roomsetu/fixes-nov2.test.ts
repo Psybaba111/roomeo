@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { testDb, seedListing } from "./pgtest.ts";
 import { bookTrial, confirmTrialFromPayment, myOpenTrial, ownerTrialBookings, setListingTrial } from "./trial-db.ts";
 import { dealSteps } from "./deal-steps.ts";
+import { FEE_OFF, pricingTrialCreditBullet } from "./fee-copy.ts";
 
 const src = (p: string) => readFileSync(new URL(`../../${p}`, import.meta.url), "utf8");
 
@@ -68,7 +69,10 @@ test("#9 pricing page explains trial nights and the ₹99 credit", () => {
   const p = src("routes/pricing.tsx");
   assert.match(p, /data-testid="pricing-trial"/);
   assert.match(p, /paid directly to the owner/);
-  assert.match(p, /comes off your ₹589 fee/);
+  // The ₹99 credit line is built from the fee setting: shown with the fee on, absent while it is off.
+  assert.match(p, /pricingTrialCreditBullet\(fee, TRIAL_FEE_INR, TRIAL_CREDIT_WINDOW_DAYS\)/);
+  assert.match(pricingTrialCreditBullet({ on: true, baseInr: 499, totalInr: 589 }, 99, 14) ?? "", /comes off your ₹589 fee/);
+  assert.equal(pricingTrialCreditBullet(FEE_OFF, 99, 14), null);
 });
 
 test("#10 heading, revenue group, referral page, accept/decline errors", () => {

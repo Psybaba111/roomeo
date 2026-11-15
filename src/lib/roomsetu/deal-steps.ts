@@ -1,11 +1,15 @@
+import { feeWithGst } from "./deal-agreement.ts";
+import { SUCCESS_FEE_INR } from "./pricing.ts";
+
 /** Step-by-step status for both sides: Accepted → Sign agreement → Pay fee → Move in. */
 export type StepState = "done" | "now" | "todo";
 export type DealStep = { key: "accepted" | "sign" | "pay" | "movein"; label: string; state: StepState; hint: string };
 
-export function dealSteps(p: { role: "tenant" | "owner"; squad?: boolean; iSigned: boolean; issued: boolean; cancelled: boolean; feeOn: boolean; feePaid: boolean; feeTotal: number; movedIn: boolean }): DealStep[] {
+export function dealSteps(p: { role: "tenant" | "owner"; squad?: boolean; iSigned: boolean; issued: boolean; cancelled: boolean; feeOn: boolean; feePaid: boolean; feeTotal: number; feeBase?: number; movedIn: boolean }): DealStep[] {
+  const f = feeWithGst(p.feeBase ?? SUCCESS_FEE_INR);
   const other = p.role === "tenant" ? (p.squad ? "the owner and your squad" : "the owner") : p.squad ? "every squad member" : "the tenant";
   const signHint = p.issued ? "Signed by everyone. Agreement issued." : p.iSigned ? `You signed. Waiting on ${other}.` : `Read it, type your name, sign. ${other[0].toUpperCase() + other.slice(1)} signs too.`;
-  const payHint = !p.feeOn ? "No fee right now. Skip ahead 🙌" : p.feePaid ? "Paid. Invoice is ready." : `You pay ₹${p.feeTotal} once (₹499 + 18% GST = ₹589${p.feeTotal < 589 ? ", less your ₹99 trial credit, which is non-refundable" : ""}), before move in. The ${p.role === "tenant" ? "owner" : "tenant"} pays ₹589 once too. If the stay ends within 7 days of paying, both sides get their fee back.`;
+  const payHint = !p.feeOn ? "No fee right now. Skip ahead 🙌" : p.feePaid ? "Paid. Invoice is ready." : `You pay ₹${p.feeTotal} once (₹${f.base} + 18% GST = ₹${f.total}${p.feeTotal < f.total ? ", less your ₹99 trial credit, which is non-refundable" : ""}), before move in. The ${p.role === "tenant" ? "owner" : "tenant"} pays ₹${f.total} once too. If the stay ends within 7 days of paying, both sides get their fee back.`;
   const steps: Omit<DealStep, "state">[] = [
     { key: "accepted", label: "Accepted", hint: "Owner said yes 🎉" },
     { key: "sign", label: "Sign agreement", hint: signHint },
