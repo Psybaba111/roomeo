@@ -14,6 +14,8 @@ import { rememberSearch } from "@/lib/roomsetu/account-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { CityPicker } from "@/components/city-picker";
 import { cityInfo, citySeoDescription, citySeoTitle, searchCity } from "@/lib/roomsetu/cities";
+import { asFeeView } from "@/lib/roomsetu/fee-copy";
+import { getFeeView } from "@/lib/roomsetu/pricing-api";
 
 function textParam(value: unknown): string {
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -21,9 +23,10 @@ function textParam(value: unknown): string {
 }
 
 export const Route = createFileRoute("/search")({
-  head: ({ match }) => {
+  loader: () => getFeeView(),
+  head: ({ match, loaderData }) => {
     const city = searchCity((match.search as { city?: string } | undefined)?.city);
-    return pageHead(citySeoTitle(city), { description: citySeoDescription(city) });
+    return pageHead(citySeoTitle(city), { description: citySeoDescription(city, asFeeView(loaderData)) });
   },
   validateSearch: (search: Record<string, unknown>) => ({
     city: searchCity(textParam(search.city)),

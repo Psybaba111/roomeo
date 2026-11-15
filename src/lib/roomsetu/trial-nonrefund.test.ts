@@ -5,6 +5,7 @@ import { testDb, seedListing } from "./pgtest.ts";
 import { bookTrial, confirmTrialFromPayment, findTrialCredit, setListingTrial } from "./trial-db.ts";
 import { refundFeesForStayEnd } from "./agreement-db.ts";
 import { TRIAL_ARRIVAL_CHECKLIST } from "./trial-nights.ts";
+import { FEE_OFF, pricingCopy } from "./fee-copy.ts";
 
 const src = (p: string) => readFileSync(new URL(`../../${p}`, import.meta.url), "utf8");
 
@@ -42,7 +43,10 @@ test("₹99 never refunded; credit single-use even after the fee is refunded; ca
 
 test("copy says the ₹99 is non-refundable", () => {
   assert.ok(TRIAL_ARRIVAL_CHECKLIST.some((c) => /non-refundable/.test(c)));
-  assert.match(src("routes/pricing.tsx"), /Is the ₹99 trial night fee refundable\?", "No\./);
+  for (const fee of [FEE_OFF, { on: true, baseInr: 499, totalInr: 589 }]) {
+    const faq = pricingCopy(fee, { feeInr: 99, windowDays: 14 }).faq.find(([q]) => q === "Is the ₹99 trial night fee refundable?");
+    assert.match(faq?.[1] ?? "", /^No\./);
+  }
   assert.match(src("routes/pricing.tsx"), /The ₹\{TRIAL_FEE_INR\} is non-refundable/);
   assert.match(src("components/trial-nights.tsx"), /Non-refundable/);
   assert.match(src("components/trial-nights.tsx"), /\(non-refundable\)/);

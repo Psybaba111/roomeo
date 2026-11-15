@@ -6,6 +6,7 @@ import { assertAdmin, audit } from "@/lib/roomsetu/admin-api";
 import { num, str } from "@/lib/roomsetu/map";
 import { buildUpiLink, makeRef, upiPayee } from "@/lib/roomsetu/upi";
 import { pricingConfig, REFUND_PROMISE } from "@/lib/roomsetu/pricing";
+import { feeViewOf } from "@/lib/roomsetu/fee-copy";
 import { contactSummary, runPricingSweep } from "@/lib/roomsetu/pricing-db";
 import { confirmMoveInRecord } from "@/lib/roomsetu/movein-confirm";
 
@@ -39,6 +40,9 @@ async function upiCheckout(
   const qr = await QRCode.toDataURL(link, { margin: 1, width: 320, errorCorrectionLevel: "M" });
   return { ref: str(row.ref), status: str(row.status), amount: num(row.amount_inr), plan: p.label, payee: payee.name, vpa: payee.vpa, link, qr };
 }
+
+/** The success-fee setting as public copy input (on/off + amounts). No auth; same data as /pricing. */
+export const getFeeView = createServerFn({ method: "GET" }).handler(async () => feeViewOf(pricingConfig()));
 
 /** Public numbers for /pricing. No auth. */
 export const getPublicPricing = createServerFn({ method: "GET" }).handler(async () => {

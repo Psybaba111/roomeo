@@ -1,8 +1,7 @@
-/** ₹499 once per person, per stay. Not every month. Not a percent of the rent. */
+/** Default per-side success fee base in rupees (same as SUCCESS_FEE_INR). Only charged while ROOMEO_FEE_ENABLED is on. */
 export const FEE_INR = 499;
 
-/** One fee line used everywhere (Rohith, 1 Nov 2026). Chat is free while ROOMEO_PAID_CHAT_ENABLED is off. */
-export const FEE_LINE = "Browse and chat free. ₹589 (₹499 + GST) once when you lock a bed, refundable within 7 days.";
+// The public fee line now lives in `fee-copy.ts` (`feeLine(fee)`), built from the fee setting.
 
 export type RentQuote = {
   rent: number;
@@ -13,10 +12,15 @@ export type RentQuote = {
   hostReceives: number;
 };
 
-export function rentQuote(rent: number, deposit: number, firstMonth = true): RentQuote {
+/**
+ * First-month rent quote. The Roomeo fee is added (seeker) and taken (host) only when the success
+ * fee is switched on: pass `feeOn = pricingConfig().successFeeEnabled`. Defaults to OFF so a caller
+ * that forgets can never charge a fee that isn't live.
+ */
+export function rentQuote(rent: number, deposit: number, firstMonth = true, feeOn = false, feeInr = FEE_INR): RentQuote {
   const safeRent = Math.round(rent);
   const safeDeposit = Math.round(deposit);
-  const fee = firstMonth ? FEE_INR : 0;
+  const fee = firstMonth && feeOn ? feeInr : 0;
   return {
     rent: safeRent,
     deposit: safeDeposit,

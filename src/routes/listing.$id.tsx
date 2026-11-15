@@ -1,6 +1,6 @@
-import { LOCKED_LOCATION_LINE } from "@/lib/roomsetu/location-gate";
+import { asFeeView, feeUnderPrice, lockedLocationLine } from "@/lib/roomsetu/fee-copy";
 import { TrialNightsBooking, TrialNightsLink } from "@/components/trial-nights";
-import { FEE_UNDER_PRICE, MESSAGE_CTA, ctaDisabled, isAlreadyRequested, requestCtaLabel, requestSentLine } from "@/lib/roomsetu/booking-cta";
+import { MESSAGE_CTA, ctaDisabled, isAlreadyRequested, requestCtaLabel, requestSentLine } from "@/lib/roomsetu/booking-cta";
 import { listingHead } from "@/lib/seo";
 import { ContactGate } from "@/components/contact-gate";
 import { sendLead } from "@/lib/analytics/ga4";
@@ -337,7 +337,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
             </p>
           </div>
           <p className="mt-3 text-sm font-medium [text-wrap:pretty]" data-testid="fee-line">
-            {FEE_UNDER_PRICE}.{" "}
+            {feeUnderPrice(asFeeView(room.fee))}.{" "}
             <Link to="/pricing" className="font-semibold text-brand">How pricing works</Link>
           </p>
           <div id="contact" className="mt-4 flex scroll-mt-24 flex-col gap-2">
@@ -438,11 +438,13 @@ function ListingBody({ room }: { room: LoadedRoom }) {
                 <p className="text-sm font-semibold">
                   {room.locality}, {room.city}
                 </p>
-                <p className="mt-1 text-sm text-muted">{LOCKED_LOCATION_LINE}</p>
+                <p className="mt-1 text-sm text-muted">{lockedLocationLine(asFeeView(room.fee))}</p>
                 {room.locationLock && (room.locationLock.signed || room.locationLock.paid) ? (
                   <p className="mt-2 text-xs text-muted">
                     {room.locationLock.signed ? "Agreement signed ✅" : "Agreement not signed yet"} ·{" "}
-                    {room.locationLock.paid ? "Fee paid ✅" : "Fee not confirmed yet"}
+                    {asFeeView(room.fee).on
+                      ? room.locationLock.paid ? "Fee paid ✅" : "Fee not confirmed yet"
+                      : "Waiting for the other side to sign"}
                   </p>
                 ) : null}
               </div>

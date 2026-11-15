@@ -4,9 +4,11 @@
  * - A student books 1 to 3 nights. ID is checked on arrival.
  * - Roomeo charges ₹99 per trial booking, GST included, once (not per night), via UPI + admin approval.
  * - Nightly stay money is paid directly to the owner. Roomeo never holds it.
- * - If the student's full deal is issued within 14 days of the trial, ₹99 comes off their ₹589 fee.
+ * - While the success fee is on: if the student's full deal is issued within 14 days of the trial,
+ *   ₹99 comes off their success fee. While it is off there is nothing to credit.
  */
 import { GST_RATE } from "./deal-agreement.ts";
+import { FEE_OFF, trialCreditLine, type FeeView } from "./fee-copy.ts";
 
 export const TRIAL_FEE_INR = 99; // GST included
 export const TRIAL_MIN_NIGHTS = 1;
@@ -91,14 +93,20 @@ export function feeAfterTrialCredit(feeTotalInr: number, credit: boolean): { amo
   return { amount: feeTotalInr - c, credit: c };
 }
 
-/** Shown to the student before and after booking. */
-export const TRIAL_ARRIVAL_CHECKLIST = [
-  "Carry a government photo ID (Aadhaar, passport, driving licence or college ID). The owner checks it on arrival.",
-  "Pay the nightly stay amount directly to the owner. Roomeo never holds it.",
-  `Up to ${TRIAL_MAX_NIGHTS} nights per trial.`,
-  `The ₹${TRIAL_FEE_INR} trial fee is non-refundable.`,
-  `Stay on: sign the full deal within ${TRIAL_CREDIT_WINDOW_DAYS} days of your trial and the ₹${TRIAL_FEE_INR} comes off your ₹589 fee (one time only, not given back if that fee is later refunded).`,
-] as const;
+/** Shown to the student before and after booking. The "stay on" credit line only appears while the success fee is on. */
+export function trialArrivalChecklist(fee: FeeView = FEE_OFF): string[] {
+  const credit = trialCreditLine(fee, TRIAL_FEE_INR, TRIAL_CREDIT_WINDOW_DAYS);
+  return [
+    "Carry a government photo ID (Aadhaar, passport, driving licence or college ID). The owner checks it on arrival.",
+    "Pay the nightly stay amount directly to the owner. Roomeo never holds it.",
+    `Up to ${TRIAL_MAX_NIGHTS} nights per trial.`,
+    `The ₹${TRIAL_FEE_INR} trial fee is non-refundable.`,
+    ...(credit ? [credit] : []),
+  ];
+}
+
+/** Checklist with the default (fee OFF) setting. */
+export const TRIAL_ARRIVAL_CHECKLIST: readonly string[] = trialArrivalChecklist(FEE_OFF);
 
 /**
  * Any "book a trial night" prompt for a listing shows only when that listing's trial is

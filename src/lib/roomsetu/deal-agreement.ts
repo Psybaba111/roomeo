@@ -1,4 +1,4 @@
-/** Pure helpers for the one-time fee (₹499 + 18% GST) and the click-to-sign deal agreement. */
+/** Pure helpers for the one-time success fee (base + 18% GST, only while it is switched on) and the click-to-sign deal agreement. */
 export const GST_RATE = 0.18;
 export const REFUND_WINDOW_DAYS = 7;
 
@@ -61,11 +61,29 @@ export type DealTerms = {
   moveIn: string;
   tenantName: string;
   ownerName: string;
+  /** Per-side success fee base, ₹. 0 while the fee is off: the agreement then has no fee clauses. */
   feeBaseInr: number;
 };
 
+/** Fee base written into a new agreement: the tenant fee while the success fee is ON, else 0. */
+export function agreementFeeBaseInr(cfg: { successFeeEnabled: boolean; successFeeTenantInr: number }): number {
+  return cfg.successFeeEnabled && cfg.successFeeTenantInr > 0 ? cfg.successFeeTenantInr : 0;
+}
+
 export function agreementBody(t: DealTerms): string {
-  const fee = feeBreakdownText(t.feeBaseInr);
+  const feeClauses =
+    t.feeBaseInr > 0
+      ? [
+          `Both sides pay Roomeo a one-time platform success fee of ${feeBreakdownText(t.feeBaseInr)} each, once this agreement is issued and before move in.`,
+          `Roomeo's fee is refunded only if the tenant vacates within ${REFUND_WINDOW_DAYS} days of paying it. The owner's fee is refunded too if the stay ends within ${REFUND_WINDOW_DAYS} days of the owner's payment. Otherwise the fee is not refundable. The deposit is paid directly to the owner and Roomeo never holds or refunds it.`,
+        ]
+      : [];
+  const clauses = [
+    `The tenant takes the room above at the rent and deposit shown. Rent and deposit are paid directly to the owner; Roomeo never holds them or takes a cut.`,
+    ...feeClauses,
+    `House rules, notice period and anything else are between tenant and owner. A full stamped rental agreement may still be needed under local law.`,
+    `This agreement is signed by each side clicking "Sign" in Roomeo. Roomeo records the typed name, time and IP address of each signature. The issue date is when the second side signs.`,
+  ];
   return [
     `ROOMEO DEAL AGREEMENT`,
     ``,
@@ -74,11 +92,7 @@ export function agreementBody(t: DealTerms): string {
     `Room: ${t.listingTitle}, ${roomPlace(t)}`,
     `Monthly rent: ₹${t.monthlyRent}. Deposit: ₹${t.deposit}.${t.moveIn ? ` Planned move in: ${t.moveIn}.` : ""}`,
     ``,
-    `1. The tenant takes the room above at the rent and deposit shown. Rent and deposit are paid directly to the owner; Roomeo never holds them or takes a cut.`,
-    `2. Both sides pay Roomeo a one-time platform success fee of ${fee} each, once this agreement is issued and before move in.`,
-    `3. Roomeo's fee is refunded only if the tenant vacates within ${REFUND_WINDOW_DAYS} days of paying it. The owner's fee is refunded too if the stay ends within ${REFUND_WINDOW_DAYS} days of the owner's payment. Otherwise the fee is not refundable. The deposit is paid directly to the owner and Roomeo never holds or refunds it.`,
-    `4. House rules, notice period and anything else are between tenant and owner. A full stamped rental agreement may still be needed under local law.`,
-    `5. This agreement is signed by each side clicking "Sign" in Roomeo. Roomeo records the typed name, time and IP address of each signature. The issue date is when the second side signs.`,
+    ...clauses.map((c, i) => `${i + 1}. ${c}`),
   ].join("\n");
 }
 

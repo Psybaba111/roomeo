@@ -1,4 +1,4 @@
-import { FEE_LINE } from "@/lib/roomsetu/money";
+import { asFeeView, feeLine, homeChatStep, type FeeView } from "@/lib/roomsetu/fee-copy";
 import { CalendarCheck, ChatCircle, Flag, MapPin, Receipt, ShieldCheck } from "@phosphor-icons/react";
 import { pageHead, SHARE_DESCRIPTION } from "@/lib/seo";
 import { useEffect, useState } from "react";
@@ -33,14 +33,14 @@ const SEARCH = {
   availableBy: "",
 };
 
-const STEPS = [
+const steps = (fee: FeeView) => [
   [
     "01",
     "Pick your people",
     "Choose your own flatmates. No random allotment, no awkward surprises.",
   ],
   ["02", "Owner says yes once", "One clear yes or no. No endless calls, no ghosting."],
-  ["03", "Chat owners free", "Unlimited owner chats, free. Listing is free too. When a stay is locked, renter and owner each pay ₹589 (₹499 + GST) once, refundable within 7 days."],
+  ["03", "Chat owners free", homeChatStep(fee)],
 ];
 
 const TRUST: [typeof ShieldCheck, string, string][] = [
@@ -105,7 +105,7 @@ function Home() {
             and deposit paid directly to the owner. No broker's month, no cut of your rent.
           </p>
           <p className="mt-2 max-w-md text-sm text-white/80" data-testid="fee-line">
-            {FEE_LINE}{" "}
+            {feeLine(asFeeView(data.fee))}{" "}
             <Link to="/pricing" className="font-semibold text-lime underline">How pricing works</Link>
           </p>
           <form
@@ -217,7 +217,7 @@ function Home() {
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">How it works</p>
         <h2 className="mt-2 text-3xl sm:text-4xl">Three steps. Zero broker drama.</h2>
         <ol className="mt-6 grid gap-4 sm:grid-cols-3">
-          {STEPS.map(([n, title, body]) => (
+          {steps(asFeeView(data.fee)).map(([n, title, body]) => (
             <li key={n} className="rounded-3xl border border-line bg-card p-6">
               <p className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand-soft font-display text-sm text-brand-deep">
                 {n}

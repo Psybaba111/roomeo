@@ -1,4 +1,6 @@
 /** Roomeo legal pages copy. Plain, casual-but-clear. Not a substitute for legal review. */
+import { FEE_OFF, type FeeView } from "./roomsetu/fee-copy.ts";
+
 export const LEGAL_UPDATED = "29 Oct 2026";
 export const OPERATOR = {
   name: "Athiti Hospitality Services Private Limited",
@@ -68,60 +70,75 @@ export const PRIVACY: LegalSection[] = [
   { id: "changes", title: "Changes", body: ["If we change this policy in a way that matters, we'll show a notice on the site before it applies. The date at the top always tells you the latest version."] },
 ];
 
-export const TERMS: LegalSection[] = [
-  { id: "about", title: "The basics", body: [
-    `These terms are an agreement between you and ${OPERATOR.name} (GSTIN ${OPERATOR.gstin}), ${OPERATOR.address}, which runs Roomeo. Using Roomeo means you accept them. You must be 18+.`,
-    "They're an electronic record under the Information Technology Act, 2000 and published as the Intermediary Rules, 2021 require.",
-  ] },
-  { id: "platform", title: "We're a platform, not your landlord", body: [
-    "Roomeo is a technology platform that helps people find rooms, beds and flatmates. We're an intermediary under section 79 of the IT Act, 2000.",
-    "We are not the owner, landlord, licensor, tenant, agent, broker or guarantor in any rental, and we're not a party to any agreement between users, even one signed inside Roomeo.",
-    "We don't collect, hold or refund rent or deposits. Those go directly between tenant and owner, and we take no commission or brokerage on them. Fees you pay Roomeo are separate platform fees, not rent, deposit or brokerage.",
-    "Disputes about the room, rent, deposit, house rules or behaviour are between tenant and owner. We may help (for example by suspending a bad actor), but that doesn't make us a party.",
-  ] },
-  { id: "accounts", title: "Your account", body: [
-    "Give true details, keep your password private, and use one account per person. You're responsible for what happens under your account. Tell us quickly if you think someone else got in.",
-  ] },
-  { id: "listings", title: "Listings & accuracy", body: [
-    "Owners must only list places they have the right to let, at the real price, with real photos (clearly label any design mockups). We don't inspect every room or endorse any listing.",
-    "Verified badges mean we did a limited check, not a guarantee. Visit the place, meet the person and check documents yourself before paying anything.",
-  ] },
-  { id: "fees", title: "Fees", body: [
-    "Browsing, saving, listing, applying and chatting are free.",
-    "Owner chats are free for renters once your phone is verified. There are no chat passes.",
-    "Listing is free for owners. There are no paid boosts or paid fast-track reviews right now.",
-    "Roomeo charges a flat platform fee of ₹499 plus 18% GST (₹589 in total), once, to the renter and ₹499 plus 18% GST (₹589), once, to the owner, per person, per stay, when the stay is confirmed. No monthly fee. Roomeo never takes a cut of rent or deposit.",
-    "GST is added on top of the ₹499 as shown at checkout, and you get a GST invoice for platform fees. We may change prices for the future; we'll never change the price of something you already paid for.",
-  ] },
-  { id: "refunds", title: "Refunds", body: [
-    "Pass promise: if every owner you contact during a pass declines or doesn't reply within 48 hours, the full pass price goes back to your UPI ID automatically.",
-    "Platform fee: the ₹589 (₹499 + GST) fee is refunded in full only if the tenant vacates within 7 days of paying it. The owner's fee is refunded too if the stay ends within 7 days of the owner's payment. In every other case, including moving out later, the fee is not refundable. Deposits are paid directly to the owner and are never held or refunded by Roomeo.",
-    "Refunds go back to the UPI ID that paid, usually within 7 working days after we approve them. Boost and fast-track aren't refundable once they've started.",
-  ] },
-  { id: "agreement", title: "Agreements signed in Roomeo", body: [
-    "The Roomeo agreement is a simple click-to-sign record (typed name, time, IP). It isn't Aadhaar e-sign and it isn't a stamped or registered rental agreement. You may still need a properly stamped leave-and-licence agreement under Karnataka law, and that's between tenant and owner.",
-  ] },
-  { id: "conduct", title: "Play fair (acceptable use)", body: [
-    "Don't: post fake, misleading or someone else's listings; act as a broker or charge brokerage while posing as an owner or tenant; ask for money outside agreed rent/deposit before a visit; harass, discriminate or threaten; share others' personal data; post anything illegal, obscene or infringing; scrape, spam or try to hack Roomeo; or dodge Roomeo fees by misusing free chats.",
-    "We can remove content and suspend or close accounts that break these rules or the law, and we may report serious cases to the police.",
-  ] },
-  { id: "fraud", title: "Stay safe: brokers and scams", body: [
-    "Never pay a 'token advance' to someone you haven't met or for a place you haven't seen. Roomeo will never ask for your UPI PIN, OTP or password.",
-    `Spotted a broker, scam or fake listing? Use Report on the listing or mail ${OPERATOR.email}. Law-enforcement requests also go to this email.`,
-  ] },
-  { id: "liability", title: "Limitation of liability", body: [
-    "Roomeo is provided 'as is'. We try hard to keep it working and safe but can't promise it'll always be available or error-free.",
-    "To the extent the law allows, we're not liable for the condition of any room, the conduct of any user, rent or deposit disputes, or indirect losses. Our total liability for any claim is limited to the platform fees you paid us in the 6 months before the claim.",
-  ] },
-  { id: "indemnity", title: "Indemnity", body: [
-    "If you break these terms or the law, or post content that gets us into trouble, you agree to cover the reasonable costs and claims that follow.",
-  ] },
-  { id: "termination", title: "Closing your account", body: [
-    "You can stop using Roomeo and ask us to delete your account any time. We can suspend or end access for breaking these terms. Fees already used aren't refunded except as described above.",
-  ] },
-  { id: "law", title: "Governing law & jurisdiction", body: [
-    "These terms are governed by Indian law. Courts at Mangaluru, Karnataka have exclusive jurisdiction.",
-  ] },
-  { id: "grievance", title: "Grievance Officer & contact", body: grievance },
-  { id: "changes", title: "Changes", body: ["We may update these terms. If a change matters, we'll show a notice before it applies. Using Roomeo after that means you accept the update."] },
-];
+/** Terms of use, with the fee and refund clauses built from the fee setting (no fee amounts while it is off). */
+export function termsFor(fee: FeeView): LegalSection[] {
+  return [
+    { id: "about", title: "The basics", body: [
+      `These terms are an agreement between you and ${OPERATOR.name} (GSTIN ${OPERATOR.gstin}), ${OPERATOR.address}, which runs Roomeo. Using Roomeo means you accept them. You must be 18+.`,
+      "They're an electronic record under the Information Technology Act, 2000 and published as the Intermediary Rules, 2021 require.",
+    ] },
+    { id: "platform", title: "We're a platform, not your landlord", body: [
+      "Roomeo is a technology platform that helps people find rooms, beds and flatmates. We're an intermediary under section 79 of the IT Act, 2000.",
+      "We are not the owner, landlord, licensor, tenant, agent, broker or guarantor in any rental, and we're not a party to any agreement between users, even one signed inside Roomeo.",
+      "We don't collect, hold or refund rent or deposits. Those go directly between tenant and owner, and we take no commission or brokerage on them. Fees you pay Roomeo are separate platform fees, not rent, deposit or brokerage.",
+      "Disputes about the room, rent, deposit, house rules or behaviour are between tenant and owner. We may help (for example by suspending a bad actor), but that doesn't make us a party.",
+    ] },
+    { id: "accounts", title: "Your account", body: [
+      "Give true details, keep your password private, and use one account per person. You're responsible for what happens under your account. Tell us quickly if you think someone else got in.",
+    ] },
+    { id: "listings", title: "Listings & accuracy", body: [
+      "Owners must only list places they have the right to let, at the real price, with real photos (clearly label any design mockups). We don't inspect every room or endorse any listing.",
+      "Verified badges mean we did a limited check, not a guarantee. Visit the place, meet the person and check documents yourself before paying anything.",
+    ] },
+    { id: "fees", title: "Fees", body: [
+      "Browsing, saving, listing, applying and chatting are free.",
+      "Owner chats are free for renters once your phone is verified. There are no chat passes.",
+      "Listing is free for owners. There are no paid boosts or paid fast-track reviews right now.",
+      ...(fee.on
+        ? [
+            `Roomeo charges a flat platform fee of ₹${fee.baseInr} plus 18% GST (₹${fee.totalInr} in total), once, to the renter and ₹${fee.baseInr} plus 18% GST (₹${fee.totalInr}), once, to the owner, per person, per stay, when the stay is confirmed. No monthly fee. Roomeo never takes a cut of rent or deposit.`,
+            `GST is added on top of the ₹${fee.baseInr} as shown at checkout, and you get a GST invoice for platform fees. We may change prices for the future; we'll never change the price of something you already paid for.`,
+          ]
+        : [
+            "Roomeo charges no platform fee to renters or owners while we pilot. Roomeo never takes a cut of rent or deposit.",
+            "If we introduce a platform fee, we'll show the price with GST before anyone signs or pays, and it won't apply to a stay that's already confirmed. You'd get a GST invoice for any platform fee.",
+          ]),
+    ] },
+    { id: "refunds", title: "Refunds", body: [
+      "Pass promise: if every owner you contact during a pass declines or doesn't reply within 48 hours, the full pass price goes back to your UPI ID automatically.",
+      fee.on
+        ? `Platform fee: the ₹${fee.totalInr} (₹${fee.baseInr} + GST) fee is refunded in full only if the tenant vacates within 7 days of paying it. The owner's fee is refunded too if the stay ends within 7 days of the owner's payment. In every other case, including moving out later, the fee is not refundable. Deposits are paid directly to the owner and are never held or refunded by Roomeo.`
+        : "Platform fee: there is none right now, so there's nothing to refund. Deposits are paid directly to the owner and are never held or refunded by Roomeo.",
+      "Refunds go back to the UPI ID that paid, usually within 7 working days after we approve them. Boost and fast-track aren't refundable once they've started.",
+    ] },
+    { id: "agreement", title: "Agreements signed in Roomeo", body: [
+      "The Roomeo agreement is a simple click-to-sign record (typed name, time, IP). It isn't Aadhaar e-sign and it isn't a stamped or registered rental agreement. You may still need a properly stamped leave-and-licence agreement under Karnataka law, and that's between tenant and owner.",
+    ] },
+    { id: "conduct", title: "Play fair (acceptable use)", body: [
+      "Don't: post fake, misleading or someone else's listings; act as a broker or charge brokerage while posing as an owner or tenant; ask for money outside agreed rent/deposit before a visit; harass, discriminate or threaten; share others' personal data; post anything illegal, obscene or infringing; scrape, spam or try to hack Roomeo; or dodge Roomeo fees by misusing free chats.",
+      "We can remove content and suspend or close accounts that break these rules or the law, and we may report serious cases to the police.",
+    ] },
+    { id: "fraud", title: "Stay safe: brokers and scams", body: [
+      "Never pay a 'token advance' to someone you haven't met or for a place you haven't seen. Roomeo will never ask for your UPI PIN, OTP or password.",
+      `Spotted a broker, scam or fake listing? Use Report on the listing or mail ${OPERATOR.email}. Law-enforcement requests also go to this email.`,
+    ] },
+    { id: "liability", title: "Limitation of liability", body: [
+      "Roomeo is provided 'as is'. We try hard to keep it working and safe but can't promise it'll always be available or error-free.",
+      "To the extent the law allows, we're not liable for the condition of any room, the conduct of any user, rent or deposit disputes, or indirect losses. Our total liability for any claim is limited to the platform fees you paid us in the 6 months before the claim.",
+    ] },
+    { id: "indemnity", title: "Indemnity", body: [
+      "If you break these terms or the law, or post content that gets us into trouble, you agree to cover the reasonable costs and claims that follow.",
+    ] },
+    { id: "termination", title: "Closing your account", body: [
+      "You can stop using Roomeo and ask us to delete your account any time. We can suspend or end access for breaking these terms. Fees already used aren't refunded except as described above.",
+    ] },
+    { id: "law", title: "Governing law & jurisdiction", body: [
+      "These terms are governed by Indian law. Courts at Mangaluru, Karnataka have exclusive jurisdiction.",
+    ] },
+    { id: "grievance", title: "Grievance Officer & contact", body: grievance },
+    { id: "changes", title: "Changes", body: ["We may update these terms. If a change matters, we'll show a notice before it applies. Using Roomeo after that means you accept the update."] },
+  ];
+}
+
+/** Terms with the default (fee OFF) setting. Pages should use `termsFor(fee)` with the live setting. */
+export const TERMS: LegalSection[] = termsFor(FEE_OFF);

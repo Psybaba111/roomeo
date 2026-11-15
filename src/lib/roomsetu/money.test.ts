@@ -1,11 +1,21 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { FEE_INR, FEE_LINE, rentQuote } from "./money.ts";
+import { FEE_INR, rentQuote } from "./money.ts";
+import { FEE_OFF, feeLine } from "./fee-copy.ts";
 import { razorpaySignatureMatches } from "./razorpay.ts";
 
-test("rent quote adds 499 for the seeker and takes 499 from the host", () => {
-  const quote = rentQuote(12000, 24000);
+test("rent quote adds nothing while the fee is off (default)", () => {
+  for (const quote of [rentQuote(12000, 24000), rentQuote(12000, 24000, true, false)]) {
+    assert.equal(quote.seekerPays, 12000);
+    assert.equal(quote.hostReceives, 12000);
+    assert.equal(quote.seekerFee, 0);
+    assert.equal(quote.hostFee, 0);
+  }
+});
+
+test("rent quote adds 499 for the seeker and takes 499 from the host when the fee is on", () => {
+  const quote = rentQuote(12000, 24000, true, true);
   assert.equal(FEE_INR, 499);
   assert.equal(quote.seekerPays, 12499);
   assert.equal(quote.hostReceives, 11501);
@@ -21,9 +31,18 @@ test("razorpay signature accepts the order and payment pair only", () => {
   assert.equal(razorpaySignatureMatches(secret, "order_1", "pay_2", good), false);
 });
 
-test("one fee line: chat free, ₹589 incl GST once, 7 day refund", () => {
-  assert.match(FEE_LINE, /chat free/i);
-  assert.ok(FEE_LINE.includes("₹589") && FEE_LINE.includes("₹499 + GST"));
-  assert.match(FEE_LINE, /7 days/);
+test("rent quote: no fee after the first month, even when on", () => {
+  assert.equal(rentQuote(12000, 24000, false, true).seekerFee, 0);
+});
+
+test("one fee line: chat free, ₹589 incl GST once, 7 day refund (fee on); no amounts when off", () => {
+  const on = feeLine({ on: true, baseInr: FEE_INR, totalInr: 589 });
+  assert.match(on, /chat free/i);
+  assert.ok(on.includes("₹589") && on.includes("₹499 + GST"));
+  assert.match(on, /7 days/);
   assert.equal(Math.round(FEE_INR * 1.18), 589);
+  const off = feeLine(FEE_OFF);
+  assert.match(off, /chat/i);
+  assert.match(off, /free while we pilot/i);
+  assert.doesNotMatch(off, /₹\d/);
 });

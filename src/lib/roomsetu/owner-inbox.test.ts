@@ -28,8 +28,13 @@ test("deal waiting step", () => {
   const base = { issued: false, cancelled: false, ownerSigned: false, seekerSigned: true, feeStatus: "" };
   assert.equal(dealWaiting(base)?.hint, "Your turn: read it and sign ✍️");
   assert.equal(dealWaiting({ ...base, ownerSigned: true, seekerSigned: false })?.step, "Sign agreement");
-  assert.equal(dealWaiting({ ...base, issued: true, feeStatus: "SUBMITTED" })?.reviewable, true);
-  assert.equal(dealWaiting({ ...base, issued: true, feeStatus: "PENDING" })?.reviewable, false);
-  assert.equal(dealWaiting({ ...base, issued: true, feeStatus: "PAID" }), null);
+  const on = { on: true, baseInr: 499, totalInr: 589 };
+  assert.equal(dealWaiting({ ...base, issued: true, feeStatus: "SUBMITTED" }, on)?.reviewable, true);
+  assert.equal(dealWaiting({ ...base, issued: true, feeStatus: "SUBMITTED" }, on)?.hint, "Tenant paid ₹589. UTR is in, needs a check.");
+  assert.equal(dealWaiting({ ...base, issued: true, feeStatus: "PENDING" }, on)?.reviewable, false);
+  assert.equal(dealWaiting({ ...base, issued: true, feeStatus: "PAID" }, on), null);
+  // Fee off (default): an issued deal has nothing left to pay.
+  assert.equal(dealWaiting({ ...base, issued: true, feeStatus: "" }), null);
+  assert.equal(dealWaiting({ ...base, issued: true, feeStatus: "PENDING" }), null);
   assert.equal(dealWaiting({ ...base, cancelled: true }), null);
 });

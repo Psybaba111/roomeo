@@ -3,7 +3,9 @@ import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { bool, num, str } from "@/lib/roomsetu/map";
 import { callbackUrlFrom, digilockerAuthorizeUrl, judgeDigilockerUser, nextIdentityAttempt } from "@/lib/roomsetu/identity";
-import { FEE_INR, rentQuote } from "@/lib/roomsetu/money";
+import { rentQuote } from "@/lib/roomsetu/money";
+import { pricingConfig } from "@/lib/roomsetu/pricing";
+import { feeViewOf, rentPartnerMissingLine } from "@/lib/roomsetu/fee-copy";
 import { classifyOtpFailure, RESEND_COOLDOWN_SECONDS, type VerifyOtpResult } from "@/lib/roomsetu/otp-result";
 import { canPublish, generateOtp, hashOtp, normalizeIndianMobile, OTP_MAX_ATTEMPTS, otpMatches, otpTtlMinutes, otpProviderFromEnv, FallbackOtpProvider } from "@/lib/roomsetu/otp";
 import { hitLimit } from "@/lib/roomsetu/rate-limit";
@@ -88,7 +90,7 @@ export const getVerification = createServerFn({ method: "GET" })
       phone: str(row.phone_e164),
       phoneVerified: Boolean(row.phone_verified_at),
       canPublish: canPublish({ identityStatus: str(row.identity_status), phoneVerified: Boolean(row.phone_verified_at) }),
-      feeInr: FEE_INR,
+      feeInr: feeViewOf(pricingConfig()).baseInr,
       checks: checks.map((c) => ({ id: str(c.id), kind: str(c.kind), status: str(c.status), note: str(c.note) })),
     };
   });
@@ -197,7 +199,8 @@ export const agreeRent = createServerFn({ method: "POST" })
     if (bool(app.is_demo)) throw new Error("Sample rooms do not collect rent.");
     const rent = num(app.rent);
     const deposit = num(app.deposit);
-    if (rent < FEE_INR) throw new Error("That rent is too small for the fee.");
+    const cfg = pricingConfig();
+    if (cfg.successFeeEnabled && rent < cfg.successFeeTenantInr) throw new Error("That rent is too small for the fee.");
     const existing = await sql<{ id: string; seeker_ok: boolean; host_ok: boolean; status: string }>`
       select id, seeker_ok, host_ok, status from rent_agreements where application_id = ${data}`;
     let id = existing[0]?.id;
@@ -215,7 +218,7 @@ export const agreeRent = createServerFn({ method: "POST" })
     if (again[0]?.seeker_ok && again[0]?.host_ok) {
       await sql`update rent_agreements set status = 'AGREED', updated_at = now() where id = ${id} and status <> 'PAID'`;
     }
-    return { ok: true, quote: rentQuote(rent, deposit) };
+    return { ok: true, quote: rentQuote(rent, deposit, true, cfg.successFeeEnabled, cfg.successFeeTenantInr) };
   });
 
 export const startRentPayment = createServerFn({ method: "POST" })
@@ -223,7 +226,8 @@ export const startRentPayment = createServerFn({ method: "POST" })
   .validator(listingKey)
   .handler(async ({ context, data }) => {
     const partner = razorpayEnv();
-    if (!partner.ready) throw new Error("UPI or card needs the payments partner keys. The fee is ₹499 once, on the first month.");
+    const cfg = pricingConfig();
+    if (!partner.ready) throw new Error(rentPartnerMissingLine(feeViewOf(cfg)));
     const sql = await getSql();
     const rows = await sql<{
       id: string;
@@ -250,7 +254,7 @@ export const startRentPayment = createServerFn({ method: "POST" })
     if (deal.host_identity !== "VERIFIED") throw new Error("The owner's identity has to pass before rent is collected.");
     const captured = await sql<{ n: number }>`select count(*)::int as n from payments where agreement_id = ${deal.id} and status = 'CAPTURED' and purpose = 'Rent'`;
     const firstMonth = num(captured[0]?.n) === 0;
-    const quote = rentQuote(num(deal.rent_inr), num(deal.deposit_inr), firstMonth);
+    const quote = rentQuote(num(deal.rent_inr), num(deal.deposit_inr), firstMonth, cfg.successFeeEnabled, cfg.successFeeTenantInr);
     const orderRes = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: {
