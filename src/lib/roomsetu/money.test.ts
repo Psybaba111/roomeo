@@ -43,6 +43,6 @@ test("one fee line: chat free, ₹589 incl GST once, 7 day refund (fee on); no a
   assert.equal(Math.round(FEE_INR * 1.18), 589);
   const off = feeLine(FEE_OFF);
   assert.match(off, /chat/i);
-  assert.match(off, /free while we pilot/i);
+  assert.match(off, /free for tenants/i);
   assert.doesNotMatch(off, /₹\d/);
 });

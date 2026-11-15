@@ -3,6 +3,7 @@
 import type { Sql } from "../db.ts";
 import { moveInConfirmed } from "./pricing.ts";
 import { completionCredits, isMissingTable, referralsEnabled } from "./referrals.ts";
+import { commissionOnMoveIn } from "./owner-fee-db.ts";
 
 /**
  * Called once a move-in is confirmed. If the renter came in on an invite and this is their
@@ -60,5 +61,7 @@ export async function confirmMoveInRecord(
   if (d.notifyUserId)
     await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${d.notifyUserId}, 'application', 'Move in confirmed', ${d.notifyBody ?? "Both of you confirmed the move in. Welcome home."}, '/applications')`;
   await completeReferralOnMoveIn(sql, d.seekerId, m.application_id);
+  // Owner commission (OWNER_FEE_ENABLED, off by default). Never throws.
+  await commissionOnMoveIn(sql, id);
   return { confirmed: true, newlyConfirmed: true, moveInId: id };
 }

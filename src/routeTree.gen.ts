@@ -19,6 +19,7 @@ import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MatchesRouteImport } from './routes/matches'
 import { Route as MessagesRouteImport } from './routes/messages'
+import { Route as OwnerFeesRouteImport } from './routes/owner-fees'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -32,6 +33,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
+import { Route as AdminCommissionsRouteImport } from './routes/admin.commissions'
 import { Route as AdminHostsRouteImport } from './routes/admin.hosts'
 import { Route as AdminListingsRouteImport } from './routes/admin.listings'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
@@ -104,6 +106,11 @@ const MessagesRoute = MessagesRouteImport.update({
   path: '/messages',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OwnerFeesRoute = OwnerFeesRouteImport.update({
+  id: '/owner-fees',
+  path: '/owner-fees',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PricingRoute = PricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
@@ -167,6 +174,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
   id: '/admin/analytics',
   path: '/admin/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminCommissionsRoute = AdminCommissionsRouteImport.update({
+  id: '/admin/commissions',
+  path: '/admin/commissions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminHostsRoute = AdminHostsRouteImport.update({
@@ -286,6 +298,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
+  '/owner-fees': typeof OwnerFeesRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
@@ -298,6 +311,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -332,6 +346,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
+  '/owner-fees': typeof OwnerFeesRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
@@ -344,6 +359,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -379,6 +395,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
+  '/owner-fees': typeof OwnerFeesRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
@@ -391,6 +408,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/verification': typeof VerificationRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
+  '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -427,6 +445,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/matches'
     | '/messages'
+    | '/owner-fees'
     | '/pricing'
     | '/privacy'
     | '/profile'
@@ -439,6 +458,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/verification'
     | '/admin/analytics'
+    | '/admin/commissions'
     | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
@@ -473,6 +493,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/matches'
     | '/messages'
+    | '/owner-fees'
     | '/pricing'
     | '/privacy'
     | '/profile'
@@ -485,6 +506,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/verification'
     | '/admin/analytics'
+    | '/admin/commissions'
     | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
@@ -519,6 +541,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/matches'
     | '/messages'
+    | '/owner-fees'
     | '/pricing'
     | '/privacy'
     | '/profile'
@@ -531,6 +554,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/verification'
     | '/admin/analytics'
+    | '/admin/commissions'
     | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
@@ -566,6 +590,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MatchesRoute: typeof MatchesRoute
   MessagesRoute: typeof MessagesRoute
+  OwnerFeesRoute: typeof OwnerFeesRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
@@ -578,6 +603,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   VerificationRoute: typeof VerificationRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
+  AdminCommissionsRoute: typeof AdminCommissionsRoute
   AdminHostsRoute: typeof AdminHostsRoute
   AdminListingsRoute: typeof AdminListingsRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
@@ -674,6 +700,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MessagesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/owner-fees': {
+      id: '/owner-fees'
+      path: '/owner-fees'
+      fullPath: '/owner-fees'
+      preLoaderRoute: typeof OwnerFeesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pricing': {
       id: '/pricing'
       path: '/pricing'
@@ -763,6 +796,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/analytics'
       fullPath: '/admin/analytics'
       preLoaderRoute: typeof AdminAnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/commissions': {
+      id: '/admin/commissions'
+      path: '/admin/commissions'
+      fullPath: '/admin/commissions'
+      preLoaderRoute: typeof AdminCommissionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/hosts': {
@@ -926,6 +966,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MatchesRoute: MatchesRoute,
   MessagesRoute: MessagesRoute,
+  OwnerFeesRoute: OwnerFeesRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
@@ -938,6 +979,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   VerificationRoute: VerificationRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
+  AdminCommissionsRoute: AdminCommissionsRoute,
   AdminHostsRoute: AdminHostsRoute,
   AdminListingsRoute: AdminListingsRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,

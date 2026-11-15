@@ -76,7 +76,11 @@ export const getDealAgreement = createServerFn({ method: "GET" })
     let a = await loadAgreement(sql, d.key);
     if (!a && d.accepted) {
       // No fee clauses while the success fee is off (code review, 14 Nov 2026).
-      const terms = { ...d.terms, feeBaseInr: agreementFeeBaseInr(cfg) };
+      const feeBaseInr = agreementFeeBaseInr(cfg);
+      // Owner-fee model: a tenant-safe clause only (free for the tenant, no brokerage). The owner's rate and
+      // amount never go into the shared agreement; the owner sees them in `ownerFee`/`ownerNote` below (null for a tenant).
+      const { ownerFeeActive } = await import("@/lib/roomsetu/owner-fee-db");
+      const terms = { ...d.terms, feeBaseInr, ownerFee: feeBaseInr === 0 && ownerFeeActive() };
       await sql.query(`insert into deal_agreements (id, application_id, listing_id, seeker_id, owner_id, terms_json, body, squad_request_id)
         values ($1,$2,$3,$4,$5,$6,$7,$8) on conflict (application_id) do nothing`,
         [crypto.randomUUID(), d.key, d.listingId, d.leadTenantId, d.ownerId, JSON.stringify(terms), agreementBody(terms), data.kind === "squad" ? data.id : null]);
@@ -90,6 +94,15 @@ export const getDealAgreement = createServerFn({ method: "GET" })
     const fee = (await sql.query<{ id: string; status: string; paid_at: string; amount_inr: number; trial_credit_inr: number }>(`select id, status, coalesce(reviewed_at, created_at)::text as paid_at, amount_inr, coalesce(trial_credit_inr, 0) as trial_credit_inr from payments where agreement_id = $1 and kind = 'SUCCESS_FEE' and user_id = $2 order by created_at desc limit 1`, [str(a.id), context.userId]))[0];
     const state = agreementState({ seekerSignedAt: str(a.seeker_signed_at) || (signers.some((x) => x.role === "TENANT") ? "x" : null), ownerSignedAt: str(a.owner_signed_at) || null, issuedAt: str(a.issued_at) || null, cancelledAt: str(a.cancelled_at) || null });
     const feeOn = cfg.successFeeEnabled && base > 0;
+    // Owner-fee model: what the owner will owe on move-in (shown to the owner only). Tenants see nothing to pay.
+    const { hostRateNow, ownerFeeActive } = await import("@/lib/roomsetu/owner-fee-db");
+    const { commissionAmounts, ownerFeeGstPct, ownerFeeForViewer, ownerCommissionNote, squadBedRentInr } = await import("@/lib/roomsetu/owner-fee");
+    // Owner and admin only. A tenant's response never carries the owner's rate or amount. Squads: per tenant, on each one's share.
+    const beds = data.kind === "squad" ? Math.max(1, d.tenantIds.length) : 1;
+    const bedRent = squadBedRentInr(d.terms.monthlyRent, beds);
+    const ownerAmounts = !feeOn && isOwner && ownerFeeActive() && bedRent > 0 ? commissionAmounts(bedRent, await hostRateNow(sql, d.ownerId), ownerFeeGstPct()) : null;
+    const ownerFee = ownerFeeForViewer(isOwner ? "owner" : "tenant", ownerAmounts);
+    const ownerNote = ownerFee ? ownerCommissionNote(ownerFee, beds) : "";
     const f = feeWithGst(base);
     // What this person actually pays: the open/paid payment row if any, else ₹589 less a ₹99 trial credit if one applies.
     let trialCredit = 0;
@@ -111,13 +124,15 @@ export const getDealAgreement = createServerFn({ method: "GET" })
       canRefund: fee?.status === "PAID" && refundableOnVacate(fee.paid_at, new Date()),
       refundBy: fee?.status === "PAID" ? refundDeadline(fee.paid_at) : "",
       feeEnabled: feeOn,
+      ownerFee,
+      ownerNote,
       fee: f,
       trialCredit,
       payable,
       refundState,
       feeStatus: str(fee?.status),
       feePaymentId: fee?.status === "PAID" ? str(fee.id) : "",
-      steps: dealSteps({ role: isOwner ? "owner" : "tenant", squad: data.kind === "squad", iSigned, issued: Boolean(a.issued_at), cancelled: Boolean(a.cancelled_at), feeOn, feePaid: fee?.status === "PAID" || Boolean(refundState), feeTotal: payable, feeBase: base, movedIn: d.movedIn }),
+      steps: dealSteps({ role: isOwner ? "owner" : "tenant", squad: data.kind === "squad", iSigned, issued: Boolean(a.issued_at), cancelled: Boolean(a.cancelled_at), feeOn, feePaid: fee?.status === "PAID" || Boolean(refundState), feeTotal: payable, feeBase: base, movedIn: d.movedIn, ownerFeeTotal: ownerFee ? ownerFee.totalInr * beds : undefined }),
     };
   });
 

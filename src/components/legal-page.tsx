@@ -2,12 +2,12 @@ import { Link } from "@tanstack/react-router";
 import { Shell } from "@/components/shell";
 import { LEGAL_NOTE, LEGAL_UPDATED, type LegalSection } from "@/lib/legal";
 
-export function LegalPage({ title, intro, sections }: { title: string; intro: string; sections: LegalSection[] }) {
+export function LegalPage({ title, intro, sections, updated = LEGAL_UPDATED }: { title: string; intro: string; sections: LegalSection[]; updated?: string }) {
   return (
     <Shell>
       <article className="mx-auto max-w-3xl py-8" data-testid="legal-page">
         <h1 className="text-4xl font-semibold tracking-tight">{title}</h1>
-        <p className="mt-2 text-sm text-muted">Last updated {LEGAL_UPDATED}</p>
+        <p className="mt-2 text-sm text-muted">Last updated {updated}</p>
         <p className="mt-4 [text-wrap:pretty]">{intro}</p>
         <p className="mt-3 rounded-2xl border border-line bg-card p-3 text-sm text-muted">{LEGAL_NOTE}</p>
         <nav className="mt-6 flex flex-wrap gap-2 text-sm" aria-label="On this page">

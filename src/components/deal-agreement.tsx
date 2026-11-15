@@ -49,7 +49,7 @@ export function DealAgreement({ dealRef }: { dealRef: DealRef }) {
         <p className="mt-2" data-testid="deal-now">{a.steps.find((s) => s.state === "now")?.hint ?? "All done 🎉"}</p>
       )}
       <p className="mt-1 text-xs text-muted">
-        {who}. {a.feeEnabled ? `Tenant${a.kind === "squad" ? " (each squad member)" : ""} pays ₹${f.total} once and the owner pays ₹${f.total} once (₹${f.base} + 18% GST each), after everyone signs and before move in. Refund only if the tenant moves out within 7 days of paying${a.refundBy ? ` (yours: move out by ${a.refundBy})` : ""}. After that, no refund. The deposit goes straight to the owner.` : "No Roomeo fee right now. Rent and deposit go straight to the owner."}
+        {who}. {a.feeEnabled ? `Tenant${a.kind === "squad" ? " (each squad member)" : ""} pays ₹${f.total} once and the owner pays ₹${f.total} once (₹${f.base} + 18% GST each), after everyone signs and before move in. Refund only if the tenant moves out within 7 days of paying${a.refundBy ? ` (yours: move out by ${a.refundBy})` : ""}. After that, no refund. The deposit goes straight to the owner.` : a.role === "tenant" ? "Free for tenants: no Roomeo fee. Rent and deposit go straight to the owner." : a.ownerNote ? a.ownerNote : "No Roomeo fee right now. Rent and deposit go straight to the owner."}
       </p>
 
       <div className="mt-3 border-t border-line pt-3">
@@ -59,6 +59,7 @@ export function DealAgreement({ dealRef }: { dealRef: DealRef }) {
         </p>
         <button type="button" className="mt-1 underline" onClick={() => setOpen(!open)}>{open ? "Hide" : "Read"} the agreement</button>
         {open ? <pre className="mt-2 whitespace-pre-wrap font-sans text-xs" data-testid="agreement-body">{a.body}</pre> : null}
+        {open && a.ownerNote ? <p className="mt-2 rounded-xl border border-line p-2 text-xs" data-testid="owner-commission-note">{a.ownerNote}</p> : null}
         {!a.squad && (a.seeker.at || a.owner.at) ? (
           <p className="mt-2 text-xs text-muted">
             {a.seeker.at ? `Tenant signed as ${a.seeker.name}, ${when(a.seeker.at)}. ` : ""}
