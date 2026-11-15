@@ -37,6 +37,7 @@ import { getCookie } from "@tanstack/react-start/server";
 import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
 import { ensureDbReady, getPglite } from "../db";
+import { accountLinkingConfig, brokerAccountSubject, withLegacyOAuth2Callback } from "./auth-compat";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { GROK_PROVIDERS } from "./providers";
@@ -161,7 +162,7 @@ const googleClientSecret = env("GOOGLE_CLIENT_SECRET");
 export const googleConfigured = !authDisabled && Boolean(googleClientId && googleClientSecret);
 
 const grokOAuthPlugin = authConfigured
-  ? genericOAuth({
+  ? withLegacyOAuth2Callback(genericOAuth({
       config: GROK_PROVIDERS.map(({ providerId, idp }) => ({
         providerId,
         clientId: grokClientId as string,
@@ -178,8 +179,13 @@ const grokOAuthPlugin = authConfigured
         // `prompt=select_account`, the user always gets the account chooser
         // and can pick (or switch) which account to sign in with.
         authorizationUrlParams: { idp, prompt: "login" },
+        // Better Auth 1.7 parity with 1.6 (see `./auth-compat`): keep the 1.6
+        // account id (`id`, else `sub`) and PKCE off, as the broker client was
+        // registered and tested that way. Turning PKCE on is a separate change.
+        accountSubject: brokerAccountSubject,
+        pkce: false,
       })),
-    })
+    }), GROK_PROVIDERS.map((p) => p.providerId))
   : null;
 
 export const auth = betterAuth({
@@ -206,17 +212,14 @@ export const auth = betterAuth({
   // never merges them into one user — they stay separate identities.
   account: {
     encryptOAuthTokens: true,
-    accountLinking: {
-      enabled: true,
-      trustedProviders: [
-        ...GROK_PROVIDERS.map((p) => p.providerId),
-        "google",
-        GATE_PROVIDER_ID,
-      ],
-      // X's synthetic email is never "verified", so don't gate linking on the
-      // local user's email-verified state.
-      requireLocalEmailVerified: false,
-    },
+    // Never auto-link an identity into a local account whose email is not
+    // verified (email/password sign-ups are unverified): that was a
+    // pre-account-takeover path. See `accountLinkingConfig` in `./auth-compat`.
+    accountLinking: accountLinkingConfig([
+      ...GROK_PROVIDERS.map((p) => p.providerId),
+      "google",
+      GATE_PROVIDER_ID,
+    ]),
   },
 
   // Cache the session in the short-lived signed `session_data` cookie so reads
@@ -238,6 +241,10 @@ export const auth = betterAuth({
   // Secure + the names ourselves. (Browsers allow Secure cookies on
   // `http://localhost`, so local dev still works.)
   advanced: {
+    // Better Auth 1.6 trusted x-forwarded-host for the dynamic (preview) base
+    // URL by default; 1.7 does not. Keep 1.6 behaviour there only — hosts are
+    // still checked against `allowedHosts`. Deployed apps use BETTER_AUTH_URL.
+    ...(explicitBaseURL ? {} : { trustedProxyHeaders: true }),
     useSecureCookies: false,
     defaultCookieAttributes: { secure: true, sameSite: "lax", path: "/" },
     cookies: {
