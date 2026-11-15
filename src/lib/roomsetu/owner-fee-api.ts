@@ -66,9 +66,11 @@ export const adminMarkCommissionPaid = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await assertAdmin(sql, context.userId);
-    const row = await db.markCommissionPaid(sql, data.id, context.userId, data.paidOn, data.ref);
-    await audit(sql, context.userId, "COMMISSION_PAID", "owner_commission", data.id, `₹${row.paidInr ?? row.amountDueInr} paid ${data.paidOn} ${data.ref}`.trim());
-    return row;
+    return db.withCommissionTables(async () => {
+      const row = await db.markCommissionPaid(sql, data.id, context.userId, data.paidOn, data.ref);
+      await audit(sql, context.userId, "COMMISSION_PAID", "owner_commission", data.id, `₹${row.paidInr ?? row.amountDueInr} paid ${data.paidOn} ${data.ref}`.trim());
+      return row;
+    });
   });
 
 /** Admin: tenant left within 15 days before the owner paid → the owner owes 50% (status due_50). */
@@ -81,9 +83,11 @@ export const adminRecordEarlyExit = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await assertAdmin(sql, context.userId);
-    const row = await db.recordEarlyExit(sql, data.id, context.userId, data.vacatedOn);
-    await audit(sql, context.userId, "COMMISSION_EARLY_EXIT_50", "owner_commission", data.id, `moved out ${data.vacatedOn}; ₹${row.amountDueInr} now due`);
-    return row;
+    return db.withCommissionTables(async () => {
+      const row = await db.recordEarlyExit(sql, data.id, context.userId, data.vacatedOn);
+      await audit(sql, context.userId, "COMMISSION_EARLY_EXIT_50", "owner_commission", data.id, `moved out ${data.vacatedOn}; ₹${row.amountDueInr} now due`);
+      return row;
+    });
   });
 
 export const adminRecordCommissionRefund = createServerFn({ method: "POST" })
@@ -95,9 +99,11 @@ export const adminRecordCommissionRefund = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await assertAdmin(sql, context.userId);
-    const row = await db.recordCommissionRefund(sql, data.id, context.userId, data);
-    await audit(sql, context.userId, "COMMISSION_REFUND_50", "owner_commission", data.id, `₹${row.refundInr} refunded ${data.refundedOn}; moved out ${data.vacatedOn} ${data.ref}`.trim());
-    return row;
+    return db.withCommissionTables(async () => {
+      const row = await db.recordCommissionRefund(sql, data.id, context.userId, data);
+      await audit(sql, context.userId, "COMMISSION_REFUND_50", "owner_commission", data.id, `₹${row.refundInr} refunded ${data.refundedOn}; moved out ${data.vacatedOn} ${data.ref}`.trim());
+      return row;
+    });
   });
 
 /** Admin: set a host as founding partner (15% until the end date) or clear it. Never automated. */
@@ -112,7 +118,9 @@ export const adminSetFoundingPartner = createServerFn({ method: "POST" })
     await assertAdmin(sql, context.userId);
     const host = (await sql<{ user_id: string }>`select user_id from profiles where user_id = ${data.ownerId}`)[0];
     if (!host) throw new Error("No such host.");
-    const r = await db.setFoundingPartner(sql, data.ownerId, context.userId, data);
-    await audit(sql, context.userId, data.on ? "FOUNDING_PARTNER_SET" : "FOUNDING_PARTNER_CLEARED", "profile", data.ownerId, r.foundingUntil ? `until ${r.foundingUntil}` : "");
-    return r;
+    return db.withCommissionTables(async () => {
+      const r = await db.setFoundingPartner(sql, data.ownerId, context.userId, data);
+      await audit(sql, context.userId, data.on ? "FOUNDING_PARTNER_SET" : "FOUNDING_PARTNER_CLEARED", "profile", data.ownerId, r.foundingUntil ? `until ${r.foundingUntil}` : "");
+      return r;
+    });
   });

@@ -28,6 +28,24 @@ export function ownerFeeActive(): boolean {
 }
 
 /** Missing table (migration 0027 not applied yet) — callers treat the feature as off. */
+export const COMMISSION_TABLES_MISSING =
+  "Owner commissions aren't set up on this database yet (migration 0027 hasn't been run). Nothing was changed.";
+
+export type CommissionActionResult<T> = { ok: true; row: T } | { ok: false; error: string };
+
+/**
+ * Admin commission actions: if the 0027 tables are missing, answer with a friendly message instead of
+ * throwing (which would surface as a 500). Any other error still throws.
+ */
+export async function withCommissionTables<T>(fn: () => Promise<T>): Promise<CommissionActionResult<T>> {
+  try {
+    return { ok: true, row: await fn() };
+  } catch (err) {
+    if (isMissingCommissionTable(err)) return { ok: false, error: COMMISSION_TABLES_MISSING };
+    throw err;
+  }
+}
+
 export function isMissingCommissionTable(err: unknown): boolean {
   const m = String((err as { message?: string })?.message ?? err);
   return /relation "(owner_commissions|host_fee_settings)" does not exist/.test(m) || (err as { code?: string })?.code === "42P01";

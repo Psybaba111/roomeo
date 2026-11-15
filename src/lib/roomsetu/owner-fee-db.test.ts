@@ -25,6 +25,9 @@ import {
   setFoundingPartner,
   createCommissionsForSquadMoveIn,
   commissionsOnSquadMoveIn,
+  withCommissionTables,
+  COMMISSION_TABLES_MISSING,
+  isMissingCommissionTable,
 } from "./owner-fee-db.ts";
 
 const MODEL = { ROOMEO_TENANT_FEE_ENABLED: "false", OWNER_FEE_ENABLED: "true" };
@@ -316,4 +319,24 @@ describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
       console.error = orig;
     }
   }));
+
+  test("migration 0027 not applied → admin commission actions answer a friendly message, not an error (no 500)", async () => {
+    const { pg, sql } = await testDb();
+    await pg.exec(`drop table owner_commissions; drop table host_fee_settings;`);
+    await person(pg, "zz-owner-9", "ZZ TEST Owner Nine", "LISTING");
+    const today = istYmd(new Date());
+    for (const action of [
+      () => setFoundingPartner(sql, "zz-owner-9", "zz-admin", { on: true }),
+      () => markCommissionPaid(sql, "00000000-0000-4000-8000-000000000001", "zz-admin", today, "x"),
+      () => recordEarlyExit(sql, "00000000-0000-4000-8000-000000000001", "zz-admin", today),
+      () => recordCommissionRefund(sql, "00000000-0000-4000-8000-000000000001", "zz-admin", { vacatedOn: today, refundedOn: today, ref: "x" }),
+    ] as Array<() => Promise<unknown>>) assert.deepEqual(await withCommissionTables(action), { ok: false, error: COMMISSION_TABLES_MISSING });
+    // Lists: the API catches this and returns empty lists.
+    await assert.rejects(allCommissions(sql), (e) => isMissingCommissionTable(e));
+    await assert.rejects(ownerCommissions(sql, "zz-owner-9"), (e) => isMissingCommissionTable(e));
+    assert.equal(await hostRateNow(sql, "zz-owner-9"), 20);
+    // Other errors still throw.
+    await assert.rejects(withCommissionTables(async () => { throw new Error("boom"); }), /boom/);
+    assert.deepEqual(await withCommissionTables(async () => 7), { ok: true, row: 7 });
+  });
 });

@@ -47,7 +47,14 @@ function Commissions() {
   function run(key: string, p: Promise<unknown>) {
     setError("");
     setBusy(key);
-    void p.then(load).catch((e) => setError(errText(e))).finally(() => setBusy(""));
+    void p
+      .then((r) => {
+        // Commission actions answer { ok: false, error } (not a 500) when migration 0027 isn't applied.
+        if (r && typeof r === "object" && "ok" in r && (r as { ok: unknown }).ok === false) throw new Error(String((r as { error?: unknown }).error ?? "Not available."));
+        return load();
+      })
+      .catch((e) => setError(errText(e)))
+      .finally(() => setBusy(""));
   }
   const f = (id: string) => form[id] ?? {};
   const st = data?.state;
