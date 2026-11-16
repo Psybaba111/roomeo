@@ -83,14 +83,18 @@ export function QuizHero({ city }: { city: string }) {
                 </span>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={start}
+            {/* A real link, so a tap before hydration still lands on the full quiz page. */}
+            <a
+              href="/roomie-quiz"
+              onClick={(e) => {
+                e.preventDefault();
+                start();
+              }}
               className="mt-6 flex min-h-14 w-full items-center justify-center rounded-full bg-lime px-6 text-lg font-bold text-[#14111f] shadow-[0_6px_0_#7ea300] transition active:translate-y-1 active:shadow-[0_2px_0_#7ea300] motion-reduce:transition-none sm:w-auto"
               data-testid="hero-play"
             >
               Play · Q1 of 9 →
-            </button>
+            </a>
             <div className="mt-3">{skip}</div>
             <p className="mt-4 text-xs text-white/70">Nothing's saved unless you choose to. Others only ever see a type, never your answers.</p>
           </div>
