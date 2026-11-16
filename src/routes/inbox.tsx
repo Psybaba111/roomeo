@@ -1,3 +1,4 @@
+import { RoomieBadge, VibeMatchBadge } from "@/components/roomie-card";
 import { pageHead } from "@/lib/seo";
 import { useCallback, useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -175,6 +176,8 @@ function OwnerInbox() {
                 <p className="break-words text-sm text-muted">
                   {r.title} · {inr(r.rent)}
                 </p>
+                {r.seekerRoomieType ? <RoomieBadge type={r.seekerRoomieType} className="mt-2" /> : null}
+                {r.seekerVibeMatch ? <VibeMatchBadge score={r.seekerVibeMatch.score} ruleOut={r.seekerVibeMatch.ruleOut} className="ml-2 mt-2" /> : null}
                 {r.note ? <p className="mt-2 break-words text-sm">“{r.note}”</p> : null}
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button type="button" className={`${pill} bg-brand text-card`} onClick={() => decide(r.id, "ACCEPTED")}>

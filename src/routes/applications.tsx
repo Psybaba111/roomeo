@@ -1,3 +1,4 @@
+import { RoomieBadge, VibeMatchBadge } from "@/components/roomie-card";
 import { readableDate } from "@/lib/roomsetu/dates";
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
@@ -92,6 +93,8 @@ function Apps() {
                 <p className="text-sm text-muted">{row.city} · {inr(row.rent)} rent · {inr(row.deposit)} deposit · {readableDate(row.createdOn)}</p>
                 <p className="mt-2 text-sm">{row.note}</p>
                 <p className="mt-1 text-sm">{row.mine ? "You asked" : row.seekerName} · {row.status}</p>
+                {!row.mine && row.seekerRoomieType ? <RoomieBadge type={row.seekerRoomieType} className="mt-1" /> : null}
+                {!row.mine && row.seekerVibeMatch ? <VibeMatchBadge score={row.seekerVibeMatch.score} ruleOut={row.seekerVibeMatch.ruleOut} className="ml-2 mt-2" /> : null}
                 {row.status === "WITHDRAWN" ? <p className="mt-1 text-sm text-muted" data-testid="withdrawn-line">{withdrawalLine(row)}</p> : null}
                 {row.status === "ACCEPTED" && !row.demo ? (
                   <p className="mt-2 text-sm">Rent {inr(row.rent)}/month + {inr(row.deposit)} deposit, paid straight to the owner. Roomeo never takes a cut of the rent.</p>

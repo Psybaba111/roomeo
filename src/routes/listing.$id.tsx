@@ -1,3 +1,4 @@
+import { RoomieOccupants } from "@/components/roomie-sections";
 import { asFeeView, feeUnderPrice, lockedLocationLine } from "@/lib/roomsetu/fee-copy";
 import { TrialNightsBooking, TrialNightsLink } from "@/components/trial-nights";
 import { MESSAGE_CTA, ctaDisabled, isAlreadyRequested, requestCtaLabel, requestSentLine } from "@/lib/roomsetu/booking-cta";
@@ -411,6 +412,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
               </li>
             </ul>
           </div>
+          <RoomieOccupants listingId={room.id} />
           <div>
             <h2 className="text-2xl font-semibold">The room</h2>
             <p className="mt-2 text-sm text-muted">
