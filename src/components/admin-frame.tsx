@@ -13,6 +13,7 @@ const LINKS = [
   ["/admin/revenue", "Revenue"],
   ["/admin/reports", "Reports"],
   ["/admin/analytics", "Charts"],
+  ["/admin/waitlist", "Waitlist"],
 ] as const;
 
 export function AdminFrame({ children }: { children: ReactNode }) {

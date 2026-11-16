@@ -16,15 +16,17 @@ function body(src: string, from: string, to: string) {
   return src.slice(a, b);
 }
 
-/** Map the current file back onto main by reverting the whitelisted edits. */
+/** Map the current file back onto main by reverting the whitelisted edits (quiz hero slot, waitlist mode). */
 function revertQuizEdits(src: string) {
   return src
     .replace('import { useEffect, useState, type ReactNode } from "react";', 'import { useEffect, useState } from "react";')
-    .replace('import { getRoomieQuizFlag } from "@/lib/roomsetu/roomie-quiz-api";\nimport { QuizHero } from "@/components/quiz-hero";\n', "")
-    .replace(/ {2}\/\/ ROOMIE_QUIZ_ENABLED decides the hero\.[^\n]*\n {2}loader: async \(\) => \{\n[^\n]*\n[^\n]*\n {2}\},\n {2}component: HomeRoute,\n\}\);\n\nfunction HomeRoute\(\) \{\n[^\n]*\n[^\n]*\n\}\n/, "  loader: () => getHome({ data: { city: DEFAULT_CITY } }),\n  component: Home,\n});\n")
-    .replace("function Home({ hero }: { hero?: (city: string) => ReactNode }) {\n  const initialData = Route.useLoaderData({ select: (d) => d.home });", "function Home() {\n  const initialData = Route.useLoaderData();")
+    .replace('import { getRoomieQuizFlag } from "@/lib/roomsetu/roomie-quiz-api";\nimport { QuizHero } from "@/components/quiz-hero";\nimport { getWaitlistMode } from "@/lib/roomsetu/waitlist-api";\nimport { WaitlistSection } from "@/components/waitlist-form";\n', "")
+    .replace(/ {2}\/\/ ROOMIE_QUIZ_ENABLED decides the hero\.[^\n]*\n {2}loader: async \(\) => \{\n[^\n]*\n[^\n]*\n {2}\},\n {2}component: HomeRoute,\n\}\);\n\nfunction HomeRoute\(\) \{\n(?:[^\n]*\n){5}\}\n/, "  loader: () => getHome({ data: { city: DEFAULT_CITY } }),\n  component: Home,\n});\n")
+    .replace("function Home({ hero, waitlist = false }: { hero?: (city: string) => ReactNode; waitlist?: boolean }) {\n  const initialData = Route.useLoaderData({ select: (d) => d.home });", "function Home() {\n  const initialData = Route.useLoaderData();")
     .replace("      {hero ? hero(city) : (\n", "")
-    .replace("      </section>\n      )}\n", "      </section>\n");
+    .replace("      </section>\n      )}\n      {waitlist ? <WaitlistSection city={city} /> : null}\n", "      </section>\n")
+    .replace("      {waitlist ? null : (\n      <section className=\"mt-12\">\n        <div className=\"mb-4", "      <section className=\"mt-12\">\n        <div className=\"mb-4")
+    .replace("        ) : null}\n      </section>\n      )}\n\n", "        ) : null}\n      </section>\n\n");
 }
 
 test("flag off: index.tsx is main's homepage plus only the whitelisted hero slot", () => {
@@ -41,5 +43,7 @@ test("flag off: the classic hero markup is byte-identical to main", () => {
 
 test("the classic hero is what renders whenever no hero override is passed (flag off)", () => {
   assert.match(current, /return quizHero \? <Home hero=\{\(city\) => <QuizHero city=\{city\} \/>\} \/> : <Home \/>;/);
+  // Waitlist mode only ever applies when the loader's waitlist flag is true (ROOMEO_WAITLIST_MODE).
+  assert.match(current, /if \(waitlist\) return <Home hero=\{\(city\) => <QuizHero city=\{city\} waitlist \/>\} waitlist \/>;/);
   assert.match(current, /\{hero \? hero\(city\) : \(\n {6}<section className="relative left-1\/2/);
 });

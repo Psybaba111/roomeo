@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SealCheck as BadgeCheck, BookmarkSimple, ChatCircleDots } from "@phosphor-icons/react";
 import { Shell } from "@/components/shell";
+import { waitlistBeforeLoad } from "@/lib/roomsetu/waitlist-api";
 import { errText, safeNext } from "@/lib/ui-text";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getListing } from "@/lib/roomsetu/public-api";
@@ -28,6 +29,8 @@ import { depositTerms, headlinePrice, photoDateLabel } from "@/lib/roomsetu/trus
 import { SITE_URL } from "@/lib/seo";
 
 export const Route = createFileRoute("/listing/$id")({
+  // ROOMEO_WAITLIST_MODE: signed-out visitors go to /waitlist; signed-in people keep listing pages (flag off: no-op).
+  beforeLoad: () => waitlistBeforeLoad("listing"),
   loader: ({ params }) => getListing({ data: params.id }),
   head: ({ loaderData }) => listingHead(loaderData),
   component: ListingPage,

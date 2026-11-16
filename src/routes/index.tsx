@@ -11,6 +11,8 @@ import { CityPicker } from "@/components/city-picker";
 import { DEFAULT_CITY, budgetHints, cityInfo } from "@/lib/roomsetu/cities";
 import { getRoomieQuizFlag } from "@/lib/roomsetu/roomie-quiz-api";
 import { QuizHero } from "@/components/quiz-hero";
+import { getWaitlistMode } from "@/lib/roomsetu/waitlist-api";
+import { WaitlistSection } from "@/components/waitlist-form";
 
 export const Route = createFileRoute("/")({
   head: () =>
@@ -19,14 +21,17 @@ export const Route = createFileRoute("/")({
     }),
   // ROOMIE_QUIZ_ENABLED decides the hero. Flag off → the classic hero, exactly as before (see home-flag-off.test.ts).
   loader: async () => {
-    const [home, flag] = await Promise.all([getHome({ data: { city: DEFAULT_CITY } }), getRoomieQuizFlag().catch(() => ({ enabled: false }))]);
-    return { home, quizHero: flag.enabled };
+    const [home, flag, wl] = await Promise.all([getHome({ data: { city: DEFAULT_CITY } }), getRoomieQuizFlag().catch(() => ({ enabled: false })), getWaitlistMode().catch(() => ({ enabled: false }))]);
+    return { home, quizHero: flag.enabled, waitlist: wl.enabled };
   },
   component: HomeRoute,
 });
 
 function HomeRoute() {
   const quizHero = Route.useLoaderData({ select: (d) => d.quizHero });
+  const waitlist = Route.useLoaderData({ select: (d) => d.waitlist });
+  // ROOMEO_WAITLIST_MODE: quiz game + waitlist sign-up, no bed browsing (see docs/waitlist-mode.md).
+  if (waitlist) return <Home hero={(city) => <QuizHero city={city} waitlist />} waitlist />;
   return quizHero ? <Home hero={(city) => <QuizHero city={city} />} /> : <Home />;
 }
 
@@ -63,7 +68,7 @@ const TRUST: [typeof ShieldCheck, string, string][] = [
   [Flag, "Report in one tap", "Something feels off? Flag it. A real person reviews it."],
 ];
 
-function Home({ hero }: { hero?: (city: string) => ReactNode }) {
+function Home({ hero, waitlist = false }: { hero?: (city: string) => ReactNode; waitlist?: boolean }) {
   const initialData = Route.useLoaderData({ select: (d) => d.home });
   const [data, setData] = useState(initialData);
   const [city, setCity] = useState(initialData.city || DEFAULT_CITY);
@@ -187,6 +192,7 @@ function Home({ hero }: { hero?: (city: string) => ReactNode }) {
         </div>
       </section>
       )}
+      {waitlist ? <WaitlistSection city={city} /> : null}
 
       <section className="mt-8" aria-labelledby="safe">
         <h2 id="safe" className="text-2xl sm:text-3xl">
@@ -203,6 +209,7 @@ function Home({ hero }: { hero?: (city: string) => ReactNode }) {
         </ul>
       </section>
 
+      {waitlist ? null : (
       <section className="mt-12">
         <div className="mb-4 flex items-end justify-between gap-3">
           <div>
@@ -225,6 +232,7 @@ function Home({ hero }: { hero?: (city: string) => ReactNode }) {
           </p>
         ) : null}
       </section>
+      )}
 
       <section className="mt-12">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">How it works</p>

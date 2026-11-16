@@ -4,6 +4,7 @@ import { RoomieQuestion } from "@/components/roomie-question";
 import { isComplete, ROOMIE_QUESTIONS, ROOMIE_TYPES, roomieTypeFor, type RoomieAnswers, type RoomieTypeKey } from "@/lib/roomsetu/roomie-quiz";
 import { readRoomieDraft, vibeSearch, writeRoomieDraft } from "@/lib/roomsetu/roomie-draft";
 import { trackQuiz } from "@/lib/roomsetu/track-quiz";
+import { ROOMIE_TYPE_EVENT } from "@/components/waitlist-form";
 
 const BEDS_SEARCH = (city: string) => ({ ...vibeSearch(city), sort: "recommended" });
 const CONFETTI = Array.from({ length: 18 }, (_, i) => ["#c6f432", "#ff6aa9", "#ffcf5c", "#7ad7ff", "#ffffff"][i % 5]);
@@ -15,7 +16,7 @@ type Phase = { kind: "intro" } | { kind: "q"; i: number } | { kind: "won"; type:
  * Works signed out (answers stay in this tab); sign-in + consent are only asked on /roomie-quiz to save.
  * "Just show me beds" is always on screen, so the quiz never stands between anyone and search.
  */
-export function QuizHero({ city }: { city: string }) {
+export function QuizHero({ city, waitlist = false }: { city: string; waitlist?: boolean }) {
   const [phase, setPhase] = useState<Phase>({ kind: "intro" });
   const [answers, setAnswers] = useState<RoomieAnswers>({});
 
@@ -45,10 +46,20 @@ export function QuizHero({ city }: { city: string }) {
     else if (isComplete(next)) {
       trackQuiz("quiz_complete", "home", city);
       setPhase({ kind: "won", type: roomieTypeFor(next) });
+      window.dispatchEvent(new Event(ROOMIE_TYPE_EVENT));
     } else setPhase({ kind: "q", i: ROOMIE_QUESTIONS.findIndex((x) => !x.optional && !next[x.id]) });
   }
 
-  const skip = (
+  // Waitlist mode: search is hidden, so the escape hatch is the waitlist form further down the page.
+  const skip = waitlist ? (
+    <a
+      href="#waitlist"
+      className="inline-flex min-h-11 items-center gap-1 rounded-full px-1 text-base font-semibold text-white underline decoration-lime decoration-2 underline-offset-4 hover:text-lime"
+      data-testid="hero-waitlist"
+    >
+      Skip the game, join the waitlist →
+    </a>
+  ) : (
     <Link
       to="/search"
       search={BEDS_SEARCH(city)}
@@ -74,7 +85,9 @@ export function QuizHero({ city }: { city: string }) {
               <span className="text-lime">roomie type?</span>
             </h1>
             <p className="mt-3 max-w-md text-base text-white/85">
-              9 quick taps. Unlock one of 6 types, see beds you'd vibe in, and get a card to flex.
+              {waitlist
+                ? "9 quick taps. Unlock one of 6 types, get a card to flex, and save your spot for beds you'd vibe in."
+                : "9 quick taps. Unlock one of 6 types, see beds you'd vibe in, and get a card to flex."}
             </p>
             <div className="mt-4 flex flex-wrap gap-2" aria-label="The six roomie types">
               {Object.values(ROOMIE_TYPES).map((t) => (
@@ -110,13 +123,13 @@ export function QuizHero({ city }: { city: string }) {
           </div>
         ) : null}
 
-        {phase.kind === "won" ? <Won type={phase.type} city={city} onReplay={start} skip={skip} /> : null}
+        {phase.kind === "won" ? <Won type={phase.type} city={city} onReplay={start} skip={skip} waitlist={waitlist} /> : null}
       </div>
     </section>
   );
 }
 
-function Won({ type, city, onReplay, skip }: { type: RoomieTypeKey; city: string; onReplay: () => void; skip: ReactNode }) {
+function Won({ type, city, onReplay, skip, waitlist }: { type: RoomieTypeKey; city: string; onReplay: () => void; skip: ReactNode; waitlist: boolean }) {
   const t = ROOMIE_TYPES[type];
   return (
     <div className="relative" data-testid="quiz-hero-won">
@@ -136,25 +149,48 @@ function Won({ type, city, onReplay, skip }: { type: RoomieTypeKey; city: string
         </p>
         <p className="mt-2 text-sm opacity-90">{t.blurb}</p>
       </div>
-      <Link
-        to="/search"
-        search={vibeSearch(city)}
-        onClick={() => trackQuiz("result_to_search", "home", city)}
-        className="mt-5 flex min-h-14 w-full items-center justify-center rounded-full bg-lime px-6 text-lg font-bold text-[#14111f] shadow-[0_6px_0_#7ea300] transition active:translate-y-1 motion-reduce:transition-none"
-        data-testid="hero-to-search"
-      >
-        Beds by Vibe match →
-      </Link>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <Link to="/roomie-quiz" className="flex min-h-12 items-center justify-center rounded-full bg-white/15 px-4 text-sm font-semibold text-white hover:bg-white/25" data-testid="hero-share-card">
-          Story card + save 📲
+      {waitlist ? (
+        <>
+          <a
+            href="#waitlist"
+            className="mt-5 flex min-h-14 w-full items-center justify-center rounded-full bg-lime px-6 text-center text-lg font-bold text-[#14111f] shadow-[0_6px_0_#7ea300] transition active:translate-y-1 motion-reduce:transition-none"
+            data-testid="hero-join-waitlist"
+          >
+            Join the waitlist as a {t.name} →
+          </a>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Link to="/roomie-quiz" className="flex min-h-12 items-center justify-center rounded-full bg-white/15 px-4 text-sm font-semibold text-white hover:bg-white/25" data-testid="hero-share-card">
+              Story card 📲
+            </Link>
+            <button type="button" onClick={onReplay} className="min-h-12 rounded-full bg-white/15 px-4 text-sm font-semibold text-white hover:bg-white/25">
+              Play again
+            </button>
+          </div>
+          <p className="mt-3 text-xs text-white/70">Beds open soon. Your type is saved with your waitlist spot, so we can match you first.</p>
+        </>
+      ) : (
+        <>
+        <Link
+          to="/search"
+          search={vibeSearch(city)}
+          onClick={() => trackQuiz("result_to_search", "home", city)}
+          className="mt-5 flex min-h-14 w-full items-center justify-center rounded-full bg-lime px-6 text-lg font-bold text-[#14111f] shadow-[0_6px_0_#7ea300] transition active:translate-y-1 motion-reduce:transition-none"
+          data-testid="hero-to-search"
+        >
+          Beds by Vibe match →
         </Link>
-        <button type="button" onClick={onReplay} className="min-h-12 rounded-full bg-white/15 px-4 text-sm font-semibold text-white hover:bg-white/25">
-          Play again
-        </button>
-      </div>
-      <p className="mt-3 text-xs text-white/70">Vibe match needs your type saved (sign in, 1 tap). Until then you'll see all beds.</p>
-      <div className="mt-2">{skip}</div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Link to="/roomie-quiz" className="flex min-h-12 items-center justify-center rounded-full bg-white/15 px-4 text-sm font-semibold text-white hover:bg-white/25" data-testid="hero-share-card">
+            Story card + save 📲
+          </Link>
+          <button type="button" onClick={onReplay} className="min-h-12 rounded-full bg-white/15 px-4 text-sm font-semibold text-white hover:bg-white/25">
+            Play again
+          </button>
+        </div>
+        <p className="mt-3 text-xs text-white/70">Vibe match needs your type saved (sign in, 1 tap). Until then you'll see all beds.</p>
+        </>
+      )}
+      {waitlist ? null : <div className="mt-2">{skip}</div>}
     </div>
   );
 }
