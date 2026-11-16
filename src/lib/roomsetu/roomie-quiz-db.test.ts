@@ -5,7 +5,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { readFileSync, readdirSync } from "node:fs";
 import { testDb, seedListing, migrationsDir } from "./pgtest.ts";
 import { ROOMIE_QUESTIONS, type RoomieAnswers, type RoomieTypeKey } from "./roomie-quiz.ts";
-import { deleteRoomie, roomieTablesReady, occupantTypeCounts, readMyRoomie, recordStaySignals, ROOMIE_TABLE_MISSING, saveRoomie, typesForUsers, vibeMatchFor } from "./roomie-quiz-db.ts";
+import { deleteRoomie, roomieTablesReady, occupantTypeCounts, readMyRoomie, recordStaySignals, ROOMIE_TABLE_MISSING, saveRoomie, typesForUsers, vibeMatchFor, vibeScoresFor } from "./roomie-quiz-db.ts";
 
 function leanTo(type: RoomieTypeKey): RoomieAnswers {
   const out: RoomieAnswers = {};
@@ -129,4 +129,34 @@ test("STAY_60 signals: logged once for 60+ day stays, removed when the user dele
   assert.deepEqual(rows, [{ tenant_id: "old", tenant_type: "solo", score: 100, occupants_n: 1, config_version: 1 }]);
   await deleteRoomie(sql, "old");
   assert.equal((await pg.query(`select 1 from roomie_match_signals`)).rows.length, 0);
+});
+
+test("search vibe scores: many listings at once, same rules as one listing, saved answers only", async () => {
+  const { pg, sql } = await testDb();
+  await seedListing(pg, "L1", "owner");
+  await seedListing(pg, "L2", "owner");
+  await seedListing(pg, "L3", "owner");
+  await users(pg, ["seek", "a", "b", "gone", "noquiz"]);
+  assert.deepEqual(await vibeScoresFor(sql, ["L1"], "seek"), { hasQuiz: false, scores: {} });
+  await saveRoomie(sql, "seek", leanTo("tidy"), true);
+  for (const [u, t] of [["a", "tidy"], ["b", "hype"], ["gone", "tidy"]] as const) await saveRoomie(sql, u, leanTo(t), true);
+  // L1: a (tidy) + the seeker themself; L2: b (hype) via a confirmed move-in; L2 also "gone" who vacated; L3: empty.
+  await pg.query(`insert into pg_beds (id, listing_id, owner_id, label, status, tenant_id) values ('B1','L1','owner','A1','OCCUPIED','a'), ('B2','L1','owner','A2','OCCUPIED','seek')`);
+  await pg.query(`insert into move_ins (id, listing_id, seeker_id, owner_id, confirmed_at) values ('M1','L2','b','owner',now()), ('M2','L2','gone','owner',now())`);
+  await pg.query(`insert into deal_agreements (id, application_id, listing_id, seeker_id, owner_id, terms_json, body, vacated_on) values ('D1','AP-gone','L2','gone','owner','{}','x','2026-11-10')`);
+  const out = await vibeScoresFor(sql, ["L1", "L2", "L3", "nope"], "seek");
+  assert.equal(out.hasQuiz, true);
+  assert.deepEqual(Object.keys(out.scores).sort(), ["L1", "L2"]);
+  assert.equal(out.scores.L1.score, (await vibeMatchFor(sql, "L1", "seek"))?.score);
+  assert.equal(out.scores.L2.score, (await vibeMatchFor(sql, "L2", "seek"))?.score);
+  assert.ok(out.scores.L1.score > out.scores.L2.score);
+  assert.deepEqual(await vibeScoresFor(sql, [], "seek"), { hasQuiz: true, scores: {} });
+  assert.deepEqual(await vibeScoresFor(sql, ["L1"], "noquiz"), { hasQuiz: false, scores: {} });
+});
+
+test("search vibe scores degrade quietly without migration 0028", async () => {
+  const pg = new PGlite();
+  for (const f of readdirSync(migrationsDir).filter((n) => n.endsWith(".sql") && n < "0028").sort()) await pg.exec(readFileSync(new URL(f, migrationsDir), "utf8"));
+  const sql = { query: async (t: string, p?: unknown[]) => (await pg.query(t, p)).rows } as never;
+  assert.deepEqual(await vibeScoresFor(sql, ["L1"], "x"), { hasQuiz: false, scores: {} });
 });

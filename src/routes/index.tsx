@@ -1,7 +1,7 @@
 import { asFeeView, feeLine, homeChatStep, type FeeView } from "@/lib/roomsetu/fee-copy";
 import { CalendarCheck, ChatCircle, Flag, MapPin, Receipt, ShieldCheck } from "@phosphor-icons/react";
 import { pageHead, SHARE_DESCRIPTION } from "@/lib/seo";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Shell } from "@/components/shell";
 import { BedCarousel } from "@/components/bed-carousel";
@@ -9,15 +9,26 @@ import { EmptyBeds } from "@/components/empty-beds";
 import { getHome, listCities } from "@/lib/roomsetu/public-api";
 import { CityPicker } from "@/components/city-picker";
 import { DEFAULT_CITY, budgetHints, cityInfo } from "@/lib/roomsetu/cities";
+import { getRoomieQuizFlag } from "@/lib/roomsetu/roomie-quiz-api";
+import { QuizHero } from "@/components/quiz-hero";
 
 export const Route = createFileRoute("/")({
   head: () =>
     pageHead("Spare PG beds for working professionals", {
       description: SHARE_DESCRIPTION,
     }),
-  loader: () => getHome({ data: { city: DEFAULT_CITY } }),
-  component: Home,
+  // ROOMIE_QUIZ_ENABLED decides the hero. Flag off → the classic hero, exactly as before (see home-flag-off.test.ts).
+  loader: async () => {
+    const [home, flag] = await Promise.all([getHome({ data: { city: DEFAULT_CITY } }), getRoomieQuizFlag().catch(() => ({ enabled: false }))]);
+    return { home, quizHero: flag.enabled };
+  },
+  component: HomeRoute,
 });
+
+function HomeRoute() {
+  const quizHero = Route.useLoaderData({ select: (d) => d.quizHero });
+  return quizHero ? <Home hero={(city) => <QuizHero city={city} />} /> : <Home />;
+}
 
 const SEARCH = {
   city: "",
@@ -52,8 +63,8 @@ const TRUST: [typeof ShieldCheck, string, string][] = [
   [Flag, "Report in one tap", "Something feels off? Flag it. A real person reviews it."],
 ];
 
-function Home() {
-  const initialData = Route.useLoaderData();
+function Home({ hero }: { hero?: (city: string) => ReactNode }) {
+  const initialData = Route.useLoaderData({ select: (d) => d.home });
   const [data, setData] = useState(initialData);
   const [city, setCity] = useState(initialData.city || DEFAULT_CITY);
   const navigate = useNavigate();
@@ -81,6 +92,7 @@ function Home() {
 
   return (
     <Shell>
+      {hero ? hero(city) : (
       <section className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-[#2a0a4a] px-4 pb-12 pt-10 text-white">
         <div className="relative mx-auto max-w-6xl">
           <p className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
@@ -174,6 +186,7 @@ function Home() {
           </div>
         </div>
       </section>
+      )}
 
       <section className="mt-8" aria-labelledby="safe">
         <h2 id="safe" className="text-2xl sm:text-3xl">

@@ -1,6 +1,6 @@
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
 import { RoomCard, control } from "@/components/cards";
@@ -15,6 +15,9 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { CityPicker } from "@/components/city-picker";
 import { cityInfo, citySeoDescription, citySeoTitle, searchCity } from "@/lib/roomsetu/cities";
 import { asFeeView } from "@/lib/roomsetu/fee-copy";
+import { getRoomieQuizFlag, getVibeScores } from "@/lib/roomsetu/roomie-quiz-api";
+import { orderByVibe } from "@/lib/roomsetu/quiz-events";
+import { VibeMatchBadge } from "@/components/roomie-card";
 import { getFeeView } from "@/lib/roomsetu/pricing-api";
 
 function textParam(value: unknown): string {
@@ -55,6 +58,9 @@ function SearchPage() {
   const [view, setView] = useState<"list" | "map">("list");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [centroids, setCentroids] = useState<Centroid[]>([]);
+  const [quizOn, setQuizOn] = useState(false);
+  const [vibe, setVibe] = useState<Awaited<ReturnType<typeof getVibeScores>> | null>(null);
+  const vibeSort = quizOn && initial.sort === "vibe";
 
   const city = searchCity(initial.city);
   const info = cityInfo(city);
@@ -118,6 +124,28 @@ function SearchPage() {
       () => undefined,
     );
   }, [user, initial.city, initial.roomType]);
+
+  useEffect(() => {
+    void getRoomieQuizFlag()
+      .then((f) => setQuizOn(f.enabled))
+      .catch(() => undefined);
+  }, []);
+
+  // "Vibe match" sort: scores come from the signed-in seeker's saved quiz only; the bed list itself never waits on it.
+  useEffect(() => {
+    setVibe(null);
+    if (!vibeSort || !rooms?.listings.length) return;
+    let live = true;
+    void getVibeScores({ data: { listingIds: rooms.listings.map((l) => l.id) } })
+      .then((v) => live && setVibe(v))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [vibeSort, rooms, user]);
+
+  const shown = rooms ? (vibeSort && vibe ? orderByVibe(rooms.listings, vibe.scores) : rooms.listings) : [];
+  const vibeCount = vibe ? Object.keys(vibe.scores).length : 0;
 
   const localities = cities.find((c) => c.name === city)?.localities ?? [];
 
@@ -293,6 +321,7 @@ function SearchPage() {
                   {s.label}
                 </option>
               ))}
+              {quizOn ? <option value="vibe">Vibe match</option> : null}
             </select>
           </label>
           <label className="block">
@@ -373,10 +402,31 @@ function SearchPage() {
               <EmptyBeds area={initial.locality || "your area"} compact />
             </div>
           ) : null}
+          {vibeSort && !loading && rooms?.listings.length ? (
+            <p className="mb-4 rounded-3xl border border-line bg-card p-4 text-sm" role="status" data-testid="vibe-sort-note">
+              {!vibe
+                ? "Checking your Vibe match…"
+                : !vibe.signedIn
+                  ? <>Sorted by Vibe match once your type is saved. <Link to="/roomie-quiz" className="font-semibold text-brand underline-offset-4 hover:underline">Save my roomie type</Link> (sign in, 1 tap). Showing all beds for now.</>
+                  : !vibe.hasQuiz
+                    ? <>No roomie type saved yet. <Link to="/roomie-quiz" className="font-semibold text-brand underline-offset-4 hover:underline">Play the 2-min quiz</Link> to sort by Vibe match.</>
+                    : vibeCount
+                      ? `Best Vibe match first: ${vibeCount} ${vibeCount === 1 ? "bed has" : "beds have"} roomies with a type. The rest follow in the usual order.`
+                      : "None of these beds have roomies with a type yet, so they're in the usual order."}
+            </p>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
-            {rooms?.listings.map((room) => (
-              <RoomCard key={room.id} room={room} />
-            ))}
+            {shown.map((room) => {
+              const v = vibeSort ? vibe?.scores[room.id] : undefined;
+              return v ? (
+                <div key={room.id}>
+                  <VibeMatchBadge score={v.score} ruleOut={v.ruleOut} className="mb-2" />
+                  <RoomCard room={room} />
+                </div>
+              ) : (
+                <RoomCard key={room.id} room={room} />
+              );
+            })}
           </div>
         </div>
       </div>
