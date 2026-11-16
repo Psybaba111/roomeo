@@ -2,7 +2,7 @@ import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { occupantSummary, roomieQuizEnabled } from "@/lib/roomsetu/roomie-quiz";
-import { deleteRoomie, occupantTypeCounts, readMyRoomie, recordStaySignals, saveRoomie, vibeMatchFor } from "@/lib/roomsetu/roomie-quiz-db";
+import { deleteRoomie, roomieTablesReady, occupantTypeCounts, readMyRoomie, recordStaySignals, saveRoomie, vibeMatchFor } from "@/lib/roomsetu/roomie-quiz-db";
 
 function asRecord(input: unknown): Record<string, unknown> {
   return input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -18,8 +18,12 @@ export const getMyRoomie = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
+    const enabled = quizOn();
+    // Flag off (Production today): don't touch roomie tables unless migration 0028 exists, so a saved type can
+    // still be shown and deleted if the flag is ever switched off later.
+    if (!enabled && !(await roomieTablesReady(sql))) return { enabled, saved: null };
     const saved = await readMyRoomie(sql, context.userId);
-    return { enabled: quizOn(), saved };
+    return { enabled, saved };
   });
 
 export const saveRoomieQuiz = createServerFn({ method: "POST" })
@@ -40,6 +44,7 @@ export const deleteRoomieQuiz = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
+    if (!(await roomieTablesReady(sql))) return { deleted: false };
     const deleted = await deleteRoomie(sql, context.userId);
     return { deleted };
   });

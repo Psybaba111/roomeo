@@ -5,7 +5,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { readFileSync, readdirSync } from "node:fs";
 import { testDb, seedListing, migrationsDir } from "./pgtest.ts";
 import { ROOMIE_QUESTIONS, type RoomieAnswers, type RoomieTypeKey } from "./roomie-quiz.ts";
-import { deleteRoomie, occupantTypeCounts, readMyRoomie, recordStaySignals, ROOMIE_TABLE_MISSING, saveRoomie, typesForUsers, vibeMatchFor } from "./roomie-quiz-db.ts";
+import { deleteRoomie, roomieTablesReady, occupantTypeCounts, readMyRoomie, recordStaySignals, ROOMIE_TABLE_MISSING, saveRoomie, typesForUsers, vibeMatchFor } from "./roomie-quiz-db.ts";
 
 function leanTo(type: RoomieTypeKey): RoomieAnswers {
   const out: RoomieAnswers = {};
@@ -21,6 +21,7 @@ async function users(pg: PGlite, ids: string[]) {
 test("save needs consent and a full answer set; type is computed server-side", async () => {
   const { pg, sql } = await testDb();
   await users(pg, ["t1"]);
+  assert.equal(await roomieTablesReady(sql), true);
   await assert.rejects(saveRoomie(sql, "t1", leanTo("solo"), false), /consent/);
   await assert.rejects(saveRoomie(sql, "t1", { sleep: "early" }, true), /Answer all/);
   assert.equal(await readMyRoomie(sql, "t1"), null);
@@ -86,6 +87,7 @@ test("a DB without migration 0028 degrades quietly (no types) and refuses to sav
   const pg = new PGlite();
   for (const f of readdirSync(migrationsDir).filter((n) => n.endsWith(".sql") && n < "0028").sort()) await pg.exec(readFileSync(new URL(f, migrationsDir), "utf8"));
   const sql = { query: async (t: string, p?: unknown[]) => (await pg.query(t, p)).rows } as never;
+  assert.equal(await roomieTablesReady(sql), false);
   assert.equal(await readMyRoomie(sql, "x"), null);
   assert.equal((await typesForUsers(sql, ["x"])).size, 0);
   assert.deepEqual(await occupantTypeCounts(sql, "L1"), {});

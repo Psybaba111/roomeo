@@ -38,6 +38,12 @@ const OCCUPANTS_CTE = `occupants_raw as (
   ),
   occupants as (select user_id, min(since) as since from occupants_raw group by user_id)`;
 
+/** True once migration 0028 is applied. Lets flag-off paths skip roomie queries entirely (no Postgres errors). */
+export async function roomieTablesReady(sql: Sql): Promise<boolean> {
+  const rows = await sql.query<{ ok: boolean }>(`select to_regclass('public.roomie_profiles') is not null as ok`);
+  return rows[0]?.ok === true;
+}
+
 export type MyRoomie = { type: RoomieTypeKey; answers: RoomieAnswers; savedAt: string } | null;
 
 /** The caller's own saved result (answers included: only ever returned to their owner). */
