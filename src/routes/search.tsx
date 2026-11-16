@@ -19,6 +19,7 @@ import { getRoomieQuizFlag, getVibeScores } from "@/lib/roomsetu/roomie-quiz-api
 import { orderByVibe } from "@/lib/roomsetu/quiz-events";
 import { VibeMatchBadge } from "@/components/roomie-card";
 import { getFeeView } from "@/lib/roomsetu/pricing-api";
+import { waitlistBeforeLoad } from "@/lib/roomsetu/waitlist-api";
 
 function textParam(value: unknown): string {
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -26,6 +27,8 @@ function textParam(value: unknown): string {
 }
 
 export const Route = createFileRoute("/search")({
+  // ROOMEO_WAITLIST_MODE: signed-out visitors and non-admins go to /waitlist (flag off: no-op).
+  beforeLoad: () => waitlistBeforeLoad("search"),
   loader: () => getFeeView(),
   head: ({ match, loaderData }) => {
     const city = searchCity((match.search as { city?: string } | undefined)?.city);

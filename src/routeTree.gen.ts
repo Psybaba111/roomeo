@@ -32,6 +32,7 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as VerificationRouteImport } from './routes/verification'
+import { Route as WaitlistRouteImport } from './routes/waitlist'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminCommissionsRouteImport } from './routes/admin.commissions'
@@ -42,6 +43,7 @@ import { Route as AdminReportsRouteImport } from './routes/admin.reports'
 import { Route as AdminRevenueRouteImport } from './routes/admin.revenue'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminVerificationsRouteImport } from './routes/admin.verifications'
+import { Route as AdminWaitlistRouteImport } from './routes/admin.waitlist'
 import { Route as EditListingIdRouteImport } from './routes/edit-listing.$id'
 import { Route as InvoicePaymentIdRouteImport } from './routes/invoice.$paymentId'
 import { Route as ListingIdRouteImport } from './routes/listing.$id'
@@ -172,6 +174,11 @@ const VerificationRoute = VerificationRouteImport.update({
   path: '/verification',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WaitlistRoute = WaitlistRouteImport.update({
+  id: '/waitlist',
+  path: '/waitlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
@@ -220,6 +227,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
 const AdminVerificationsRoute = AdminVerificationsRouteImport.update({
   id: '/admin/verifications',
   path: '/admin/verifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminWaitlistRoute = AdminWaitlistRouteImport.update({
+  id: '/admin/waitlist',
+  path: '/admin/waitlist',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EditListingIdRoute = EditListingIdRouteImport.update({
@@ -317,6 +329,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/verification': typeof VerificationRoute
+  '/waitlist': typeof WaitlistRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/hosts': typeof AdminHostsRoute
@@ -326,6 +339,7 @@ export interface FileRoutesByFullPath {
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
+  '/admin/waitlist': typeof AdminWaitlistRoute
   '/edit-listing/$id': typeof EditListingIdRoute
   '/invoice/$paymentId': typeof InvoicePaymentIdRoute
   '/listing/$id': typeof ListingIdRoute
@@ -366,6 +380,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/verification': typeof VerificationRoute
+  '/waitlist': typeof WaitlistRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/hosts': typeof AdminHostsRoute
@@ -375,6 +390,7 @@ export interface FileRoutesByTo {
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
+  '/admin/waitlist': typeof AdminWaitlistRoute
   '/edit-listing/$id': typeof EditListingIdRoute
   '/invoice/$paymentId': typeof InvoicePaymentIdRoute
   '/listing/$id': typeof ListingIdRoute
@@ -416,6 +432,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/verification': typeof VerificationRoute
+  '/waitlist': typeof WaitlistRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/hosts': typeof AdminHostsRoute
@@ -425,6 +442,7 @@ export interface FileRoutesById {
   '/admin/revenue': typeof AdminRevenueRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/verifications': typeof AdminVerificationsRoute
+  '/admin/waitlist': typeof AdminWaitlistRoute
   '/edit-listing/$id': typeof EditListingIdRoute
   '/invoice/$paymentId': typeof InvoicePaymentIdRoute
   '/listing/$id': typeof ListingIdRoute
@@ -467,6 +485,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/verification'
+    | '/waitlist'
     | '/admin/analytics'
     | '/admin/commissions'
     | '/admin/hosts'
@@ -476,6 +495,7 @@ export interface FileRouteTypes {
     | '/admin/revenue'
     | '/admin/users'
     | '/admin/verifications'
+    | '/admin/waitlist'
     | '/edit-listing/$id'
     | '/invoice/$paymentId'
     | '/listing/$id'
@@ -516,6 +536,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/verification'
+    | '/waitlist'
     | '/admin/analytics'
     | '/admin/commissions'
     | '/admin/hosts'
@@ -525,6 +546,7 @@ export interface FileRouteTypes {
     | '/admin/revenue'
     | '/admin/users'
     | '/admin/verifications'
+    | '/admin/waitlist'
     | '/edit-listing/$id'
     | '/invoice/$paymentId'
     | '/listing/$id'
@@ -565,6 +587,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/verification'
+    | '/waitlist'
     | '/admin/analytics'
     | '/admin/commissions'
     | '/admin/hosts'
@@ -574,6 +597,7 @@ export interface FileRouteTypes {
     | '/admin/revenue'
     | '/admin/users'
     | '/admin/verifications'
+    | '/admin/waitlist'
     | '/edit-listing/$id'
     | '/invoice/$paymentId'
     | '/listing/$id'
@@ -615,6 +639,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   VerificationRoute: typeof VerificationRoute
+  WaitlistRoute: typeof WaitlistRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminCommissionsRoute: typeof AdminCommissionsRoute
   AdminHostsRoute: typeof AdminHostsRoute
@@ -624,6 +649,7 @@ export interface RootRouteChildren {
   AdminRevenueRoute: typeof AdminRevenueRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVerificationsRoute: typeof AdminVerificationsRoute
+  AdminWaitlistRoute: typeof AdminWaitlistRoute
   EditListingIdRoute: typeof EditListingIdRoute
   InvoicePaymentIdRoute: typeof InvoicePaymentIdRoute
   ListingIdRoute: typeof ListingIdRoute
@@ -804,6 +830,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerificationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/waitlist': {
+      id: '/waitlist'
+      path: '/waitlist'
+      fullPath: '/waitlist'
+      preLoaderRoute: typeof WaitlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
       path: '/admin'
@@ -872,6 +905,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/verifications'
       fullPath: '/admin/verifications'
       preLoaderRoute: typeof AdminVerificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/waitlist': {
+      id: '/admin/waitlist'
+      path: '/admin/waitlist'
+      fullPath: '/admin/waitlist'
+      preLoaderRoute: typeof AdminWaitlistRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/edit-listing/$id': {
@@ -999,6 +1039,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   VerificationRoute: VerificationRoute,
+  WaitlistRoute: WaitlistRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminCommissionsRoute: AdminCommissionsRoute,
   AdminHostsRoute: AdminHostsRoute,
@@ -1008,6 +1049,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRevenueRoute: AdminRevenueRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminVerificationsRoute: AdminVerificationsRoute,
+  AdminWaitlistRoute: AdminWaitlistRoute,
   EditListingIdRoute: EditListingIdRoute,
   InvoicePaymentIdRoute: InvoicePaymentIdRoute,
   ListingIdRoute: ListingIdRoute,

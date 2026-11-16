@@ -9,6 +9,7 @@ import { RoomieShareCard } from "@/components/roomie-card";
 import { RoomieQuestion } from "@/components/roomie-question";
 import { readRoomieDraft, ROOMIE_DRAFT_KEY, vibeSearch, writeRoomieDraft } from "@/lib/roomsetu/roomie-draft";
 import { trackQuiz } from "@/lib/roomsetu/track-quiz";
+import { getWaitlistMode } from "@/lib/roomsetu/waitlist-api";
 import { isComplete, ROOMIE_QUESTIONS, ROOMIE_TYPES, roomieTypeFor, type RoomieAnswers, type RoomieTypeKey } from "@/lib/roomsetu/roomie-quiz";
 import { deleteRoomieQuiz, getMyRoomie, getRoomieQuizFlag, saveRoomieQuiz } from "@/lib/roomsetu/roomie-quiz-api";
 
@@ -33,8 +34,12 @@ function RoomieQuizPage() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
+  const [waitlist, setWaitlist] = useState(false);
 
   useEffect(() => {
+    void getWaitlistMode()
+      .then((w) => setWaitlist(w.enabled))
+      .catch(() => undefined);
     void getRoomieQuizFlag()
       .then((f) => setEnabled(f.enabled))
       .catch(() => setEnabled(false));
@@ -230,9 +235,15 @@ function RoomieQuizPage() {
             <RoomieShareCard type={result} />
 
             <div className="mt-8 grid grid-cols-2 gap-2">
-              <Link to="/search" search={vibeSearch("")} className={btnPrimary} onClick={() => trackQuiz("result_to_search", "quiz_page")} data-testid="roomie-to-search">
+{waitlist ? (
+                <Link to="/waitlist" className={btnPrimary} data-testid="roomie-to-waitlist">
+                  Join the waitlist
+                </Link>
+              ) : (
+                            <Link to="/search" search={vibeSearch("")} className={btnPrimary} onClick={() => trackQuiz("result_to_search", "quiz_page")} data-testid="roomie-to-search">
                 Matching beds
               </Link>
+              )}
               <button type="button" className={btnSecondary} onClick={restart}>
                 Retake
               </button>
