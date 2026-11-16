@@ -7,6 +7,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { legacyPlanRejection } from "@/lib/roomsetu/legacy-plans";
 import QRCode from "qrcode";
 import { hitLimit } from "@/lib/roomsetu/rate-limit";
+import { roomieQuizEnabled } from "@/lib/roomsetu/roomie-quiz";
+import { typesForUsers, vibeMatchFor } from "@/lib/roomsetu/roomie-quiz-db";
 import { notifyWhatsApp } from "@/lib/roomsetu/mappstore";
 import { canPublish } from "@/lib/roomsetu/otp";
 import { assertContactAllowed, markContactRefundDue } from "@/lib/roomsetu/squad-api";
@@ -1157,6 +1159,18 @@ export const listApplications = createServerFn({ method: "GET" })
       [context.userId],
     );
     const feeCfg = pricingConfig();
+    // Roomie type of people asking for MY beds only (type key, never quiz answers).
+    const roomie = roomieQuizEnabled(process.env)
+      ? await typesForUsers(sql, rows.filter((r) => str(r.host_id) === context.userId).map((r) => str(r.seeker_id)))
+      : new Map<string, string>();
+    // Vibe match of each requester vs the people already living in that bed's listing (score only).
+    const vibe = new Map<string, { score: number; ruleOut: boolean }>();
+    if (roomieQuizEnabled(process.env))
+      for (const r of rows) {
+        if (str(r.host_id) !== context.userId || !roomie.has(str(r.seeker_id))) continue;
+        const m = await vibeMatchFor(sql, str(r.listing_id), str(r.seeker_id));
+        if (m) vibe.set(str(r.id), { score: m.score, ruleOut: m.ruleOut });
+      }
     return rows.map((r) => {
       const quote = rentQuote(num(r.monthly_rent), num(r.deposit), true, feeCfg.successFeeEnabled, feeCfg.successFeeTenantInr);
       return {
@@ -1184,6 +1198,8 @@ export const listApplications = createServerFn({ method: "GET" })
         seekerAgreed: bool(r.seeker_ok),
         hostAgreed: bool(r.host_ok),
         agreement: str(r.agreement_status),
+        seekerRoomieType: str(r.host_id) === context.userId ? (roomie.get(str(r.seeker_id)) ?? "") : "",
+        seekerVibeMatch: vibe.get(str(r.id)) ?? null,
       };
     });
   });

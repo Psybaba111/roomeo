@@ -26,6 +26,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as RoomWantedRouteImport } from './routes/room-wanted'
+import { Route as RoomieQuizRouteImport } from './routes/roomie-quiz'
 import { Route as SavedRouteImport } from './routes/saved'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -139,6 +140,11 @@ const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
 const RoomWantedRoute = RoomWantedRouteImport.update({
   id: '/room-wanted',
   path: '/room-wanted',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoomieQuizRoute = RoomieQuizRouteImport.update({
+  id: '/roomie-quiz',
+  path: '/roomie-quiz',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SavedRoute = SavedRouteImport.update({
@@ -305,6 +311,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/room-wanted': typeof RoomWantedRoute
+  '/roomie-quiz': typeof RoomieQuizRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -353,6 +360,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/room-wanted': typeof RoomWantedRoute
+  '/roomie-quiz': typeof RoomieQuizRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -402,6 +410,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/room-wanted': typeof RoomWantedRoute
+  '/roomie-quiz': typeof RoomieQuizRoute
   '/saved': typeof SavedRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -452,6 +461,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/robots.txt'
     | '/room-wanted'
+    | '/roomie-quiz'
     | '/saved'
     | '/search'
     | '/sitemap.xml'
@@ -500,6 +510,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/robots.txt'
     | '/room-wanted'
+    | '/roomie-quiz'
     | '/saved'
     | '/search'
     | '/sitemap.xml'
@@ -548,6 +559,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/robots.txt'
     | '/room-wanted'
+    | '/roomie-quiz'
     | '/saved'
     | '/search'
     | '/sitemap.xml'
@@ -597,6 +609,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   RoomWantedRoute: typeof RoomWantedRoute
+  RoomieQuizRoute: typeof RoomieQuizRoute
   SavedRoute: typeof SavedRoute
   SearchRoute: typeof SearchRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -747,6 +760,13 @@ declare module '@tanstack/react-router' {
       path: '/room-wanted'
       fullPath: '/room-wanted'
       preLoaderRoute: typeof RoomWantedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/roomie-quiz': {
+      id: '/roomie-quiz'
+      path: '/roomie-quiz'
+      fullPath: '/roomie-quiz'
+      preLoaderRoute: typeof RoomieQuizRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/saved': {
@@ -973,6 +993,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   RoomWantedRoute: RoomWantedRoute,
+  RoomieQuizRoute: RoomieQuizRoute,
   SavedRoute: SavedRoute,
   SearchRoute: SearchRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

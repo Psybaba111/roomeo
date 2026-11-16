@@ -4,6 +4,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { Shell } from "@/components/shell";
 import { ChangePassword } from "@/components/change-password";
+import { RoomieProfileCard } from "@/components/roomie-sections";
 import { errText } from "@/lib/ui-text";
 import { control } from "@/components/cards";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -123,6 +124,7 @@ function ProfilePage() {
         </Link>
       </p>
       <p className="mt-2 text-sm text-muted">Verification: {form.verification || "…"}. What you hide stays off public cards.</p>
+      <RoomieProfileCard />
       <form
         className="mt-6 grid gap-3 md:grid-cols-2"
         onSubmit={(e) => {
