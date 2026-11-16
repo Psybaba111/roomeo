@@ -188,3 +188,52 @@ export async function recordStaySignals(sql: Sql, listingId: string, cfg: Roomie
     throw e;
   }
 }
+
+/** Same occupant rules as OCCUPANTS_CTE, for many listings at once ($1 = text[] of listing ids). */
+const MULTI_OCCUPANTS_CTE = `occupants_raw as (
+    select b.listing_id, b.tenant_id as user_id from pg_beds b
+      where b.listing_id = any($1::text[]) and b.tenant_id is not null and b.status in ('OCCUPIED', 'ON_NOTICE')
+    union all
+    select m.listing_id, m.seeker_id from move_ins m
+      where m.listing_id = any($1::text[]) and m.confirmed_at is not null
+        and not exists (select 1 from deal_agreements d where d.listing_id = m.listing_id and d.seeker_id = m.seeker_id and d.vacated_on is not null)
+    union all
+    select s.listing_id, c.user_id from squad_move_ins s join squad_move_in_confirms c on c.squad_move_in_id = s.id
+      where s.listing_id = any($1::text[]) and s.confirmed_at is not null
+  ),
+  occupants as (select distinct listing_id, user_id from occupants_raw)`;
+
+export type VibeScores = Record<string, { score: number; ruleOut: boolean }>;
+
+/**
+ * Vibe match scores for many listings (search "Vibe match" sort). Uses only the seeker's SAVED answers, never
+ * client-supplied ones, so scores can't be used to probe occupants' answers. Listings with no typed occupants
+ * are left out. hasQuiz=false when the seeker hasn't saved a quiz (or 0028 isn't applied).
+ */
+export async function vibeScoresFor(sql: Sql, listingIds: string[], seekerId: string, cfg: RoomieMatchConfig = DEFAULT_MATCH_CONFIG): Promise<{ hasQuiz: boolean; scores: VibeScores }> {
+  try {
+    const mine = await sql.query<Record<string, unknown>>(`select answers from roomie_profiles where user_id = $1`, [seekerId]);
+    if (!mine[0]) return { hasQuiz: false, scores: {} };
+    const seeker = parseAnswers(mine[0].answers);
+    if (!listingIds.length) return { hasQuiz: true, scores: {} };
+    const rows = await sql.query<Record<string, unknown>>(
+      `with ${MULTI_OCCUPANTS_CTE}
+       select o.listing_id, r.answers from occupants o join roomie_profiles r on r.user_id = o.user_id where o.user_id <> $2`,
+      [listingIds, seekerId],
+    );
+    const by = new Map<string, RoomieAnswers[]>();
+    for (const r of rows) {
+      const id = String(r.listing_id);
+      by.set(id, [...(by.get(id) ?? []), parseAnswers(r.answers)]);
+    }
+    const scores: VibeScores = {};
+    for (const [id, occ] of by) {
+      const m = roomMatch(seeker, occ, cfg);
+      if (m) scores[id] = { score: m.score, ruleOut: m.ruleOut };
+    }
+    return { hasQuiz: true, scores };
+  } catch (e) {
+    if (missingTable(e)) return { hasQuiz: false, scores: {} };
+    throw e;
+  }
+}

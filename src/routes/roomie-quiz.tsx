@@ -6,7 +6,10 @@ import { errText } from "@/lib/ui-text";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { btnPrimary, btnSecondary, btnDanger, card, inner, linkCls } from "@/components/ui-tokens";
 import { RoomieShareCard } from "@/components/roomie-card";
-import { cleanAnswers, isComplete, ROOMIE_QUESTIONS, ROOMIE_TYPES, roomieTypeFor, type RoomieAnswers, type RoomieTypeKey } from "@/lib/roomsetu/roomie-quiz";
+import { RoomieQuestion } from "@/components/roomie-question";
+import { readRoomieDraft, ROOMIE_DRAFT_KEY, vibeSearch, writeRoomieDraft } from "@/lib/roomsetu/roomie-draft";
+import { trackQuiz } from "@/lib/roomsetu/track-quiz";
+import { isComplete, ROOMIE_QUESTIONS, ROOMIE_TYPES, roomieTypeFor, type RoomieAnswers, type RoomieTypeKey } from "@/lib/roomsetu/roomie-quiz";
 import { deleteRoomieQuiz, getMyRoomie, getRoomieQuizFlag, saveRoomieQuiz } from "@/lib/roomsetu/roomie-quiz-api";
 
 export const Route = createFileRoute("/roomie-quiz")({
@@ -14,16 +17,9 @@ export const Route = createFileRoute("/roomie-quiz")({
   component: RoomieQuizPage,
 });
 
-const DRAFT_KEY = "roomeo-roomie-draft";
+const DRAFT_KEY = ROOMIE_DRAFT_KEY;
 const EMPTY_SEARCH = { city: "", locality: "", maxRent: "", roomType: "", furnished: "", gender: "", food: "", kind: "", sort: "recommended", q: "", availableBy: "" };
-
-function readDraft(): RoomieAnswers {
-  try {
-    return cleanAnswers(JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "{}"));
-  } catch {
-    return {};
-  }
-}
+const readDraft = readRoomieDraft;
 
 type Step = { kind: "intro" } | { kind: "q"; i: number } | { kind: "result" };
 
@@ -67,13 +63,12 @@ function RoomieQuizPage() {
     if (optionId) next[q.id] = optionId;
     else delete next[q.id];
     setAnswers(next);
-    try {
-      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(next));
-    } catch {
-      /* private mode: fine, answers stay in memory */
-    }
+    writeRoomieDraft(next);
     if (qi + 1 < ROOMIE_QUESTIONS.length) setStep({ kind: "q", i: qi + 1 });
-    else setStep({ kind: "result" });
+    else {
+      if (isComplete(next)) trackQuiz("quiz_complete", "quiz_page");
+      setStep({ kind: "result" });
+    }
   }
 
   function restart() {
@@ -86,6 +81,7 @@ function RoomieQuizPage() {
     } catch {
       /* ignore */
     }
+    trackQuiz("quiz_start", "quiz_page");
     setStep({ kind: "q", i: 0 });
   }
 
@@ -153,11 +149,14 @@ function RoomieQuizPage() {
     <Shell>
       <div className="mx-auto w-full max-w-md min-w-0" data-testid="roomie-quiz">
         {step.kind === "intro" ? (
-          <Intro saved={saved} onStart={() => setStep({ kind: "q", i: 0 })} onDelete={remove} busy={busy} note={note} error={error} />
+          <Intro saved={saved} onStart={() => {
+            trackQuiz("quiz_start", "quiz_page");
+            setStep({ kind: "q", i: 0 });
+          }} onDelete={remove} busy={busy} note={note} error={error} />
         ) : null}
 
         {step.kind === "q" ? (
-          <Question i={step.i} answers={answers} onPick={pick} onBack={() => setStep(step.i ? { kind: "q", i: step.i - 1 } : { kind: "intro" })} />
+          <RoomieQuestion i={step.i} answers={answers} onPick={pick} onBack={() => setStep(step.i ? { kind: "q", i: step.i - 1 } : { kind: "intro" })} />
         ) : null}
 
         {step.kind === "result" && result ? (
@@ -231,8 +230,8 @@ function RoomieQuizPage() {
             <RoomieShareCard type={result} />
 
             <div className="mt-8 grid grid-cols-2 gap-2">
-              <Link to="/search" search={EMPTY_SEARCH} className={btnPrimary}>
-                Find beds
+              <Link to="/search" search={vibeSearch("")} className={btnPrimary} onClick={() => trackQuiz("result_to_search", "quiz_page")} data-testid="roomie-to-search">
+                Matching beds
               </Link>
               <button type="button" className={btnSecondary} onClick={restart}>
                 Retake
@@ -279,55 +278,11 @@ function Intro({ saved, onStart, onDelete, busy, note, error }: { saved: RoomieT
         {saved ? "Retake the quiz" : "Let's go →"}
       </button>
       <p className="mt-3 text-center text-sm">
-        <Link to="/search" search={EMPTY_SEARCH} className={linkCls}>
+        <Link to="/search" search={EMPTY_SEARCH} className={linkCls} onClick={() => trackQuiz("quiz_skip", "quiz_page")}>
           Skip, just show me beds
         </Link>
       </p>
       <p className="mt-6 text-xs text-muted">Optional and private. Nothing is saved unless you say so. Others only ever see your type, never your answers.</p>
-    </div>
-  );
-}
-
-function Question({ i, answers, onPick, onBack }: { i: number; answers: RoomieAnswers; onPick: (i: number, id: string | null) => void; onBack: () => void }) {
-  const q = ROOMIE_QUESTIONS[i];
-  const pct = Math.round((i / ROOMIE_QUESTIONS.length) * 100);
-  return (
-    <div data-testid="roomie-question">
-      <div className="flex items-center justify-between text-sm text-muted">
-        <button type="button" className="font-semibold underline-offset-4 hover:underline" onClick={onBack}>
-          ← Back
-        </button>
-        <span>
-          {i + 1} / {ROOMIE_QUESTIONS.length}
-        </span>
-      </div>
-      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-line" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-        <div className="h-full rounded-full bg-brand transition-[width] duration-300" style={{ width: `${pct}%` }} />
-      </div>
-      <p className="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-brand">{q.topic}</p>
-      <h2 className="mt-1 font-display text-3xl leading-tight">{q.prompt}</h2>
-      <div className="mt-5 grid gap-3">
-        {q.options.map((o) => {
-          const on = answers[q.id] === o.id;
-          return (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => onPick(i, o.id)}
-              className={`min-h-14 w-full rounded-2xl border-2 px-4 py-3 text-left text-base font-semibold transition active:scale-[0.98] ${on ? "border-brand bg-brand-soft" : "border-line bg-card hover:border-brand"}`}
-              aria-pressed={on}
-              data-testid="roomie-option"
-            >
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
-      {q.optional ? (
-        <button type="button" className="mt-4 w-full text-center text-sm font-semibold text-muted underline-offset-4 hover:underline" onClick={() => onPick(i, null)} data-testid="roomie-skip">
-          Skip this one →
-        </button>
-      ) : null}
     </div>
   );
 }

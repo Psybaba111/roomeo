@@ -2,7 +2,9 @@ import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { occupantSummary, roomieQuizEnabled } from "@/lib/roomsetu/roomie-quiz";
-import { deleteRoomie, roomieTablesReady, occupantTypeCounts, readMyRoomie, recordStaySignals, saveRoomie, vibeMatchFor } from "@/lib/roomsetu/roomie-quiz-db";
+import { deleteRoomie, roomieTablesReady, occupantTypeCounts, readMyRoomie, recordStaySignals, saveRoomie, vibeMatchFor, vibeScoresFor, type VibeScores } from "@/lib/roomsetu/roomie-quiz-db";
+import { quizEventKind, quizEventSource } from "@/lib/roomsetu/quiz-events";
+import { logEvent } from "@/lib/roomsetu/services";
 
 function asRecord(input: unknown): Record<string, unknown> {
   return input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -87,4 +89,45 @@ export const getListingRoomies = createServerFn({ method: "POST" })
       total,
       match: match ? { score: match.score, ruleOut: match.ruleOut, why: match.why, headsUp: match.headsUp } : null,
     };
+  });
+
+/**
+ * Vibe match scores for a page of search results, for the signed-in seeker's saved quiz only.
+ * Signed out / no saved quiz / flag off → no scores (the search page explains and keeps its normal order).
+ */
+export const getVibeScores = createServerFn({ method: "POST" })
+  .middleware([optionalUser])
+  .validator((input: unknown) => {
+    const ids = asRecord(input).listingIds;
+    const list = Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string" && /^[\w-]{1,80}$/.test(x)) : [];
+    return { listingIds: [...new Set(list)].slice(0, 48) };
+  })
+  .handler(async ({ data, context }) => {
+    if (!quizOn()) return { enabled: false, signedIn: Boolean(context.userId), hasQuiz: false, scores: {} as VibeScores };
+    if (!context.userId) return { enabled: true, signedIn: false, hasQuiz: false, scores: {} as VibeScores };
+    const sql = await getSql();
+    const out = await vibeScoresFor(sql, data.listingIds, context.userId);
+    return { enabled: true, signedIn: true, ...out };
+  });
+
+/**
+ * Quiz funnel events (quiz_start, quiz_complete, quiz_skip, result_to_search) on the app's existing internal
+ * mechanism: a row in metric_events (same table as 'search') + a structured logEvent line in Vercel runtime logs.
+ * No third-party analytics. Unknown kinds are ignored; never throws to the UI.
+ */
+export const trackQuizEvent = createServerFn({ method: "POST" })
+  .validator((input: unknown) => {
+    const o = asRecord(input);
+    return { kind: quizEventKind(o.kind), source: quizEventSource(o.source), city: typeof o.city === "string" ? o.city.slice(0, 40) : "" };
+  })
+  .handler(async ({ data }) => {
+    if (!data.kind || !quizOn()) return { ok: false };
+    try {
+      const sql = await getSql();
+      await sql.query("insert into metric_events (id, kind, city) values ($1, $2, $3)", [crypto.randomUUID(), data.kind, data.city]);
+      logEvent(`roomie.${data.kind}`, { source: data.source });
+      return { ok: true };
+    } catch {
+      return { ok: false };
+    }
   });

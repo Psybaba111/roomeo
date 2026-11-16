@@ -60,3 +60,31 @@ Written idempotently when the listing's roomie section loads. For tuning the wei
 ## Rollback
 - Feature: set `ROOMIE_QUIZ_ENABLED=false` (or leave it unset in Production), or revert the PR.
 - DB: `drop table if exists roomie_match_signals; drop table if exists roomie_profiles;` (additive tables only).
+
+## Homepage game hero (flag on only)
+
+- With `ROOMIE_QUIZ_ENABLED` on, the homepage hero becomes "What's your roomie type?" — the quiz played inline as a
+  game: "Play · Q1 of 9", a progress bar on every question ("Q5 of 9", then an optional "Bonus round"), and a win
+  card with confetti at the end (`.roomie-confetti` / `.roomie-pop`; both off under `prefers-reduced-motion`).
+- Works signed out. Answers stay in this tab (sessionStorage `roomeo-roomie-draft`); sign-in + consent are asked
+  only on `/roomie-quiz` when saving.
+- "Just show me beds →" is visible on the intro, every question and the result, and goes straight to /search.
+- The result links to `/search?sort=vibe` ("Beds by Vibe match") and to `/roomie-quiz` (story card + save).
+  The Vibe sort scores beds with the signed-in seeker's **saved** answers only (`getVibeScores`, max 48 ids);
+  signed out or no saved quiz ⇒ the normal order plus a "save your type" note. Scored beds come first (best
+  first, deal-breakers last among scored); the rest keep their order.
+- Flag off ⇒ the homepage is unchanged. `src/lib/roomsetu/home-flag-off.test.ts` compares `src/routes/index.tsx`
+  against a verbatim copy of main's file (`src/routes/__snapshots__/index.flag-off.golden.tsx.txt`), allowing only
+  the hero slot + loader shape.
+
+## Funnel events
+
+`quiz_start`, `quiz_complete`, `quiz_skip`, `result_to_search` (source `home` or `quiz_page`) go through
+`trackQuizEvent` onto the existing internal mechanism: one `metric_events` row (`kind` = event, same table as
+`search`) and one structured `logEvent` line (`roomie.<event>`) in the runtime logs. Closed list; unknown kinds are
+dropped; flag off ⇒ nothing is written. No third-party analytics.
+
+```sql
+select kind, count(*) from metric_events where kind in ('quiz_start','quiz_complete','quiz_skip','result_to_search')
+group by kind;
+```
