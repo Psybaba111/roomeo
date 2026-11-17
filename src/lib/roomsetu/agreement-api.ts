@@ -95,12 +95,17 @@ export const getDealAgreement = createServerFn({ method: "GET" })
     const state = agreementState({ seekerSignedAt: str(a.seeker_signed_at) || (signers.some((x) => x.role === "TENANT") ? "x" : null), ownerSignedAt: str(a.owner_signed_at) || null, issuedAt: str(a.issued_at) || null, cancelledAt: str(a.cancelled_at) || null });
     const feeOn = cfg.successFeeEnabled && base > 0;
     // Owner-fee model: what the owner will owe on move-in (shown to the owner only). Tenants see nothing to pay.
-    const { ownerFeeActive } = await import("@/lib/roomsetu/owner-fee-db");
-    const { flatCommissionAmounts, ownerFeeFlatInr, ownerFeeGstPct, ownerFeeForViewer, ownerCommissionNote, squadBedRentInr } = await import("@/lib/roomsetu/owner-fee");
+    const { hostFoundingNow, ownerFeeActive } = await import("@/lib/roomsetu/owner-fee-db");
+    const { flatCommissionAmounts, foundingCommissionAmounts, ownerFeeFlatInr, ownerFeeGstPct, ownerFeeForViewer, ownerCommissionNote, squadBedRentInr } = await import("@/lib/roomsetu/owner-fee");
     // Owner and admin only. A tenant's response never carries the owner's rate or amount. Squads: per tenant, on each one's share.
     const beds = data.kind === "squad" ? Math.max(1, d.tenantIds.length) : 1;
     const bedRent = squadBedRentInr(d.terms.monthlyRent, beds);
-    const ownerAmounts = !feeOn && isOwner && ownerFeeActive() && bedRent > 0 ? flatCommissionAmounts(bedRent, ownerFeeGstPct(), ownerFeeFlatInr()) : null;
+    const ownerAmounts =
+      !feeOn && isOwner && ownerFeeActive() && bedRent > 0
+        ? (await hostFoundingNow(sql, d.ownerId))
+          ? foundingCommissionAmounts(bedRent)
+          : flatCommissionAmounts(bedRent, ownerFeeGstPct(), ownerFeeFlatInr())
+        : null;
     const ownerFee = ownerFeeForViewer(isOwner ? "owner" : "tenant", ownerAmounts);
     const ownerNote = ownerFee ? ownerCommissionNote(ownerFee, beds) : "";
     // A fee row created before 17 Nov 2026 (₹589 = ₹499 + GST, or ₹490 after the ₹99 credit) keeps its old breakdown.

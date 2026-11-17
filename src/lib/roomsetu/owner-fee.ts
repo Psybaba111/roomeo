@@ -27,7 +27,8 @@ export type Env = Record<string, string | undefined>;
  * replacing 20% of one month's rent. With OWNER_FEE_GST_ENABLED on the ₹499 is split ₹423 fee + ₹76 GST (whole
  * rupees, as commission rows store rupees; exact split ₹422.88 + ₹76.12); with it off the owner pays ₹499, no GST line.
  * OWNER_FEE_INR (whole rupees, GST included) overrides the amount. Founding partners pay the same flat fee
- * (the 15% founding rate no longer applies; the founding flag is kept for records).
+ * 17 Nov 2026 (Rohith): founding partners pay ₹0 on the owner side while their founding end date lasts. Their
+ * move-ins are recorded as `waived` rows (₹0, nothing due, no payment link, no invoice).
  * Rows created under the old % model keep their stored rate and amounts.
  */
 export const OWNER_FEE_FLAT_INR = 499;
@@ -52,8 +53,16 @@ export const OWNER_REFUND_PCT = 50;
 export const OWNER_FEE_GST_PCT = 18;
 
 /** due → (due_50 if the tenant left within 15 days before payment) → paid → (refunded_50 if they left after payment). */
-export type CommissionStatus = "due" | "due_50" | "paid" | "refunded_50";
-export const COMMISSION_STATUSES: CommissionStatus[] = ["due", "due_50", "paid", "refunded_50"];
+export type CommissionStatus = "due" | "due_50" | "paid" | "refunded_50" | "waived";
+export const COMMISSION_STATUSES: CommissionStatus[] = ["due", "due_50", "paid", "refunded_50", "waived"];
+
+/** Owner-side fee for a founding partner (per tenant). */
+export const FOUNDING_FEE_INR = 0;
+
+/** A founding partner's move-in: ₹0, no GST (GST on ₹0 is ₹0). */
+export function foundingCommissionAmounts(rentInr: number): CommissionAmounts {
+  return { rentInr: Math.max(0, Math.round(rentInr)), ratePct: 0, feeInr: 0, gstPct: 0, gstInr: 0, totalInr: FOUNDING_FEE_INR };
+}
 
 const procEnv = (): Env => (typeof process !== "undefined" ? process.env : {});
 
@@ -223,6 +232,7 @@ export function paymentLinkStub(commissionId: string): { mode: "stub"; ref: stri
 
 /** Owner/admin-facing one-liner for a commission row. No GST line when no GST was charged. */
 export function commissionLine(c: { ratePct: number | null; rentInr: number; feeInr: number; gstPct: number; gstInr: number; totalInr: number; founding: boolean }): string {
+  if (!c.ratePct && c.founding && c.totalInr === 0) return "Founding partner: ₹0 for this tenant (no Roomeo fee, no invoice)";
   if (!c.ratePct) return c.gstInr > 0 ? `Flat ₹${c.totalInr} per tenant, GST included (₹${c.feeInr} + ₹${c.gstInr} GST ${c.gstPct}%)` : `Flat ₹${c.totalInr} per tenant`;
   const head = `${c.ratePct}% of ₹${c.rentInr} rent${c.founding ? " (founding partner rate)" : ""} = ₹${c.feeInr}`;
   return c.gstInr > 0 ? `${head} + ₹${c.gstInr} GST (${c.gstPct}%) = ₹${c.totalInr}` : head;
@@ -247,6 +257,9 @@ export function squadBedRentInr(unitRentInr: number, beds: number): number {
 }
 
 export function ownerCommissionNote(a: CommissionAmounts, beds = 1): string {
+  if (!a.ratePct && a.totalInr === 0) {
+    return `Roomeo fee (only you see this): ₹0. You're a Roomeo founding partner, so there's nothing to pay Roomeo for ${beds > 1 ? `these ${beds} tenants` : "this tenant"}. Please don't charge the tenant any brokerage.`;
+  }
   if (!a.ratePct) {
     const incl = a.gstInr > 0 ? ` (GST included: ₹${a.feeInr} + ₹${a.gstInr} GST)` : "";
     const each = beds > 1 ? ` per tenant, for each of the ${beds} tenants (₹${a.totalInr * beds} in all)` : "";

@@ -208,7 +208,7 @@ describe("tenant never sees a Roomeo fee while the tenant fee is off", () => {
     assert.match(t, /Free for tenants: renters pay Roomeo nothing/);
     assert.match(t, /flat fee of ₹499 for each tenant who moves in through Roomeo/);
     assert.doesNotMatch(t, /20% of one month's rent|15% instead of 20%/);
-    assert.match(t, /every later move-in is the flat ₹499, founding partners included/);
+    assert.match(t, /Founding partners, as confirmed by Roomeo in writing, pay ₹0.*no invoice is issued for a ₹0 fee.*every later move-in is the flat ₹499\./);
     assert.match(t, /day 60 counts, day 61 doesn't/);
     assert.match(t, /within 7 days of the move-in being confirmed on Roomeo/);
     assert.match(t, /each tenant, i\.e\. each bed/);
