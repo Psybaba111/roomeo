@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { authClient, signIn } from "@/lib/auth/client";
-import { currentUtm, trackEventBeforeNavigate } from "@/lib/analytics/client";
+import { currentUtm, queueEventForNextPage } from "@/lib/analytics/client";
 import { saveSignupUtm } from "@/lib/analytics/attribution-api";
 import { useSignInProviders } from "@/lib/auth/use-sign-in-providers";
 import { listCities } from "@/lib/roomsetu/public-api";
@@ -65,11 +65,10 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
                 await remember((result.data as { token?: string } | null)?.token);
                 sessionStorage.setItem("roomsetu-extra", JSON.stringify({ mobile, city, intent }));
                 sessionStorage.removeItem("roomsetu-intent");
-                // Wait briefly so the full page load below doesn't drop the GA hit or the UTM save (never more than 1.5 s).
-                await Promise.race([
-                  Promise.all([trackEventBeforeNavigate("sign_up", { method: "email", city: city.trim() }, 1200), saveSignupUtm({ data: currentUtm() }).catch(() => undefined)]),
-                  new Promise((r) => setTimeout(r, 1500)),
-                ]);
+                // finish() does a full page load, which would drop GA's batched hit: the next page sends it.
+                queueEventForNextPage("sign_up", { method: "email", city: city.trim() });
+                // Wait briefly so the page load doesn't cancel the UTM save (never blocks sign-up for more than 1.5 s).
+                await Promise.race([saveSignupUtm({ data: currentUtm() }).catch(() => undefined), new Promise((r) => setTimeout(r, 1500))]);
               } else {
                 const result = await authClient.signIn.email({ email, password });
                 if (result.error) throw new Error(result.error.message || "Could not sign in");

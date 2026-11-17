@@ -4,6 +4,7 @@ import { createPageViewTracker, initialPageFields, installCollectGuard, installG
 import { buildTrackingEnv, trackingConfig } from "@/lib/analytics/config";
 import { installPixel, type PixelDocument, type PixelWindow } from "@/lib/analytics/pixel";
 import { captureFirstTouch } from "@/lib/analytics/utm";
+import { flushPendingEvents } from "@/lib/analytics/events";
 
 // One tracker per page load, shared across remounts so StrictMode can't double count.
 let tracker: ((pathname: string) => boolean) | null = null;
@@ -57,7 +58,8 @@ export function Ga4Analytics() {
           const extra = cfg.ga.internal ? { traffic_type: "internal", debug_mode: true } : {};
           const gtag = installGtag(window as unknown as GaWindow, document as unknown as GaDocument, origin, initialPageFields(firstHref, origin, referrer), cfg.ga.id, extra);
           tracker = createPageViewTracker(gtag, origin, referrer);
-          (window as unknown as { __roomeoGaEvents?: boolean }).__roomeoGaEvents = cfg.ga.events;
+          (window as unknown as { __roomeoGaEvents?: boolean; __roomeoGaInternal?: boolean }).__roomeoGaEvents = cfg.ga.events;
+          (window as unknown as { __roomeoGaInternal?: boolean }).__roomeoGaInternal = cfg.ga.internal;
         }
         if (cfg.pixel) {
           const fbq = installPixel(window as unknown as PixelWindow, document as unknown as PixelDocument, cfg.pixel.id);
@@ -71,6 +73,7 @@ export function Ga4Analytics() {
         }
         const queued = pending.splice(0);
         for (const h of queued.length ? queued : [firstHref]) send(h);
+        flushPendingEvents(); // e.g. sign_up parked by the previous page right before its full page load
       });
     }
     send(router.state.resolvedLocation?.href ?? window.location.pathname + window.location.search);

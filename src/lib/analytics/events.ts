@@ -26,6 +26,7 @@ export type TrackWindow = {
   gtag?: Gtag;
   fbq?: Fbq;
   __roomeoGaEvents?: boolean;
+  __roomeoGaInternal?: boolean;
   __roomeoPixel?: string;
   location?: { pathname: string };
   localStorage?: { getItem: (k: string) => string | null; setItem: (k: string, v: string) => void };
@@ -49,7 +50,7 @@ export function eventParams(p: Record<string, unknown> = {}): Params {
 }
 
 /** Fire one event to whichever trackers are running. Returns where it went (for tests). */
-export function trackEvent(name: TrackEvent, params: Record<string, unknown> = {}, win?: TrackWindow, onGaSent?: () => void): { ga: boolean; pixel: boolean } {
+export function trackEvent(name: TrackEvent, params: Record<string, unknown> = {}, win?: TrackWindow): { ga: boolean; pixel: boolean } {
   const w = win ?? (typeof window === "undefined" ? undefined : (window as unknown as TrackWindow));
   const sent = { ga: false, pixel: false };
   if (!w || !(TRACK_EVENTS as readonly string[]).includes(name)) return sent;
@@ -63,7 +64,8 @@ export function trackEvent(name: TrackEvent, params: Record<string, unknown> = {
   const all = { ...eventParams(params), ...utmParams(readFirstTouch(ls)) };
   try {
     if (w.__roomeoGaEvents && typeof w.gtag === "function") {
-      w.gtag("event", name, onGaSent ? { ...all, transport_type: "beacon", event_callback: onGaSent } : all);
+      // Preview / test traffic: debug_mode so it shows in GA DebugView (traffic_type=internal is set globally).
+      w.gtag("event", name, w.__roomeoGaInternal ? { ...all, debug_mode: true } : all);
       sent.ga = true;
     }
   } catch {
@@ -81,21 +83,65 @@ export function trackEvent(name: TrackEvent, params: Record<string, unknown> = {
   return sent;
 }
 
+/** sessionStorage key for events fired right before a full page load (sent by the next page once GA is up). */
+export const PENDING_EVENTS_KEY = "roomeo_pending_ev";
+type Pending = { name: TrackEvent; params: Params; at: number };
+type SessionStore = { getItem: (k: string) => string | null; setItem: (k: string, v: string) => void; removeItem: (k: string) => void };
+
 /**
- * Same as trackEvent, but resolves once GA has sent the hit (or after `maxMs`), for events fired right before a full
- * page load (e.g. sign-up → window.location.assign), which would otherwise drop GA's batched hit.
+ * For an event fired just before window.location changes (email sign-up): GA batches hits for a few seconds, so a
+ * hit queued right before a full page load is lost. Park it in sessionStorage; the next page sends it once the
+ * trackers are installed (flushPendingEvents). Max 5, dropped after 10 minutes.
  */
-export function trackEventBeforeNavigate(name: TrackEvent, params: Record<string, unknown> = {}, maxMs = 1000, win?: TrackWindow): Promise<{ ga: boolean; pixel: boolean }> {
-  return new Promise((resolve) => {
-    let out = { ga: false, pixel: false };
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      resolve(out);
-    };
-    out = trackEvent(name, params, win, finish);
-    if (!out.ga) finish();
-    else setTimeout(finish, maxMs);
-  });
+export function queueEventForNextPage(name: TrackEvent, params: Record<string, unknown> = {}, store?: SessionStore | null, now = Date.now()): boolean {
+  const s = store ?? (typeof window === "undefined" ? null : safeSession());
+  if (!s || !(TRACK_EVENTS as readonly string[]).includes(name)) return false;
+  try {
+    const list = readPending(s).slice(-4);
+    list.push({ name, params: eventParams(params), at: now });
+    s.setItem(PENDING_EVENTS_KEY, JSON.stringify(list));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Send parked events (called once GA / the Pixel are installed). Returns how many were sent to at least one tracker. */
+export function flushPendingEvents(win?: TrackWindow, store?: SessionStore | null, now = Date.now()): number {
+  const s = store ?? (typeof window === "undefined" ? null : safeSession());
+  if (!s) return 0;
+  const list = readPending(s);
+  try {
+    s.removeItem(PENDING_EVENTS_KEY);
+  } catch {
+    /* ignore */
+  }
+  let n = 0;
+  for (const e of list) {
+    if (now - e.at > 10 * 60_000) continue;
+    const r = trackEvent(e.name, e.params, win);
+    if (r.ga || r.pixel) n++;
+  }
+  return n;
+}
+
+function readPending(s: SessionStore): Pending[] {
+  try {
+    const raw = JSON.parse(s.getItem(PENDING_EVENTS_KEY) || "[]") as unknown;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((e): e is Pending => Boolean(e) && typeof e === "object" && (TRACK_EVENTS as readonly string[]).includes((e as Pending).name) && typeof (e as Pending).at === "number")
+      .map((e) => ({ name: e.name, params: eventParams(e.params as Record<string, unknown>), at: e.at }))
+      .slice(-5);
+  } catch {
+    return [];
+  }
+}
+
+function safeSession(): SessionStore | null {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
 }

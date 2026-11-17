@@ -125,16 +125,22 @@ test("Pixel installs once, no auto PageView, loads fbevents.js once", () => {
   assert.equal(win.__roomeoPixel, "123456789012345");
 });
 
-test("trackEventBeforeNavigate waits for GA's callback (sign-up then full page load), with a cap", async () => {
-  const { trackEventBeforeNavigate } = await import("./events.ts");
-  let cb: (() => void) | undefined;
-  const calls: unknown[][] = [];
-  const w = fakeWin({ __roomeoGaEvents: true, gtag: ((...a: unknown[]) => { calls.push(a); cb = (a[2] as { event_callback?: () => void }).event_callback; }) as TrackWindow["gtag"] });
-  const p = trackEventBeforeNavigate("sign_up", { method: "email" }, 5000, w);
-  assert.equal((calls[0][2] as { transport_type?: string }).transport_type, "beacon");
-  cb?.();
-  assert.deepEqual(await p, { ga: true, pixel: false });
-  // GA never answers → resolves after the cap; GA off → resolves at once.
-  assert.deepEqual(await trackEventBeforeNavigate("sign_up", {}, 20, fakeWin({ __roomeoGaEvents: true, gtag: (() => {}) as TrackWindow["gtag"] })), { ga: true, pixel: false });
-  assert.deepEqual(await trackEventBeforeNavigate("sign_up", {}, 5000, fakeWin()), { ga: false, pixel: false });
+test("an event parked before a full page load is sent by the next page, once, with UTM; stale ones are dropped", async () => {
+  const { queueEventForNextPage, flushPendingEvents, PENDING_EVENTS_KEY } = await import("./events.ts");
+  const m = new Map<string, string>();
+  const ss = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) };
+  const t0 = Date.parse("2026-11-17T07:00:00Z");
+  assert.equal(queueEventForNextPage("sign_up", { method: "email", city: "Bengaluru", email: "zz@example.com" }, ss, t0), true);
+  assert.doesNotMatch(m.get(PENDING_EVENTS_KEY) ?? "", /example\.com/, "no PII parked");
+  const off = fakeWin();
+  assert.equal(flushPendingEvents(off, ss, t0 + 1000), 0, "trackers off: nothing sent (and the queue is cleared)");
+  queueEventForNextPage("sign_up", { method: "email", city: "Bengaluru" }, ss, t0);
+  const w = fakeWin({ __roomeoGaEvents: true, __roomeoGaInternal: true });
+  assert.equal(flushPendingEvents(w, ss, t0 + 2000), 1);
+  assert.deepEqual(w.gaCalls[0], ["event", "sign_up", { method: "email", city: "Bengaluru", utm_source: "instagram", utm_medium: "paid", utm_campaign: "blr_launch", debug_mode: true }]);
+  assert.equal(flushPendingEvents(w, ss, t0 + 3000), 0, "sent once");
+  queueEventForNextPage("sign_up", {}, ss, t0);
+  assert.equal(flushPendingEvents(w, ss, t0 + 11 * 60_000), 0, "older than 10 minutes: dropped");
+  m.set(PENDING_EVENTS_KEY, "{broken");
+  assert.equal(flushPendingEvents(w, ss, t0), 0);
 });
