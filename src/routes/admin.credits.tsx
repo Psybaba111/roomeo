@@ -23,6 +23,14 @@ type Data = Awaited<ReturnType<typeof adminCredits>>;
 const input = "h-11 w-full min-w-0 rounded-full border border-line bg-transparent px-4 text-sm";
 const btn = "h-11 rounded-full border border-line px-4 text-sm font-semibold disabled:opacity-40";
 
+
+/** "17 Nov 2026, 10:40 pm IST" from a timestamptz string. */
+function istStamp(at: string): string {
+  const d = new Date(at.includes("T") || at.includes("+") ? at : at.replace(" ", "T") + "Z");
+  if (Number.isNaN(d.getTime())) return at;
+  return `${d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })} IST`;
+}
+
 function Credits() {
   const { user } = useCurrentUserState();
   const [data, setData] = useState<Data | null>(null);
@@ -34,7 +42,6 @@ function Credits() {
   const load = () => void adminCredits().then(setData).catch((e) => setError(errText(e)));
   useEffect(() => {
     if (user) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
   function run(key: string, p: Promise<unknown>, done: string) {
     setError("");
@@ -86,7 +93,7 @@ function Credits() {
               <span>₹{c.amountInr} · used ₹{c.usedInr} · left ₹{c.remainingInr}</span>
             </div>
             <p className="mt-1 text-muted">
-              Pair: {c.referrerName} → {c.friendName} · issued {readableDate(c.createdAt.slice(0, 10))} by {c.issuedBy}
+              Pair: {c.referrerName} → {c.friendName} · issued {istStamp(c.createdAt)} by {c.issuedBy}
               {c.note ? ` · ${c.note}` : ""}
               {c.voidedAt ? ` · void ${readableDate(c.voidedAt.slice(0, 10))}: ${c.voidReason}` : ""}
             </p>
@@ -107,7 +114,7 @@ function Credits() {
       <ul className="mt-3 space-y-1 text-xs" data-testid="credit-events">
         {(data?.events ?? []).map((e) => (
           <li key={e.id} className="border-b border-line py-1">
-            {e.created_at.slice(0, 16)} · {e.entity} {e.action}{e.amount_inr != null ? ` ₹${e.amount_inr}` : ""} · by {e.actor_id} {e.note ? `· ${e.note}` : ""}
+            {istStamp(e.created_at)} · {e.entity} {e.action}{e.amount_inr != null ? ` ₹${e.amount_inr}` : ""} · by {e.actor_id} {e.note ? `· ${e.note}` : ""}
           </li>
         ))}
       </ul>
