@@ -8,6 +8,7 @@ import {
   canRefund50,
   commissionDueOn,
   flatCommissionAmounts,
+  foundingCommissionAmounts,
   ownerFeeFlatInr,
   defaultFoundingUntil,
   earlyExitDueInr,
@@ -109,7 +110,7 @@ async function stayRent(sql: Sql, tenantId: string, listingId: string, squadRequ
 
 export type CreateResult =
   | { created: true; id: string; tenantId: string; ratePct: number; feeInr: number; gstInr: number; totalInr: number; dueOn: string; founding: boolean }
-  | { created: false; tenantId?: string; reason: "off" | "exists" | "not_confirmed" | "no_enquiry" | "outside_window" | "no_rent"; days?: number | null };
+  | { created: false; tenantId?: string; reason: "off" | "exists" | "not_confirmed" | "no_enquiry" | "outside_window" | "no_rent" | "founding"; days?: number | null };
 
 /** One commission row for one tenant (one bed). Idempotent on `key`. */
 async function createOne(
@@ -125,8 +126,9 @@ async function createOne(
   if (!att.ok) return { created: false, tenantId: d.tenantId, reason: "outside_window", days: att.days };
   const rent = d.rentInr ?? (await stayRent(sql, d.tenantId, d.listingId, d.squadRequestId));
   if (!(rent > 0)) return { created: false, tenantId: d.tenantId, reason: "no_rent" };
-  // Flat ₹499 all-in per tenant (17 Nov 2026). The founding flag is still recorded; it no longer changes the price.
+  // Flat ₹499 all-in per tenant (17 Nov 2026); founding partners pay ₹0 (recorded as a 'waived' row).
   const rate = rateFor(await hostSetting(sql, d.ownerId), moveInOn);
+  if (rate.founding) return createWaived(sql, d, { first, moveInOn, days: att.days ?? 0, rent });
   const amt = flatCommissionAmounts(rent, ownerFeeGstPct(), ownerFeeFlatInr());
   const id = crypto.randomUUID();
   const link = paymentLinkStub(id);
@@ -141,6 +143,43 @@ async function createOne(
   await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${d.ownerId}, 'application', 'Roomeo fee due',
     ${`A tenant moved in through Roomeo. Roomeo's flat fee ${amount}, due by ${dueOn}. Roomeo will send a payment link.`}, '/owner-fees')`;
   return { created: true, id, tenantId: d.tenantId, ratePct: 0, feeInr: amt.feeInr, gstInr: amt.gstInr, totalInr: amt.totalInr, dueOn, founding: rate.founding };
+}
+
+/** True once migration 0031 lets owner_commissions hold ₹0 'waived' rows. */
+export async function waivedRowsSupported(sql: Sql): Promise<boolean> {
+  const r = await sql<{ ok: boolean }>`select exists (select 1 from pg_constraint where conname = 'owner_commissions_status_waived_check') as ok`;
+  return Boolean(r[0]?.ok);
+}
+
+/** Founding partner: ₹0 row, status 'waived', nothing due, no payment link, no invoice. */
+async function createWaived(
+  sql: Sql,
+  d: { key: string; squadMoveInId: string | null; listingId: string; ownerId: string; tenantId: string },
+  m: { first: string; moveInOn: string; days: number; rent: number },
+): Promise<CreateResult> {
+  // Without 0031 a ₹0 row would break the table's checks: record nothing (the owner still owes nothing).
+  if (!(await waivedRowsSupported(sql))) return { created: false, tenantId: d.tenantId, reason: "founding" };
+  const amt = foundingCommissionAmounts(m.rent);
+  const id = crypto.randomUUID();
+  const ins = await sql<{ id: string }>`insert into owner_commissions (id, move_in_id, squad_move_in_id, listing_id, owner_id, tenant_id, first_enquiry_at, move_in_on, attribution_days, rent_inr, rate_pct, fee_model, founding_rate,
+      fee_inr, gst_pct, gst_inr, total_inr, amount_due_inr, basis_on, due_on, status, payment_link_mode, payment_link_ref)
+    values (${id}, ${d.key}, ${d.squadMoveInId}, ${d.listingId}, ${d.ownerId}, ${d.tenantId}, ${m.first}::timestamptz, ${m.moveInOn}::date, ${m.days}, ${m.rent}, ${null}, 'flat', ${true},
+      0, 0, 0, 0, 0, ${m.moveInOn}::date, ${m.moveInOn}::date, 'waived', 'none', '')
+    on conflict (move_in_id) do nothing returning id`;
+  if (!ins.length) return { created: false, tenantId: d.tenantId, reason: "exists" };
+  await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${d.ownerId}, 'application', 'No Roomeo fee: founding partner',
+    ${"A tenant moved in through Roomeo. You're a founding partner, so the Roomeo fee is ₹0. Nothing to pay."}, '/owner-fees')`;
+  return { created: true, id, tenantId: d.tenantId, ratePct: 0, feeInr: amt.feeInr, gstInr: 0, totalInr: 0, dueOn: m.moveInOn, founding: true };
+}
+
+/** Is this host a founding partner today (owner-only copy)? Missing tables → false. */
+export async function hostFoundingNow(sql: Sql, ownerId: string, today: string = istYmd(new Date())): Promise<boolean> {
+  try {
+    return rateFor(await hostSetting(sql, ownerId), today).founding;
+  } catch (err) {
+    if (isMissingCommissionTable(err)) return false;
+    throw err;
+  }
 }
 
 /**

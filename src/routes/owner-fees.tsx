@@ -18,7 +18,7 @@ export const Route = createFileRoute("/owner-fees")({
   ),
 });
 
-const LABEL: Record<string, string> = { due: "Due", due_50: "Tenant left early · 50% due", paid: "Paid", refunded_50: "50% refunded" };
+const LABEL: Record<string, string> = { due: "Due", due_50: "Tenant left early · 50% due", paid: "Paid", refunded_50: "50% refunded", waived: "₹0 · founding partner" };
 
 function OwnerFees() {
   const { user } = useCurrentUserState();
@@ -34,7 +34,7 @@ function OwnerFees() {
       <h1 className="font-display text-4xl">Roomeo commissions</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted">
         {v?.on
-          ? `Listing is free. You pay Roomeo a flat ₹${v.flatInr}${v.gstPct ? ` (GST included)` : ""} only for a tenant who moves in within ${v.attributionDays} days of their first Roomeo enquiry (each bed counts, squads too). It's due within ${v.dueDays} days of the move-in. If the tenant leaves within ${v.refundDays} days, you pay only ${v.refundPct}%. Please don't charge Roomeo tenants any brokerage.`
+          ? `Listing is free. You pay Roomeo a flat ₹${v.flatInr}${v.gstPct ? ` (GST included)` : ""} (₹0 for founding partners) only for a tenant who moves in within ${v.attributionDays} days of their first Roomeo enquiry (each bed counts, squads too). It's due within ${v.dueDays} days of the move-in. If the tenant leaves within ${v.refundDays} days, you pay only ${v.refundPct}%. Please don't charge Roomeo tenants any brokerage.`
           : "Roomeo doesn't charge owners a commission right now."}
       </p>
       {error ? <p className="mt-3 text-danger" role="alert">{error}</p> : null}

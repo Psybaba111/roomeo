@@ -139,7 +139,7 @@ export function pricingCopy(f: FeeView, trial: { feeInr: number; windowDays: num
       tagline: [`${FREE_TENANTS}.`, "Not a broker's month."],
       faq: [
         o.on
-          ? ["What does Roomeo cost?", `Nothing for tenants. Searching, chatting, squads and locking a bed are free. Owners list free and pay Roomeo a flat ₹${o.flatInr} per tenant${o.gstPct ? ` (${o.gstPct}% GST included, shown separately on the invoice)` : ""} only for a tenant who moves in within ${o.attributionDays} days of their first Roomeo enquiry. It's due within ${o.dueDays} days of the tenant's deposit or first rent, by a Razorpay payment link.`]
+          ? ["What does Roomeo cost?", `Nothing for tenants. Searching, chatting, squads and locking a bed are free. Owners list free and pay Roomeo a flat ₹${o.flatInr} per tenant${o.gstPct ? ` (${o.gstPct}% GST included, shown separately on the invoice)` : ""}, ₹0 for founding partners, only for a tenant who moves in within ${o.attributionDays} days of their first Roomeo enquiry. It's due within ${o.dueDays} days of the tenant's deposit or first rent, by a Razorpay payment link.`]
           : ["What does Roomeo cost?", "Nothing right now. Searching, chatting, squads, listing and locking a bed are free while we pilot. If that ever changes, the price is shown with GST before anyone signs or pays, and it never applies to a stay that's already confirmed."],
         ...(o.on
           ? ([

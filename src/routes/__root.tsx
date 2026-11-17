@@ -6,6 +6,7 @@ import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import { SHARE_DESCRIPTION } from "@/lib/seo";
 import { NotFoundPage } from "@/components/not-found";
 import { Ga4Analytics } from "@/components/ga4-analytics";
+import { ConsentBanner } from "@/components/consent-banner";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -33,6 +34,7 @@ export const Route = createRootRoute({
       <body>
         <PreviewHostBridge />
         <Ga4Analytics />
+        <ConsentBanner />
         <AuthProvider>
           <Outlet />
         </AuthProvider>

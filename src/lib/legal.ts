@@ -2,6 +2,8 @@
 import { FEE_OFF, FREE_TENANTS, ownerOf, type FeeView } from "./roomsetu/fee-copy.ts";
 
 export const LEGAL_UPDATED = "29 Oct 2026";
+/** Privacy policy: cookie-choice section added 17 Nov 2026. */
+export const PRIVACY_UPDATED = "17 Nov 2026";
 /**
  * Terms date shown only while the owner-fee model is live (OWNER_FEE_ENABLED on, tenant fee off): that copy
  * is different, so it carries its own date. ROHITH TO CONFIRM before switching the owner fee on.
@@ -73,7 +75,8 @@ export const PRIVACY: LegalSection[] = [
     `Grievance: complain to us first (details below). Email ${OPERATOR.email} for any of these.`,
   ] },
   { id: "cookies", title: "Cookies", body: [
-    "We use cookies only to keep you signed in and secure your session. No advertising cookies, no third-party trackers. Blocking them means you can't stay signed in.",
+    "Essential cookies keep you signed in and secure your session. Blocking them means you can't stay signed in.",
+    "Analytics (Google Analytics) sets cookies only if you tap Accept on our cookie banner. If you tap Reject, or don't choose, it sets no cookies and sends only anonymous, cookieless counts. Ad tracking (like the Meta Pixel) never runs without your Accept. Change your choice any time with Cookie settings at the bottom of any page.",
   ] },
   { id: "kids", title: "Age", body: ["Roomeo is for people 18 and over. We don't knowingly collect data from children."] },
   { id: "grievance", title: "Grievance Officer", body: grievance },
@@ -113,7 +116,7 @@ export function termsFor(fee: FeeView): LegalSection[] {
             `${FREE_TENANTS}: renters pay Roomeo nothing, ever, to search, chat, lock a bed or move in.`,
             `Owners pay Roomeo a flat fee of ₹${o.flatInr} for each tenant who moves in through Roomeo (for a squad, for each tenant, i.e. each bed). ${o.gstPct ? `The ₹${o.flatInr} includes GST at ${o.gstPct}%, shown as a separate line on the invoice; nothing is added on top.` : `No GST is charged on it at present; if that changes, the ₹${o.flatInr} will stay all-in and only apply to move-ins after we tell you.`} A tenant counts as coming through Roomeo when they move in within ${o.attributionDays} days of their first Roomeo enquiry to that owner (the enquiry day is day 0; day ${o.attributionDays} counts, day ${o.attributionDays + 1} doesn't).`,
             `The commission is due within ${o.dueDays} days of the move-in being confirmed on Roomeo, by a Razorpay payment link Roomeo sends. Amounts are rounded to the nearest rupee. The tenant never sees or pays the owner's commission.`,
-            `Owners who agreed a percentage commission before 17 Nov 2026 keep what they already owe for move-ins before that date; every later move-in is the flat ₹${o.flatInr}, founding partners included.`,
+            `Founding partners, as confirmed by Roomeo in writing, pay ₹0 on move-ins up to the end date we tell them; no invoice is issued for a ₹0 fee. Owners who agreed a percentage commission before 17 Nov 2026 keep what they already owe for move-ins before that date; every later move-in is the flat ₹${o.flatInr}.`,
             "Owners must not charge a Roomeo tenant any brokerage, finder's fee or similar charge. Doing so can get the listing removed and the account closed.",
           ]
         : fee.on

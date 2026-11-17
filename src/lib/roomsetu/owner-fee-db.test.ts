@@ -23,6 +23,8 @@ import {
   recordCommissionRefund,
   recordEarlyExit,
   setFoundingPartner,
+  hostFoundingNow,
+  waivedRowsSupported,
   createCommissionsForSquadMoveIn,
   commissionsOnSquadMoveIn,
   withCommissionTables,
@@ -221,7 +223,7 @@ describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
     assert.equal((await allCommissions(sql)).length, 2);
   }));
 
-  test("founding host is recorded but pays the same flat ₹499 (no 15% rate since 17 Nov 2026)", () => withEnv(MODEL, async () => {
+  test("founding host pays ₹0: a 'waived' row, nothing due, no payment link; after the end date the flat ₹499 applies", () => withEnv(MODEL, async () => {
     const { pg, sql } = await testDb();
     await person(pg, "zz-owner-2", "ZZ TEST Founding Owner", "LISTING");
     await person(pg, "zz-tenant-2", "ZZ TEST Tenant Two");
@@ -235,9 +237,20 @@ describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
     assert.ok(c);
     assert.equal(c.ratePct, 0);
     assert.equal(c.founding, true);
-    assert.equal(c.feeInr, 499);
+    assert.equal(c.feeInr, 0);
     assert.equal(c.gstInr, 0);
-    assert.equal(c.totalInr, 499);
+    assert.equal(c.totalInr, 0);
+    assert.equal(c.amountDueInr, 0);
+    assert.equal(c.status, "waived");
+    const raw = (await pg.query<{ payment_link_mode: string; payment_link_ref: string }>(`select payment_link_mode, payment_link_ref from owner_commissions where id = $1`, [c.id])).rows[0];
+    assert.equal(raw.payment_link_mode, "none", "no payment link / invoice for ₹0");
+    assert.equal(raw.payment_link_ref, "");
+    const note = (await pg.query<{ title: string; body: string }>(`select title, body from notifications where user_id = 'zz-owner-2' and href = '/owner-fees'`)).rows;
+    assert.equal(note.length, 1);
+    assert.match(note[0].title, /founding partner/i);
+    assert.doesNotMatch(note[0].body, /due by|payment link|₹499/);
+    assert.equal(await hostFoundingNow(sql, "zz-owner-2"), true);
+    await assert.rejects(markCommissionPaid(sql, c.id, "zz-admin", today, "ZZ"), /Only a due commission/);
     // Founding period over (ended yesterday) → next move-in is 20%. Past end dates can't be set through the admin path.
     await assert.rejects(setFoundingPartner(sql, "zz-owner-2", "zz-admin", { on: true, until: addDays(today, -1) }), /in the past/);
     await pg.query(`update host_fee_settings set founding_until = $1::date where owner_id = 'zz-owner-2'`, [addDays(today, -1)]);
@@ -247,6 +260,36 @@ describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
     assert.equal(second.commission?.ratePct, 0);
     assert.equal(second.commission?.founding, false);
     assert.equal(second.commission?.feeInr, 499);
+  }));
+
+  test("founding ₹0 without migration 0031: no row is written (owner still owes nothing)", () => withEnv(MODEL, async () => {
+    const { pg, sql } = await testDb();
+    await pg.exec(`alter table owner_commissions drop constraint owner_commissions_status_waived_check`);
+    assert.equal(await waivedRowsSupported(sql), false);
+    await person(pg, "zz-owner-w", "ZZ TEST Founding Owner W", "LISTING");
+    await person(pg, "zz-tenant-w", "ZZ TEST Tenant W");
+    await listing(pg, "ZZLW", "zz-owner-w", 6999);
+    await setFoundingPartner(sql, "zz-owner-w", "zz-admin", { on: true });
+    const { commission } = await flow(pg, sql, { owner: "zz-owner-w", tenant: "zz-tenant-w", listingId: "ZZLW", rent: 6999, enquiryDaysAgo: 2 });
+    assert.equal(commission, null);
+  }));
+
+  test("0031 leaves existing rows unchanged, rejects ₹0 rows that aren't 'waived', and is safe to re-run", () => withEnv(MODEL, async () => {
+    const { pg, sql } = await testDb();
+    await person(pg, "zz-owner-x", "ZZ TEST Owner X", "LISTING");
+    await person(pg, "zz-tenant-x", "ZZ TEST Tenant X");
+    await listing(pg, "ZZLX", "zz-owner-x", 5999);
+    const { commission: c } = await flow(pg, sql, { owner: "zz-owner-x", tenant: "zz-tenant-x", listingId: "ZZLX", rent: 5999, enquiryDaysAgo: 4 });
+    assert.ok(c);
+    const before = (await pg.query(`select * from owner_commissions order by id`)).rows;
+    const { readFileSync } = await import("node:fs");
+    const { migrationsDir } = await import("./pgtest.ts");
+    await pg.exec(readFileSync(new URL("0031_founding_waived.sql", migrationsDir), "utf8"));
+    assert.deepEqual((await pg.query(`select * from owner_commissions order by id`)).rows, before, "re-run changes nothing");
+    assert.equal(c.status, "due");
+    assert.equal(c.totalInr, 499);
+    await assert.rejects(pg.query(`update owner_commissions set fee_inr = 0, total_inr = 0, amount_due_inr = 0 where id = $1`, [c.id]), /check/i);
+    await assert.rejects(pg.query(`update owner_commissions set status = 'bogus' where id = $1`, [c.id]), /check/i);
   }));
 
   test("attribution window: day 59 and 60 create a commission, day 61 doesn't", () => withEnv(MODEL, async () => {

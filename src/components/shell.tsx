@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { CookieSettingsLink } from "@/components/consent-banner";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { BookmarkSimple as Bookmark, Tray, House as Home, ChatCircle as MessageCircle, MagnifyingGlass as Search, UserCircle as UserRound, UsersThree as Users } from "@phosphor-icons/react";
 import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
@@ -109,6 +110,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <Link to="/privacy" className="hover:underline">Privacy</Link>
           <Link to="/terms" className="hover:underline">Terms</Link>
           <Link to="/pricing" className="hover:underline">Pricing</Link>
+          <CookieSettingsLink />
           <a
             href="https://wa.me/919380219117"
             target="_blank"

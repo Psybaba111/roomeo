@@ -165,7 +165,15 @@ export function initialPageFields(href: string, origin: string, referrer: string
 }
 
 /** `extra` is merged into the global `set` (e.g. traffic_type / debug_mode on preview hosts). */
-export function installGtag(win: GaWindow, doc: GaDocument, origin: string, initial?: PageFields, id: string = GA_MEASUREMENT_ID, extra: Record<string, unknown> = {}): Gtag {
+export function installGtag(
+  win: GaWindow,
+  doc: GaDocument,
+  origin: string,
+  initial?: PageFields,
+  id: string = GA_MEASUREMENT_ID,
+  extra: Record<string, unknown> = {},
+  consent?: Record<string, "granted" | "denied">,
+): Gtag {
   if (win.__roomeoGa4 && win.gtag) return win.gtag;
   win.dataLayer = win.dataLayer || [];
   const gtag: Gtag =
@@ -178,6 +186,11 @@ export function installGtag(win: GaWindow, doc: GaDocument, origin: string, init
   win.gtag = gtag;
   // Never let GA read the raw URL / title / referrer (could hold ids or query strings).
   const fields = initial ?? { page_location: `${origin}/`, page_title: "roomeo", page_referrer: "" };
+  // Consent Mode v2 defaults must be the very first command (see consent.ts).
+  if (consent) {
+    gtag("consent", "default", consent);
+    gtag("set", "ads_data_redaction", true);
+  }
   // MUST be queued before 'js'/'config': the auto-configured Google tag fires its
   // page-load page_view from global `set` fields only (config params are ignored for it).
   gtag("set", { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, ...fields, ...extra });
