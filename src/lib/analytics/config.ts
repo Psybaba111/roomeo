@@ -42,8 +42,9 @@ export function trackingConfig(env: TrackingEnv, hostname: string): TrackingConf
   const rawPixel = String(env.pixelId ?? "").trim();
   let ga: TrackingConfig["ga"] = null;
   if (!rawGa) {
-    // Unset: exactly today's behaviour (legacy id, page views only, never on branch previews).
-    if (prodHost) ga = { id: GA_MEASUREMENT_ID, events: false, internal: false };
+    // Unset: today's behaviour (legacy id, page views only, never on branch previews). A Preview build opened on its
+    // hash URL is now tagged internal so it can be filtered out; Production builds are unchanged (internal false).
+    if (prodHost) ga = { id: GA_MEASUREMENT_ID, events: false, internal };
   } else if (GA_ID.test(rawGa.toUpperCase())) {
     ga = { id: rawGa.toUpperCase(), events: true, internal };
   }

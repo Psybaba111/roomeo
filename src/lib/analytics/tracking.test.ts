@@ -14,6 +14,8 @@ describe("tracking config: empty env is a no-op (prod unchanged)", () => {
   test("no GA / Pixel env on the prod host → exactly today's GA (legacy id, page views only), no Pixel", () => {
     assert.deepEqual(trackingConfig({ prodBuild: true }, PROD), { ga: { id: GA_MEASUREMENT_ID, events: false, internal: false }, pixel: null });
     assert.deepEqual(trackingConfig({ prodBuild: true, gaId: "", pixelId: "  " }, PROD).pixel, null);
+    assert.deepEqual(trackingConfig({ prodBuild: true, deployEnv: "production" }, PROD).ga, { id: GA_MEASUREMENT_ID, events: false, internal: false });
+    assert.equal(trackingConfig({ prodBuild: true, deployEnv: "preview" }, "roomeo-abc123-psybaba111s-projects.vercel.app").ga?.internal, true, "preview hash URLs are tagged internal");
   });
   test("dev builds, localhost and branch previews without the env load nothing", () => {
     assert.deepEqual(trackingConfig({ prodBuild: false, gaId: "G-MY0R3B2T7T", pixelId: "123456789012345" }, PROD), TRACKING_OFF);
