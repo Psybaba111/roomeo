@@ -124,3 +124,17 @@ test("Pixel installs once, no auto PageView, loads fbevents.js once", () => {
   assert.deepEqual(q.map((a) => a[0]), ["set", "init"]);
   assert.equal(win.__roomeoPixel, "123456789012345");
 });
+
+test("trackEventBeforeNavigate waits for GA's callback (sign-up then full page load), with a cap", async () => {
+  const { trackEventBeforeNavigate } = await import("./events.ts");
+  let cb: (() => void) | undefined;
+  const calls: unknown[][] = [];
+  const w = fakeWin({ __roomeoGaEvents: true, gtag: ((...a: unknown[]) => { calls.push(a); cb = (a[2] as { event_callback?: () => void }).event_callback; }) as TrackWindow["gtag"] });
+  const p = trackEventBeforeNavigate("sign_up", { method: "email" }, 5000, w);
+  assert.equal((calls[0][2] as { transport_type?: string }).transport_type, "beacon");
+  cb?.();
+  assert.deepEqual(await p, { ga: true, pixel: false });
+  // GA never answers → resolves after the cap; GA off → resolves at once.
+  assert.deepEqual(await trackEventBeforeNavigate("sign_up", {}, 20, fakeWin({ __roomeoGaEvents: true, gtag: (() => {}) as TrackWindow["gtag"] })), { ga: true, pixel: false });
+  assert.deepEqual(await trackEventBeforeNavigate("sign_up", {}, 5000, fakeWin()), { ga: false, pixel: false });
+});

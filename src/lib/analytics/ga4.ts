@@ -187,6 +187,7 @@ export function installGtag(win: GaWindow, doc: GaDocument, origin: string, init
     allow_google_signals: false,
     allow_ad_personalization_signals: false,
     ...fields,
+    ...extra,
   });
   const src = gaScriptSrc(id);
   if (!doc.querySelector(`script[src="${src}"]`)) {

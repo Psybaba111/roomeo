@@ -49,7 +49,7 @@ export function eventParams(p: Record<string, unknown> = {}): Params {
 }
 
 /** Fire one event to whichever trackers are running. Returns where it went (for tests). */
-export function trackEvent(name: TrackEvent, params: Record<string, unknown> = {}, win?: TrackWindow): { ga: boolean; pixel: boolean } {
+export function trackEvent(name: TrackEvent, params: Record<string, unknown> = {}, win?: TrackWindow, onGaSent?: () => void): { ga: boolean; pixel: boolean } {
   const w = win ?? (typeof window === "undefined" ? undefined : (window as unknown as TrackWindow));
   const sent = { ga: false, pixel: false };
   if (!w || !(TRACK_EVENTS as readonly string[]).includes(name)) return sent;
@@ -63,7 +63,7 @@ export function trackEvent(name: TrackEvent, params: Record<string, unknown> = {
   const all = { ...eventParams(params), ...utmParams(readFirstTouch(ls)) };
   try {
     if (w.__roomeoGaEvents && typeof w.gtag === "function") {
-      w.gtag("event", name, all);
+      w.gtag("event", name, onGaSent ? { ...all, transport_type: "beacon", event_callback: onGaSent } : all);
       sent.ga = true;
     }
   } catch {
@@ -79,4 +79,23 @@ export function trackEvent(name: TrackEvent, params: Record<string, unknown> = {
     /* ignore */
   }
   return sent;
+}
+
+/**
+ * Same as trackEvent, but resolves once GA has sent the hit (or after `maxMs`), for events fired right before a full
+ * page load (e.g. sign-up → window.location.assign), which would otherwise drop GA's batched hit.
+ */
+export function trackEventBeforeNavigate(name: TrackEvent, params: Record<string, unknown> = {}, maxMs = 1000, win?: TrackWindow): Promise<{ ga: boolean; pixel: boolean }> {
+  return new Promise((resolve) => {
+    let out = { ga: false, pixel: false };
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve(out);
+    };
+    out = trackEvent(name, params, win, finish);
+    if (!out.ga) finish();
+    else setTimeout(finish, maxMs);
+  });
 }
