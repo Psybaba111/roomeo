@@ -66,7 +66,8 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
                 sessionStorage.setItem("roomsetu-extra", JSON.stringify({ mobile, city, intent }));
                 sessionStorage.removeItem("roomsetu-intent");
                 trackEvent("sign_up", { method: "email", city: city.trim() });
-                void saveSignupUtm({ data: currentUtm() }).catch(() => undefined);
+                // Wait briefly so the page change below doesn't cancel it (never blocks sign-up for more than 1.5 s).
+                await Promise.race([saveSignupUtm({ data: currentUtm() }).catch(() => undefined), new Promise((r) => setTimeout(r, 1500))]);
               } else {
                 const result = await authClient.signIn.email({ email, password });
                 if (result.error) throw new Error(result.error.message || "Could not sign in");
