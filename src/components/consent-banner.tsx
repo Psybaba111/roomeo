@@ -47,9 +47,10 @@ export function ConsentBanner() {
       data-testid="consent-banner"
       className="fixed inset-x-2 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-xl rounded-2xl border border-line bg-card p-3 shadow-lg md:bottom-4"
     >
-      <p className="text-sm">
-        We use essential cookies to keep you signed in.{tracked ? " With your OK, we also use analytics cookies (Google Analytics) to learn which pages help people find a bed." : ""} No ad tracking
-        without your OK. Change this any time under Cookie settings.{" "}
+      {/* Two short lines (not one big block) so the banner never becomes the page's Largest Contentful Paint. */}
+      <p className="text-sm font-semibold">Cookies: your choice</p>
+      <p className="text-xs text-muted">
+        Essential ones keep you signed in.{tracked ? " Analytics cookies only if you Accept." : ""} No ad tracking without it. Change it any time in Cookie settings.{" "}
         <a href="/privacy#cookies" className="font-semibold text-brand underline-offset-4 hover:underline">
           Privacy
         </a>
