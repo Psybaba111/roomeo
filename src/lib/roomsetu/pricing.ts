@@ -84,12 +84,13 @@ export function pricingConfig(env: Env = procEnv()): PricingConfig {
     boostInr: int(env, "ROOMEO_BOOST_INR", 199, 1, 100000),
     boostDays: int(env, "ROOMEO_BOOST_DAYS", 7, 1, 90),
     fastTrackInr: int(env, "ROOMEO_FAST_TRACK_INR", 149, 1, 100000),
-    // Flat ₹499 per side, fixed (not env-tunable). OFF by default. Read through tenantFeeSetting():
+    // Flat ₹499 per side, GST included (ROOMEO_SUCCESS_FEE_INR overrides). OFF by default. Read through tenantFeeSetting():
     // ROOMEO_TENANT_FEE_ENABLED when set, else the legacy ROOMEO_FEE_ENABLED (so prod is unchanged on merge).
     successFeeEnabled: tenantFeeSetting(env).enabled,
     tenantFeeSource: tenantFeeSetting(env).source,
-    successFeeTenantInr: SUCCESS_FEE_INR,
-    successFeeOwnerInr: SUCCESS_FEE_INR,
+    // All-in amounts, GST included (₹499 = ₹422.88 + ₹76.12 GST). Same for both sides.
+    successFeeTenantInr: successFeeInr(env),
+    successFeeOwnerInr: successFeeInr(env),
     paidChatEnabled: flag(env, "ROOMEO_PAID_CHAT_ENABLED", false),
     boostsEnabled: flag(env, "ROOMEO_BOOSTS_ENABLED", false),
     fastTrackEnabled: flag(env, "ROOMEO_FAST_TRACK_ENABLED", false),
@@ -192,14 +193,24 @@ export function squadSuccessShareInr(tenantFeeInr: number, members: number): num
 export const REFUND_PROMISE =
   "If every owner you contact with a pass declines or does not reply within 48 hours, the full pass price goes back to your UPI ID.";
 
-/** One-time fee per side, per person, per stay (Rohith, 2026-10-31). Replaces the old ₹999. */
+/**
+ * One-time fee per side, per person, per stay. ALL-IN, GST included (Rohith, 17 Nov 2026: "₹499 all-in including
+ * GST"): ₹499 = ₹422.88 + ₹76.12 GST. Until 17 Nov it was ₹499 + 18% GST = ₹589 (LEGACY_SUCCESS_FEE_TOTAL_INR);
+ * payments already created at ₹589 keep that amount and their invoices.
+ * Config-driven: ROOMEO_SUCCESS_FEE_INR (whole rupees, GST included, 1..100000) overrides the default.
+ */
 export const SUCCESS_FEE_INR = 499;
+export const LEGACY_SUCCESS_FEE_BASE_INR = 499;
+export const LEGACY_SUCCESS_FEE_TOTAL_INR = 589;
 
-/** Shown before anyone signs or pays, so nobody is surprised. */
+export function successFeeInr(env: Env = procEnv()): number {
+  return int(env, "ROOMEO_SUCCESS_FEE_INR", SUCCESS_FEE_INR, 1, 100000);
+}
+
+/** Shown before anyone signs or pays, so nobody is surprised. `feeInr` is the all-in amount (GST included). */
 export function successFeeHeadsUp(feeInr: number, role: "tenant" | "owner"): string {
-  const total = Math.round(feeInr * 1.18);
   const other = role === "tenant" ? "the owner" : "the tenant";
-  return `Heads up: once you and ${other} both sign, it's a one-time ₹${feeInr} + 18% GST (₹${total}) success fee, paid before move in. Refunded only if the tenant moves out within 7 days of paying. No cut of the rent, ever.`;
+  return `Heads up: once you and ${other} both sign, it's a one-time ₹${feeInr} success fee (18% GST included), paid before move in. Refunded only if the tenant moves out within 7 days of paying. No cut of the rent, ever.`;
 }
 
 /** A fee payment counts for this deal only if it was made after this deal was confirmed. */

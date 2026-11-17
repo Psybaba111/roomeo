@@ -2,12 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
-import { agreementBody, agreementState, feeBreakdownText, feeWithGst, refundableOnVacate, refundDeadline, validSignName } from "./deal-agreement.ts";
+import { agreementBody, agreementState, feeBreakdownText, feeWithGst, legacyFeeBreakdownText, refundableOnVacate, refundDeadline, validSignName } from "./deal-agreement.ts";
 import { cancelAgreement, recordVacate, signAgreement } from "./agreement-db.ts";
 
 test("₹999 + 18% GST = ₹1,178.82, charged ₹1,179", () => {
   assert.deepEqual(feeWithGst(999), { base: 999, gst: 179.82, exact: 1178.82, total: 1179 });
-  assert.match(feeBreakdownText(999), /₹999 \+ ₹179\.82 GST \(18%\) = ₹1178\.82, rounded to ₹1179/);
+  assert.match(legacyFeeBreakdownText(999), /₹999 \+ ₹179\.82 GST \(18%\) = ₹1178\.82, rounded to ₹1179/);
+  assert.equal(feeBreakdownText(499), "₹499 incl. 18% GST (₹422.88 + ₹76.12 GST)");
   assert.equal(feeWithGst(0).total, 0);
 });
 

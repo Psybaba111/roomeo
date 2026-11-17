@@ -1,6 +1,6 @@
 import { ownerFeeAgreementClause } from "./owner-fee.ts";
 
-/** Pure helpers for the one-time success fee (base + 18% GST, only while it is switched on) and the click-to-sign deal agreement. */
+/** Pure helpers for the one-time success fee (GST-inclusive since 17 Nov 2026, only while it is switched on) and the click-to-sign deal agreement. */
 export const GST_RATE = 0.18;
 export const REFUND_WINDOW_DAYS = 7;
 
@@ -11,9 +11,29 @@ export function feeWithGst(baseInr: number): { base: number; gst: number; exact:
   return { base: baseInr, gst: gstPaise / 100, exact: exactPaise / 100, total: Math.round(exactPaise / 100) };
 }
 
-export function feeBreakdownText(baseInr: number): string {
+/**
+ * The success fee is GST-inclusive (Rohith, 17 Nov 2026: "₹499 all-in including GST"). Split in paise so the
+ * parts always add up to the total exactly: ₹499 = ₹422.88 taxable + ₹76.12 GST (CGST ₹38.06 + SGST ₹38.06).
+ * Same shape as feeWithGst so callers can switch: `base` is the taxable value, `total` what is charged.
+ */
+export function successFeeSplit(totalInr: number): { base: number; gst: number; exact: number; total: number; totalPaise: number; basePaise: number; gstPaise: number; cgstPaise: number; sgstPaise: number } {
+  const totalPaise = Math.round(totalInr * 100);
+  const basePaise = Math.round(totalPaise / (1 + GST_RATE));
+  const gstPaise = totalPaise - basePaise;
+  const cgstPaise = Math.floor(gstPaise / 2);
+  return { base: basePaise / 100, gst: gstPaise / 100, exact: totalPaise / 100, total: totalPaise / 100, totalPaise, basePaise, gstPaise, cgstPaise, sgstPaise: gstPaise - cgstPaise };
+}
+
+/** Pre-17 Nov 2026 wording (base + GST, rounded), kept for agreements created under that model. */
+export function legacyFeeBreakdownText(baseInr: number): string {
   const f = feeWithGst(baseInr);
   return `₹${f.base} + ₹${f.gst.toFixed(2)} GST (18%) = ₹${f.exact.toFixed(2)}, rounded to ₹${f.total}`;
+}
+
+/** "₹499 incl. 18% GST (₹422.88 + ₹76.12 GST)". */
+export function feeBreakdownText(totalInr: number): string {
+  const f = successFeeSplit(totalInr);
+  return `₹${f.total} incl. 18% GST (₹${f.base.toFixed(2)} + ₹${f.gst.toFixed(2)} GST)`;
 }
 
 /** Calendar date (YYYY-MM-DD) in India for an instant. */
@@ -63,8 +83,13 @@ export type DealTerms = {
   moveIn: string;
   tenantName: string;
   ownerName: string;
-  /** Per-side success fee base, ₹. 0 while the fee is off: the agreement then has no fee clauses. */
+  /**
+   * Per-side success fee, ₹. 0 while the fee is off: the agreement then has no fee clauses.
+   * With feeInclGst (agreements created from 17 Nov 2026) this is the all-in amount incl. GST (₹499);
+   * older agreements stored the pre-GST base (₹499 + GST = ₹589). Stored bodies are never re-rendered.
+   */
   feeBaseInr: number;
+  feeInclGst?: boolean;
   /** Owner-fee model is active: add the tenant-safe "free for the tenant, no brokerage" clause. It never names the owner's rate or amount. */
   ownerFee?: boolean;
 };
@@ -78,7 +103,7 @@ export function agreementBody(t: DealTerms): string {
   const feeClauses =
     t.feeBaseInr > 0
       ? [
-          `Both sides pay Roomeo a one-time platform success fee of ${feeBreakdownText(t.feeBaseInr)} each, once this agreement is issued and before move in.`,
+          `Both sides pay Roomeo a one-time platform success fee of ${t.feeInclGst ? feeBreakdownText(t.feeBaseInr) : legacyFeeBreakdownText(t.feeBaseInr)} each, once this agreement is issued and before move in.`,
           `Roomeo's fee is refunded only if the tenant vacates within ${REFUND_WINDOW_DAYS} days of paying it. The owner's fee is refunded too if the stay ends within ${REFUND_WINDOW_DAYS} days of the owner's payment. Otherwise the fee is not refundable. The deposit is paid directly to the owner and Roomeo never holds or refunds it.`,
         ]
       : t.ownerFee

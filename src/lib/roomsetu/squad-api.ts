@@ -1,4 +1,4 @@
-import { feeWithGst } from "@/lib/roomsetu/deal-agreement";
+import { successFeeSplit } from "@/lib/roomsetu/deal-agreement";
 import { contactQuote, pricingConfig, squadFeeInr, squadUnlockReady, type SquadPayMode } from "@/lib/roomsetu/pricing";
 import { contactSummary, grantContact, grantSquadContactFromMember, recordDecline, squadActivePass, startSquadPass } from "@/lib/roomsetu/pricing-db";
 import { squadMoveInConfirmed } from "@/lib/roomsetu/pricing";
@@ -853,7 +853,7 @@ export const squadMoveInStatus = createServerFn({ method: "POST" })
       meConfirmed: st.isOwner ? Boolean(st.m?.owner_confirmed_at) : st.confirmedIds.includes(context.userId),
       isOwner: st.isOwner,
       feeEnabled: cfg.successFeeEnabled,
-      myFee: feeWithGst(st.isOwner ? cfg.successFeeOwnerInr : cfg.successFeeTenantInr).total,
+      myFee: successFeeSplit(st.isOwner ? cfg.successFeeOwnerInr : cfg.successFeeTenantInr).total,
       feeStatus: str(fee[0]?.status),
     };
   });
@@ -896,7 +896,7 @@ export const startSquadSuccessFee = createServerFn({ method: "POST" })
     const st = await squadMoveInState(sql, data, context.userId);
     if (!st.m?.confirmed_at) throw new Error("Everyone confirms the move in first.");
     // Every squad member pays the full one-time fee + GST (no split); the owner pays once.
-    const amount = feeWithGst(st.isOwner ? cfg.successFeeOwnerInr : cfg.successFeeTenantInr).total;
+    const amount = successFeeSplit(st.isOwner ? cfg.successFeeOwnerInr : cfg.successFeeTenantInr).total;
     if (amount <= 0) throw new Error("There is no move in fee for you.");
     const find = () => sql<{ ref: string; status: string; amount_inr: number }>`select ref, status, amount_inr from payments
       where kind = 'SUCCESS_FEE' and squad_id = ${st.req.squad_id} and listing_id = ${st.req.listing_id} and user_id = ${context.userId} and status in ('PENDING','SUBMITTED','PAID') order by created_at desc limit 1`;

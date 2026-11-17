@@ -19,8 +19,10 @@
 // time and can't be switched off from code (Google: GA admin only). The collect
 // guard below rewrites dl/dr/dt on every outgoing GA hit as a backstop.
 
+/** The property that has been live on prod since PR #65. Used when VITE_GA_MEASUREMENT_ID is unset (see config.ts). */
 export const GA_MEASUREMENT_ID = "G-MY0R3B2T7T";
-export const GA_SCRIPT_SRC = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+export const gaScriptSrc = (id: string) => `https://www.googletagmanager.com/gtag/js?id=${id}`;
+export const GA_SCRIPT_SRC = gaScriptSrc(GA_MEASUREMENT_ID);
 
 /** Known dynamic routes -> placeholder. Checked before the generic id scrub. */
 const ROUTE_PATTERNS: [RegExp, string][] = [
@@ -162,7 +164,8 @@ export function initialPageFields(href: string, origin: string, referrer: string
   };
 }
 
-export function installGtag(win: GaWindow, doc: GaDocument, origin: string, initial?: PageFields): Gtag {
+/** `extra` is merged into the global `set` (e.g. traffic_type / debug_mode on preview hosts). */
+export function installGtag(win: GaWindow, doc: GaDocument, origin: string, initial?: PageFields, id: string = GA_MEASUREMENT_ID, extra: Record<string, unknown> = {}): Gtag {
   if (win.__roomeoGa4 && win.gtag) return win.gtag;
   win.dataLayer = win.dataLayer || [];
   const gtag: Gtag =
@@ -177,18 +180,19 @@ export function installGtag(win: GaWindow, doc: GaDocument, origin: string, init
   const fields = initial ?? { page_location: `${origin}/`, page_title: "roomeo", page_referrer: "" };
   // MUST be queued before 'js'/'config': the auto-configured Google tag fires its
   // page-load page_view from global `set` fields only (config params are ignored for it).
-  gtag("set", { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, ...fields });
+  gtag("set", { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, ...fields, ...extra });
   gtag("js", new Date());
-  gtag("config", GA_MEASUREMENT_ID, {
+  gtag("config", id, {
     send_page_view: false,
     allow_google_signals: false,
     allow_ad_personalization_signals: false,
     ...fields,
   });
-  if (!doc.querySelector(`script[src="${GA_SCRIPT_SRC}"]`)) {
+  const src = gaScriptSrc(id);
+  if (!doc.querySelector(`script[src="${src}"]`)) {
     const s = doc.createElement("script");
     s.async = true;
-    s.src = GA_SCRIPT_SRC;
+    s.src = src;
     doc.head.appendChild(s);
   }
   win.__roomeoGa4 = true;

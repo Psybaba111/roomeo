@@ -22,6 +22,25 @@
  */
 export type Env = Record<string, string | undefined>;
 
+/**
+ * 17 Nov 2026 (Rohith): the owner fee is a FLAT ₹499 per tenant (per bed) who moves in, ALL-IN, GST included,
+ * replacing 20% of one month's rent. With OWNER_FEE_GST_ENABLED on the ₹499 is split ₹423 fee + ₹76 GST (whole
+ * rupees, as commission rows store rupees; exact split ₹422.88 + ₹76.12); with it off the owner pays ₹499, no GST line.
+ * OWNER_FEE_INR (whole rupees, GST included) overrides the amount. Founding partners pay the same flat fee
+ * (the 15% founding rate no longer applies; the founding flag is kept for records).
+ * Rows created under the old % model keep their stored rate and amounts.
+ */
+export const OWNER_FEE_FLAT_INR = 499;
+export function ownerFeeFlatInr(env: Env = procEnvEarly()): number {
+  const raw = env.OWNER_FEE_INR?.trim();
+  const n = raw ? Number(raw) : NaN;
+  return Number.isInteger(n) && n >= 1 && n <= 100000 ? n : OWNER_FEE_FLAT_INR;
+}
+function procEnvEarly(): Env {
+  return typeof process !== "undefined" ? process.env : {};
+}
+
+/** Legacy % model (rows created before 17 Nov 2026). */
 export const OWNER_FEE_RATE_PCT = 20;
 export const FOUNDING_RATE_PCT = 15;
 export const FOUNDING_MONTHS = 6;
@@ -63,13 +82,23 @@ export function ownerFeeState(successFeeEnabled: boolean, env: Env = procEnv()):
 }
 
 /** What owner-facing copy needs. `on` is the *active* state. */
-export type OwnerFeeView = { on: boolean; ratePct: number; foundingPct: number; foundingMonths: number; dueDays: number; attributionDays: number; refundDays: number; refundPct: number; gstPct: number };
+export type OwnerFeeView = { on: boolean; flatInr: number; ratePct: number; foundingPct: number; foundingMonths: number; dueDays: number; attributionDays: number; refundDays: number; refundPct: number; gstPct: number };
 export const OWNER_FEE_OFF: OwnerFeeView = {
-  on: false, ratePct: OWNER_FEE_RATE_PCT, foundingPct: FOUNDING_RATE_PCT, foundingMonths: FOUNDING_MONTHS, dueDays: OWNER_FEE_DUE_DAYS,
+  on: false, flatInr: OWNER_FEE_FLAT_INR, ratePct: OWNER_FEE_RATE_PCT, foundingPct: FOUNDING_RATE_PCT, foundingMonths: FOUNDING_MONTHS, dueDays: OWNER_FEE_DUE_DAYS,
   attributionDays: ATTRIBUTION_DAYS, refundDays: OWNER_REFUND_DAYS, refundPct: OWNER_REFUND_PCT, gstPct: 0,
 };
-export function ownerFeeView(active: boolean, gstPct = 0): OwnerFeeView {
-  return { ...OWNER_FEE_OFF, on: active, gstPct: gstPct === OWNER_FEE_GST_PCT ? OWNER_FEE_GST_PCT : 0 };
+export function ownerFeeView(active: boolean, gstPct = 0, flatInr = OWNER_FEE_FLAT_INR): OwnerFeeView {
+  return { ...OWNER_FEE_OFF, on: active, flatInr, gstPct: gstPct === OWNER_FEE_GST_PCT ? OWNER_FEE_GST_PCT : 0 };
+}
+
+/**
+ * Flat owner fee for one tenant, GST included. ratePct 0 marks a flat row. gstPct > 0: GST is carved out of the
+ * total (₹499 → ₹423 + ₹76), never added on top, so the owner always pays exactly the flat amount.
+ */
+export function flatCommissionAmounts(rentInr: number, gstPct: number = 0, totalInr: number = OWNER_FEE_FLAT_INR): CommissionAmounts {
+  if (!Number.isInteger(totalInr) || totalInr <= 0) throw new Error("The flat fee should be a whole rupee amount above zero.");
+  const gstInr = gstPct > 0 ? roundHalfUp(totalInr * gstPct, 100 + gstPct) : 0;
+  return { rentInr: Math.max(0, Math.round(rentInr)), ratePct: 0, feeInr: totalInr - gstInr, gstPct: gstPct > 0 ? gstPct : 0, gstInr, totalInr };
 }
 
 /** Round to the nearest whole rupee, halves up, using integer maths (no float drift). `num/den` ≥ 0. */
@@ -193,7 +222,8 @@ export function paymentLinkStub(commissionId: string): { mode: "stub"; ref: stri
 }
 
 /** Owner/admin-facing one-liner for a commission row. No GST line when no GST was charged. */
-export function commissionLine(c: { ratePct: number; rentInr: number; feeInr: number; gstPct: number; gstInr: number; totalInr: number; founding: boolean }): string {
+export function commissionLine(c: { ratePct: number | null; rentInr: number; feeInr: number; gstPct: number; gstInr: number; totalInr: number; founding: boolean }): string {
+  if (!c.ratePct) return c.gstInr > 0 ? `Flat ₹${c.totalInr} per tenant, GST included (₹${c.feeInr} + ₹${c.gstInr} GST ${c.gstPct}%)` : `Flat ₹${c.totalInr} per tenant`;
   const head = `${c.ratePct}% of ₹${c.rentInr} rent${c.founding ? " (founding partner rate)" : ""} = ₹${c.feeInr}`;
   return c.gstInr > 0 ? `${head} + ₹${c.gstInr} GST (${c.gstPct}%) = ₹${c.totalInr}` : head;
 }
@@ -217,6 +247,11 @@ export function squadBedRentInr(unitRentInr: number, beds: number): number {
 }
 
 export function ownerCommissionNote(a: CommissionAmounts, beds = 1): string {
+  if (!a.ratePct) {
+    const incl = a.gstInr > 0 ? ` (GST included: ₹${a.feeInr} + ₹${a.gstInr} GST)` : "";
+    const each = beds > 1 ? ` per tenant, for each of the ${beds} tenants (₹${a.totalInr * beds} in all)` : "";
+    return `Roomeo fee (only you see this): a flat ₹${a.totalInr}${incl}${each}, due within ${OWNER_FEE_DUE_DAYS} days of the tenant's move-in, by a Razorpay payment link. If the tenant leaves within ${OWNER_REFUND_DAYS} days, you pay only ${OWNER_REFUND_PCT}% (or get ${OWNER_REFUND_PCT}% back if you've paid). Please don't charge the tenant any brokerage.`;
+  }
   const amount = a.gstInr > 0 ? `₹${a.feeInr} + ₹${a.gstInr} GST (${a.gstPct}%) = ₹${a.totalInr}` : `₹${a.feeInr}`;
   const each = beds > 1 ? ` per tenant, for each of the ${beds} tenants (₹${a.rentInr} rent each; ₹${a.totalInr * beds} in all)` : "";
   return `Roomeo commission (only you see this): ${a.ratePct}% of one month's rent = ${amount}${each}, due within ${OWNER_FEE_DUE_DAYS} days of the tenant's move-in, by a Razorpay payment link. If the tenant leaves within ${OWNER_REFUND_DAYS} days, you pay only ${OWNER_REFUND_PCT}% (or get ${OWNER_REFUND_PCT}% back if you've paid). Please don't charge the tenant any brokerage.`;

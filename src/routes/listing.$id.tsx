@@ -5,6 +5,7 @@ import { MESSAGE_CTA, ctaDisabled, isAlreadyRequested, requestCtaLabel, requestS
 import { listingHead } from "@/lib/seo";
 import { ContactGate } from "@/components/contact-gate";
 import { sendLead } from "@/lib/analytics/ga4";
+import { trackEvent } from "@/lib/analytics/client";
 import { SquadShortlistButton } from "@/components/squad-shortlist-button";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -153,6 +154,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
       try {
         const convo = await openConversation({ data: { listingId: room.id, roomWantedId: "", withUserId: "" } });
         sendLead("chat", { listingId: room.id, type: "request_bed" });
+        trackEvent("request_sent", { method: "request_bed", listing_id: room.id, city: room.city });
         await navigate({ to: "/messages", search: { thread: convo.id } });
       } catch (e) {
         setMessage(requestSentLine(errText(e)));

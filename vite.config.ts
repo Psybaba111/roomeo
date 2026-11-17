@@ -157,6 +157,9 @@ export default defineConfig(({ command, isPreview }) => ({
     strictPort: true,
   },
   resolve: { tsconfigPaths: true },
+  // Which Vercel environment this bundle was built for ("production" | "preview" | ""), so analytics can tag
+  // preview builds as internal test traffic (src/lib/analytics/config.ts). Not a secret.
+  define: { "import.meta.env.VITE_ROOMEO_DEPLOY_ENV": JSON.stringify(process.env.VERCEL_ENV ?? "") },
   // Dev preview otherwise loads these as hundreds of tiny files. One bundle each.
   optimizeDeps: {
     include: [

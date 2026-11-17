@@ -35,10 +35,10 @@ test("rent quote: no fee after the first month, even when on", () => {
   assert.equal(rentQuote(12000, 24000, false, true).seekerFee, 0);
 });
 
-test("one fee line: chat free, ₹589 incl GST once, 7 day refund (fee on); no amounts when off", () => {
-  const on = feeLine({ on: true, baseInr: FEE_INR, totalInr: 589 });
+test("one fee line: chat free, ₹499 incl GST once, 7 day refund (fee on); no amounts when off", () => {
+  const on = feeLine({ on: true, baseInr: 422.88, totalInr: 499 });
   assert.match(on, /chat free/i);
-  assert.ok(on.includes("₹589") && on.includes("₹499 + GST"));
+  assert.ok(on.includes("₹499 (incl. GST)") && !on.includes("₹589"));
   assert.match(on, /7 days/);
   assert.equal(Math.round(FEE_INR * 1.18), 589);
   const off = feeLine(FEE_OFF);

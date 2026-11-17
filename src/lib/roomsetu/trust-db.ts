@@ -4,6 +4,7 @@
 import type { Sql } from "@/lib/db";
 import { num, str } from "@/lib/roomsetu/map";
 import { DEFAULT_REFUND_DAYS, type TrustFields } from "@/lib/roomsetu/trust";
+import { imageUrlSql } from "@/lib/roomsetu/listing-image";
 
 export async function readTrust(
   sql: Sql,
@@ -34,10 +35,12 @@ export async function readTrust(
 }
 
 /** Upload date per photo URL (null when unknown or before migration 0016). */
-export async function readPhotoDates(sql: Sql, listingId: string): Promise<Map<string, string>> {
+export async function readPhotoDates(sql: Sql, listingId: string, publicUrls = false): Promise<Map<string, string>> {
   try {
+    // Keys must match the URLs the listing page got (short /api/img/<id> URLs for public listings).
+    const urlExpr = publicUrls ? imageUrlSql("i") : "i.url";
     const r = await sql.query<Record<string, unknown>>(
-      "select url, uploaded_at::text as uploaded_at from listing_images where listing_id = $1 and uploaded_at is not null",
+      `select ${urlExpr} as url, i.uploaded_at::text as uploaded_at from listing_images i where i.listing_id = $1 and i.uploaded_at is not null`,
       [listingId],
     );
     return new Map(r.map((x) => [str(x.url), str(x.uploaded_at)]));

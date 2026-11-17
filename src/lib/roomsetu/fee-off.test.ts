@@ -72,12 +72,12 @@ describe("fee setting", () => {
   test("default config keeps the fee OFF", () => {
     assert.equal(offCfg.successFeeEnabled, false);
     assert.deepEqual(OFF, FEE_OFF);
-    assert.deepEqual(ON, { on: true, baseInr: 499, totalInr: 589 });
+    assert.deepEqual(ON, { on: true, baseInr: 422.88, totalInr: 499 });
   });
   test("asFeeView fails safe to OFF for missing or malformed loader data", () => {
     for (const v of [undefined, null, {}, { on: "true" }, { on: true, baseInr: 0 }, { on: false, baseInr: 499, totalInr: 589 }]) assert.deepEqual(asFeeView(v), FEE_OFF, JSON.stringify(v));
     assert.deepEqual(asFeeView(ON), ON);
-    assert.deepEqual(asFeeView({ on: true, baseInr: 499 }), ON);
+    assert.deepEqual(asFeeView({ on: true, baseInr: 422.88 }), ON);
   });
 });
 
@@ -117,24 +117,26 @@ describe("fee OFF ⇒ no ₹499 / ₹589 anywhere", () => {
 });
 
 describe("fee ON ⇒ amounts come from the setting", () => {
-  test("copy shows ₹499 + GST = ₹589", () => {
-    assert.match(feeLine(ON), /₹589 \(₹499 \+ GST\)/);
-    assert.match(feeUnderPrice(ON), /^₹589 one-time Roomeo fee/);
-    assert.match(lockedLocationLine(ON), /₹589 paid/);
-    assert.match(citySeoDescription("Mangaluru", ON), /₹589 once/);
+  test("copy shows ₹499 all-in (GST included), never ₹589", () => {
+    assert.match(feeLine(ON), /₹499 \(incl\. GST\)/);
+    assert.match(feeUnderPrice(ON), /^₹499 one-time Roomeo fee/);
+    assert.match(lockedLocationLine(ON), /₹499 paid/);
+    assert.match(citySeoDescription("Mangaluru", ON), /₹499 once/);
     assert.match(pricingCopy(ON, TRIAL).h1, /^₹499 once/);
-    assert.match(pricingTrialCreditBullet(ON, 99, 14) ?? "", /so you pay ₹490/);
     assert.equal(ogFeeLabel(ON).priceLabel, "₹499 once");
-    assert.ok(trialArrivalChecklist(ON).some((c) => c.includes("₹589 fee")));
+    assert.ok(trialArrivalChecklist(ON).some((c) => c.includes("₹499 fee")));
+    assert.match(pricingTrialCreditBullet(ON, 99, 14) ?? "", /so you pay ₹400/);
   });
   test("terms carry the fee and the 7-day refund rule", () => {
     const t = termsFor(ON).flatMap((s) => s.body).join("\n");
-    assert.ok(t.includes("₹499 plus 18% GST (₹589 in total), once"));
+    assert.ok(t.includes("₹499 including 18% GST, once") && !t.includes("₹589"));
     assert.match(t, /vacates within 7 days of paying/);
   });
   test("deal agreement keeps clauses 2-3 with the fee", () => {
     const body = agreementBody({ ...terms, feeBaseInr: agreementFeeBaseInr(onCfg) });
-    assert.match(body, /^2\. Both sides pay Roomeo a one-time platform success fee of ₹499 \+ ₹89\.82 GST/m);
+    assert.match(body, /^2\. Both sides pay Roomeo a one-time platform success fee of ₹499 \+ ₹89\.82 GST/m); // pre-17-Nov agreements keep their text
+    const now = agreementBody({ ...terms, feeBaseInr: agreementFeeBaseInr(onCfg), feeInclGst: true });
+    assert.match(now, /^2\. Both sides pay Roomeo a one-time platform success fee of ₹499 incl\. 18% GST \(₹422\.88 \+ ₹76\.12 GST\)/m);
     assert.match(body, /^3\. Roomeo's fee is refunded only if/m);
     assert.match(body, /^5\. This agreement is signed/m);
   });

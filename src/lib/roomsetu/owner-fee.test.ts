@@ -167,7 +167,7 @@ describe("settings: tenant fee and owner fee flags", () => {
     assert.deepEqual(tenantFeeSetting(prod), { enabled: true, source: "ROOMEO_FEE_ENABLED" });
     assert.equal(pricingConfig(prod).successFeeEnabled, true);
     assert.equal(feeViewOf(pricingConfig(prod), prod).on, true);
-    assert.equal(feeViewOf(pricingConfig(prod), prod).totalInr, 589);
+    assert.equal(feeViewOf(pricingConfig(prod), prod).totalInr, 499, "₹499 all-in from 17 Nov 2026 (was ₹589)");
   });
   test("ROOMEO_TENANT_FEE_ENABLED wins over the legacy flag either way", () => {
     assert.equal(tenantFeeSetting({ ROOMEO_FEE_ENABLED: "true", ROOMEO_TENANT_FEE_ENABLED: "false" }).enabled, false);
@@ -200,29 +200,31 @@ describe("tenant never sees a Roomeo fee while the tenant fee is off", () => {
     assert.equal(p.h1, `${FREE_TENANTS}. Not a broker's month.`);
     assert.equal(p.planPrice, "₹0");
     assert.ok(p.faq.some(([q]) => /brokerage/i.test(q)));
-    assert.ok(![p.h1, p.sub, p.planNote, ...p.tagline].some((t) => mentionsFeeAmount(t)));
+    assert.ok(![p.h1, p.planNote, ...p.tagline].some((t) => mentionsFeeAmount(t)));
+    assert.match(p.sub, /^Tenants pay Roomeo nothing\. Owners pay a flat ₹499, GST included/, "the only amount is the owner's");
   });
   test("terms: owner commission, refund, no-brokerage; own date; nothing to tenants", () => {
     const t = termsFor(f).flatMap((s) => s.body).join("\n");
     assert.match(t, /Free for tenants: renters pay Roomeo nothing/);
-    assert.match(t, /20% of one month's rent/);
-    assert.match(t, /15% instead of 20% for 6 months/);
+    assert.match(t, /flat fee of ₹499 for each tenant who moves in through Roomeo/);
+    assert.doesNotMatch(t, /20% of one month's rent|15% instead of 20%/);
+    assert.match(t, /every later move-in is the flat ₹499, founding partners included/);
     assert.match(t, /day 60 counts, day 61 doesn't/);
     assert.match(t, /within 7 days of the move-in being confirmed on Roomeo/);
     assert.match(t, /each tenant, i\.e\. each bed/);
-    assert.match(t, /No GST is added to the commission at present/);
+    assert.match(t, /No GST is charged on it at present/);
     assert.match(t, /If the commission isn't paid yet, only 50% is due/);
     assert.match(t, /refunds 50% of the commission\./);
     assert.match(t, /The tenant never sees or pays the owner's commission/);
     assert.match(t, /must not charge a Roomeo tenant any brokerage/);
     assert.doesNotMatch(t, /we take no commission/);
-    assert.equal(mentionsFeeAmount(t), false);
+    assert.doesNotMatch(t, /(renter|tenant)s? pays? (Roomeo )?₹/i, "the only ₹ amount in the terms is the owner's flat fee");
     assert.equal(termsUpdated(f), OWNER_FEE_TERMS_UPDATED);
   });
   test("terms with GST on: separate 18% line, refund includes 50% of the GST", () => {
     const g = { ...env, OWNER_FEE_GST_ENABLED: "true" };
     const t = termsFor(feeViewOf(pricingConfig(g), g)).flatMap((s) => s.body).join("\n");
-    assert.match(t, /GST at 18% is added as a separate line/);
+    assert.match(t, /The ₹499 includes GST at 18%, shown as a separate line on the invoice; nothing is added on top/);
     assert.match(t, /refunds 50% of the commission and 50% of the GST charged/);
   });
   test("terms date unchanged unless the owner-fee copy is live", () => {

@@ -16,6 +16,7 @@ const KNOWN_AREAS: Record<string, Record<string, [number, number]>> = {
   Bengaluru: {
     Koramangala: [12.935, 77.624], Indiranagar: [12.971, 77.641], Whitefield: [12.97, 77.75], Jayanagar: [12.925, 77.583],
     "HSR Layout": [12.912, 77.645], "BTM Layout": [12.917, 77.61], Marathahalli: [12.956, 77.701], "Electronic City": [12.845, 77.66],
+    Bellandur: [12.926, 77.676],
   },
   Mangaluru: {
     Bunder: [12.8635, 74.8365], Hampankatta: [12.8697, 74.8429], Falnir: [12.8669, 74.8487], Kodialbail: [12.8771, 74.8443],
@@ -70,9 +71,32 @@ export function citySeoDescription(name: string, fee: FeeView = FEE_OFF): string
   return `Shared rooms, PG beds and whole flats${c ? ` in ${c}` : ""}. ${cityFeeTail(fee)}`;
 }
 
-/** Search URLs for the sitemap. */
+/**
+ * Launch cities (Bengaluru Phase 0, 17 Nov 2026). Cities stay open (anyone can type any city); these two get a
+ * sitemap search page and their launch areas offered in the area pickers even before the DB has the rows.
+ */
+export const LAUNCH_CITIES = ["Bengaluru", "Mangaluru"] as const;
+/** The Bengaluru launch areas, in the order we show them. */
+export const BENGALURU_LAUNCH_AREAS = ["Koramangala", "HSR Layout", "Bellandur", "Whitefield", "Electronic City"] as const;
+
+/** Area names to offer for a city: launch areas first, then other known areas, then the DB's, de-duplicated. */
+export function areaOptions(city: string, fromDb: string[] = []): string[] {
+  const c = searchCity(city);
+  const launch: readonly string[] = c === "Bengaluru" ? BENGALURU_LAUNCH_AREAS : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const a of [...launch, ...Object.keys(KNOWN_AREAS[c] ?? {}), ...fromDb]) {
+    const k = a.trim().toLowerCase();
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(a.trim());
+  }
+  return out;
+}
+
+/** Search URLs for the sitemap: one per launch city. */
 export function citySearchPaths(): string[] {
-  return [];
+  return LAUNCH_CITIES.map((c) => `/search?city=${encodeURIComponent(c)}`);
 }
 
 /** Budget box hint + quick chips. Same for every city. */

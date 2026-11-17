@@ -1,6 +1,7 @@
 import type { Sql } from "../db.ts";
 import { istDate, refundableOnVacate } from "./deal-agreement.ts";
-import { buyerState as pickBuyerState, invoiceAmounts, invoiceAmountsInclusive, invoiceNumber, normalizeGstin, trialInvoiceNumber } from "./invoice.ts";
+import { buyerState as pickBuyerState, invoiceAmountsInclusive, invoiceNumber, normalizeGstin, successFeeInvoiceAmounts, trialInvoiceNumber } from "./invoice.ts";
+import { successFeeInr } from "./pricing.ts";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? "" : String(v));
@@ -122,7 +123,7 @@ export async function createFeeInvoice(sql: Sql, paymentId: string, baseInr: num
   if (!pay || s(pay.kind) !== "SUCCESS_FEE" || s(pay.status) !== "PAID") return null;
   const gstin = normalizeGstin(s(pay.buyer_gstin));
   const buyerState = pickBuyerState(gstin, s(pay.city));
-  const amt = Number(pay.trial_credit_inr) > 0 ? invoiceAmountsInclusive(Number(pay.amount_inr), buyerState) : invoiceAmounts(baseInr, buyerState, Number(pay.amount_inr));
+  const amt = successFeeInvoiceAmounts(Number(pay.amount_inr), Number(pay.trial_credit_inr), baseInr, buyerState, successFeeInr());
   const seq = Number((await sql.query<{ n: string }>(`select nextval('fee_invoice_seq')::text as n`))[0].n);
   const number = invoiceNumber(seq, now);
   const id = crypto.randomUUID();

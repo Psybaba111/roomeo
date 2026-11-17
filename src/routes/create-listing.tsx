@@ -16,8 +16,10 @@ import {
   ROOM_TYPES,
 } from "@/lib/roomsetu/constants";
 import { listCities } from "@/lib/roomsetu/public-api";
+import { areaOptions, LAUNCH_CITIES, searchCity } from "@/lib/roomsetu/cities";
 import { readPhotos } from "@/components/photo-upload";
 import { createListing } from "@/lib/roomsetu/account-api";
+import { currentUtm, trackEvent } from "@/lib/analytics/client";
 
 export const Route = createFileRoute("/create-listing")({
   head: () => pageHead("List a spare bed"),
@@ -80,7 +82,7 @@ function CreateListing() {
     });
   }, []);
 
-  const localities = cities.find((c) => c.name === form.city)?.localities ?? [];
+  const localities = areaOptions(form.city, cities.find((c) => c.name === searchCity(form.city))?.localities ?? []);
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
@@ -134,9 +136,13 @@ function CreateListing() {
                 form.listingKind === "ENTIRE_FLAT" ? ("ENTIRE_FLAT" as const) : ("BED" as const),
               bedrooms: Number(form.bedrooms),
               photos: [...uploads, ...photos.map((i) => CATALOG_PHOTOS[i])].slice(0, 8),
+              utm: currentUtm(),
             },
           })
-            .then((res) => navigate({ to: "/listing/$id", params: { id: res.id } }))
+            .then((res) => {
+              trackEvent("listing_created", { city: form.city.trim(), listing_kind: form.listingKind === "ENTIRE_FLAT" ? "entire_flat" : "bed", listing_id: res.id });
+              return navigate({ to: "/listing/$id", params: { id: res.id } });
+            })
             .catch((err) => {
               setError(errText(err));
               setBusy(false);
@@ -219,8 +225,8 @@ function CreateListing() {
             data-testid="listing-city"
           />
           <datalist id="known-cities">
-            {cities.map((c) => (
-              <option key={c.name} value={c.name} />
+            {[...LAUNCH_CITIES, ...cities.map((c) => c.name).filter((n) => !(LAUNCH_CITIES as readonly string[]).includes(n))].map((n) => (
+              <option key={n} value={n} />
             ))}
           </datalist>
         </label>

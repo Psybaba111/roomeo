@@ -1,4 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
+import { cleanUtm } from "@/lib/analytics/utm";
+import { saveUtm } from "@/lib/analytics/utm-db";
 import { redirect } from "@tanstack/react-router";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
@@ -48,6 +50,7 @@ export const joinWaitlist = createServerFn({ method: "POST" })
     const user = await getSessionUser().catch(() => null);
     const sql = await getSql();
     const r = await joinDb(sql, w, user?.id ?? null);
+    if (r.status === "joined") await saveUtm(sql, "waitlist_signups", r.id, cleanUtm((data as { utm?: unknown } | null)?.utm));
     logEvent("waitlist.join", { status: r.status, role: w.role, source: w.source, hasType: Boolean(w.roomieType) });
     return { status: r.status };
   });

@@ -4,9 +4,9 @@ import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { num, str } from "@/lib/roomsetu/map";
 import { buildUpiLink, makeRef, upiPayee } from "@/lib/roomsetu/upi";
-import { pricingConfig } from "@/lib/roomsetu/pricing";
+import { LEGACY_SUCCESS_FEE_BASE_INR, LEGACY_SUCCESS_FEE_TOTAL_INR, pricingConfig } from "@/lib/roomsetu/pricing";
 import { tenantFeeWithTrialCredit } from "@/lib/roomsetu/trial-db";
-import { agreementBody, agreementFeeBaseInr, agreementBodyForView, agreementState, feeWithGst, refundableOnVacate, refundDeadline, validSignName } from "@/lib/roomsetu/deal-agreement";
+import { agreementBody, agreementFeeBaseInr, agreementBodyForView, agreementState, feeWithGst, successFeeSplit, refundableOnVacate, refundDeadline, validSignName } from "@/lib/roomsetu/deal-agreement";
 import { dealSteps } from "@/lib/roomsetu/deal-steps";
 import { pdfBase64 } from "@/lib/roomsetu/pdf";
 import { invoicePdfLines, type InvoiceView } from "@/lib/roomsetu/invoice";
@@ -80,7 +80,7 @@ export const getDealAgreement = createServerFn({ method: "GET" })
       // Owner-fee model: a tenant-safe clause only (free for the tenant, no brokerage). The owner's rate and
       // amount never go into the shared agreement; the owner sees them in `ownerFee`/`ownerNote` below (null for a tenant).
       const { ownerFeeActive } = await import("@/lib/roomsetu/owner-fee-db");
-      const terms = { ...d.terms, feeBaseInr, ownerFee: feeBaseInr === 0 && ownerFeeActive() };
+      const terms = { ...d.terms, feeBaseInr, feeInclGst: feeBaseInr > 0, ownerFee: feeBaseInr === 0 && ownerFeeActive() };
       await sql.query(`insert into deal_agreements (id, application_id, listing_id, seeker_id, owner_id, terms_json, body, squad_request_id)
         values ($1,$2,$3,$4,$5,$6,$7,$8) on conflict (application_id) do nothing`,
         [crypto.randomUUID(), d.key, d.listingId, d.leadTenantId, d.ownerId, JSON.stringify(terms), agreementBody(terms), data.kind === "squad" ? data.id : null]);
@@ -95,16 +95,18 @@ export const getDealAgreement = createServerFn({ method: "GET" })
     const state = agreementState({ seekerSignedAt: str(a.seeker_signed_at) || (signers.some((x) => x.role === "TENANT") ? "x" : null), ownerSignedAt: str(a.owner_signed_at) || null, issuedAt: str(a.issued_at) || null, cancelledAt: str(a.cancelled_at) || null });
     const feeOn = cfg.successFeeEnabled && base > 0;
     // Owner-fee model: what the owner will owe on move-in (shown to the owner only). Tenants see nothing to pay.
-    const { hostRateNow, ownerFeeActive } = await import("@/lib/roomsetu/owner-fee-db");
-    const { commissionAmounts, ownerFeeGstPct, ownerFeeForViewer, ownerCommissionNote, squadBedRentInr } = await import("@/lib/roomsetu/owner-fee");
+    const { ownerFeeActive } = await import("@/lib/roomsetu/owner-fee-db");
+    const { flatCommissionAmounts, ownerFeeFlatInr, ownerFeeGstPct, ownerFeeForViewer, ownerCommissionNote, squadBedRentInr } = await import("@/lib/roomsetu/owner-fee");
     // Owner and admin only. A tenant's response never carries the owner's rate or amount. Squads: per tenant, on each one's share.
     const beds = data.kind === "squad" ? Math.max(1, d.tenantIds.length) : 1;
     const bedRent = squadBedRentInr(d.terms.monthlyRent, beds);
-    const ownerAmounts = !feeOn && isOwner && ownerFeeActive() && bedRent > 0 ? commissionAmounts(bedRent, await hostRateNow(sql, d.ownerId), ownerFeeGstPct()) : null;
+    const ownerAmounts = !feeOn && isOwner && ownerFeeActive() && bedRent > 0 ? flatCommissionAmounts(bedRent, ownerFeeGstPct(), ownerFeeFlatInr()) : null;
     const ownerFee = ownerFeeForViewer(isOwner ? "owner" : "tenant", ownerAmounts);
     const ownerNote = ownerFee ? ownerCommissionNote(ownerFee, beds) : "";
-    const f = feeWithGst(base);
-    // What this person actually pays: the open/paid payment row if any, else ₹589 less a ₹99 trial credit if one applies.
+    // A fee row created before 17 Nov 2026 (₹589 = ₹499 + GST, or ₹490 after the ₹99 credit) keeps its old breakdown.
+    const legacyRow = fee && ["PENDING", "SUBMITTED", "PAID", "REFUND_DUE", "REFUNDED"].includes(fee.status) && num(fee.amount_inr) + num(fee.trial_credit_inr) === LEGACY_SUCCESS_FEE_TOTAL_INR && base !== LEGACY_SUCCESS_FEE_TOTAL_INR;
+    const f = legacyRow ? feeWithGst(LEGACY_SUCCESS_FEE_BASE_INR) : successFeeSplit(base);
+    // What this person actually pays: the open/paid payment row if any (a pre-17 Nov ₹589 row stays ₹589), else ₹499 less a ₹99 trial credit if one applies.
     let trialCredit = 0;
     if (fee) trialCredit = num(fee.trial_credit_inr);
     else if (!isOwner && feeOn && a.issued_at) trialCredit = (await tenantFeeWithTrialCredit(sql, context.userId, f.total, str(a.issued_at))).credit;
@@ -174,7 +176,7 @@ export const cancelDealAgreement = createServerFn({ method: "POST" })
     return cancelAgreement(sql, { applicationId: d.key, userId: context.userId, reason: data.reason, parties: [d.ownerId, ...d.tenantIds] });
   });
 
-/** ₹499 + GST (₹589) per person, once per agreement, payable after everyone signs and before move in. */
+/** ₹499 all-in incl. GST (₹422.88 + ₹76.12) per person, once per agreement, payable after everyone signs and before move in. */
 export const startAgreementFee = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((i: unknown) => dealRef(i))
@@ -190,7 +192,7 @@ export const startAgreementFee = createServerFn({ method: "POST" })
     if (a.cancelled_at) throw new Error("This agreement was cancelled.");
     if (!a.issued_at) throw new Error("Everyone signs the agreement first.");
     const isOwner = d.ownerId === context.userId;
-    const fee = feeWithGst(isOwner ? cfg.successFeeOwnerInr : cfg.successFeeTenantInr);
+    const fee = successFeeSplit(isOwner ? cfg.successFeeOwnerInr : cfg.successFeeTenantInr);
     if (fee.base <= 0) throw new Error("No success fee for you.");
     const find = () => sql.query<{ ref: string; status: string; amount_inr: number }>(`select ref, status, amount_inr from payments
       where agreement_id = $1 and kind = 'SUCCESS_FEE' and user_id = $2 and status in ('PENDING','SUBMITTED','PAID') order by created_at desc limit 1`, [str(a.id), context.userId]);
@@ -204,7 +206,7 @@ export const startAgreementFee = createServerFn({ method: "POST" })
       const creditNote = credit.credit > 0 ? `, less ₹${credit.credit} trial credit` : "";
       await sql.query(`insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, kind, listing_id, agreement_id, squad_id, trial_credit_inr, trial_credit_booking_id)
         values ($1,$2,$3,$4,'PENDING','UPI',$5,'SUCCESS_FEE',$6,$7,$8,$9,$10)`,
-        [crypto.randomUUID(), context.userId, `Success fee (${isOwner ? "owner" : d.squadId ? "squad member" : "tenant"}) ₹${fee.base} + ₹${fee.gst.toFixed(2)} GST${creditNote}`, credit.amount, makeRef(), d.listingId, str(a.id), d.squadId, credit.credit, credit.bookingId]);
+        [crypto.randomUUID(), context.userId, `Success fee (${isOwner ? "owner" : d.squadId ? "squad member" : "tenant"}) ₹${fee.total} incl. GST (₹${fee.base.toFixed(2)} + ₹${fee.gst.toFixed(2)} GST)${creditNote}`, credit.amount, makeRef(), d.listingId, str(a.id), d.squadId, credit.credit, credit.bookingId]);
       row = (await find())[0];
     }
     const link = buildUpiLink({ vpa: payee.vpa, name: payee.name, amountInr: num(row.amount_inr), ref: str(row.ref) });

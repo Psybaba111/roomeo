@@ -46,10 +46,12 @@ test("status labels", () => {
   assert.match(requestStatusLabel("PENDING", false), /your call/);
 });
 
-test("pay step says both sides pay ₹589", () => {
-  const base = { iSigned: true, issued: true, cancelled: false, feeOn: true, feePaid: false, feeTotal: 589, movedIn: false };
-  assert.match(dealSteps({ ...base, role: "tenant" })[2].hint, /owner pays ₹589 once too/);
-  assert.match(dealSteps({ ...base, role: "owner" })[2].hint, /tenant pays ₹589 once too/);
+test("pay step says both sides pay ₹499 all-in (a pre-17-Nov ₹589 row keeps its wording)", () => {
+  const base = { iSigned: true, issued: true, cancelled: false, feeOn: true, feePaid: false, feeTotal: 499, movedIn: false };
+  assert.match(dealSteps({ ...base, role: "tenant" })[2].hint, /You pay ₹499 once \(18% GST included\).*owner pays ₹499 once too/);
+  assert.match(dealSteps({ ...base, role: "owner" })[2].hint, /tenant pays ₹499 once too/);
+  assert.match(dealSteps({ ...base, feeTotal: 400, role: "tenant" })[2].hint, /₹400 once \(₹499 incl\. 18% GST, less your ₹99 trial credit/);
+  assert.match(dealSteps({ ...base, feeTotal: 589, role: "tenant" })[2].hint, /₹589 once \(₹499 \+ 18% GST = ₹589\).*owner pays ₹589 once too/);
 });
 
 test("request CTA never flashes 'Sign in' while the session loads", () => {

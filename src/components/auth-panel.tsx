@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { authClient, signIn } from "@/lib/auth/client";
+import { currentUtm, trackEvent } from "@/lib/analytics/client";
+import { saveSignupUtm } from "@/lib/analytics/attribution-api";
 import { useSignInProviders } from "@/lib/auth/use-sign-in-providers";
 import { listCities } from "@/lib/roomsetu/public-api";
 import { control } from "@/components/cards";
@@ -47,7 +49,7 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
     <div className="mx-auto max-w-md">
       <h1 className="font-display text-4xl">{mode === "login" ? "Welcome back" : "Let's find your bed 🛏️"}</h1>
       <p className="mt-2 text-muted">
-        {mode === "login" ? "Use email, Google, or X." : "Takes a minute. Mangaluru beds, no broker's month."}
+        {mode === "login" ? "Use email, Google, or X." : "Takes a minute. Bengaluru and Mangaluru beds, no broker's month."}
       </p>
       <form
         className="mt-6 space-y-3"
@@ -63,6 +65,8 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
                 await remember((result.data as { token?: string } | null)?.token);
                 sessionStorage.setItem("roomsetu-extra", JSON.stringify({ mobile, city, intent }));
                 sessionStorage.removeItem("roomsetu-intent");
+                trackEvent("sign_up", { method: "email", city: city.trim() });
+                void saveSignupUtm({ data: currentUtm() }).catch(() => undefined);
               } else {
                 const result = await authClient.signIn.email({ email, password });
                 if (result.error) throw new Error(result.error.message || "Could not sign in");

@@ -13,7 +13,7 @@ import { RoomGridSkeleton } from "@/components/skeletons";
 import { rememberSearch } from "@/lib/roomsetu/account-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { CityPicker } from "@/components/city-picker";
-import { cityInfo, citySeoDescription, citySeoTitle, searchCity } from "@/lib/roomsetu/cities";
+import { areaOptions, cityInfo, citySeoDescription, citySeoTitle, searchCity } from "@/lib/roomsetu/cities";
 import { asFeeView } from "@/lib/roomsetu/fee-copy";
 import { getRoomieQuizFlag, getVibeScores } from "@/lib/roomsetu/roomie-quiz-api";
 import { orderByVibe } from "@/lib/roomsetu/quiz-events";
@@ -150,7 +150,7 @@ function SearchPage() {
   const shown = rooms ? (vibeSort && vibe ? orderByVibe(rooms.listings, vibe.scores) : rooms.listings) : [];
   const vibeCount = vibe ? Object.keys(vibe.scores).length : 0;
 
-  const localities = cities.find((c) => c.name === city)?.localities ?? [];
+  const localities = areaOptions(city, cities.find((c) => c.name === city)?.localities ?? []);
 
   const activeFilters = (
     ["locality", "maxRent", "roomType", "furnished", "gender", "food", "kind", "availableBy", "q"] as const

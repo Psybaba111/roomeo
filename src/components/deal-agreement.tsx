@@ -49,7 +49,7 @@ export function DealAgreement({ dealRef }: { dealRef: DealRef }) {
         <p className="mt-2" data-testid="deal-now">{a.steps.find((s) => s.state === "now")?.hint ?? "All done 🎉"}</p>
       )}
       <p className="mt-1 text-xs text-muted">
-        {who}. {a.feeEnabled ? `Tenant${a.kind === "squad" ? " (each squad member)" : ""} pays ₹${f.total} once and the owner pays ₹${f.total} once (₹${f.base} + 18% GST each), after everyone signs and before move in. Refund only if the tenant moves out within 7 days of paying${a.refundBy ? ` (yours: move out by ${a.refundBy})` : ""}. After that, no refund. The deposit goes straight to the owner.` : a.role === "tenant" ? "Free for tenants: no Roomeo fee. Rent and deposit go straight to the owner." : a.ownerNote ? a.ownerNote : "No Roomeo fee right now. Rent and deposit go straight to the owner."}
+        {who}. {a.feeEnabled ? `Tenant${a.kind === "squad" ? " (each squad member)" : ""} pays ₹${f.total} once and the owner pays ₹${f.total} once (18% GST included), after everyone signs and before move in. Refund only if the tenant moves out within 7 days of paying${a.refundBy ? ` (yours: move out by ${a.refundBy})` : ""}. After that, no refund. The deposit goes straight to the owner.` : a.role === "tenant" ? "Free for tenants: no Roomeo fee. Rent and deposit go straight to the owner." : a.ownerNote ? a.ownerNote : "No Roomeo fee right now. Rent and deposit go straight to the owner."}
       </p>
 
       <div className="mt-3 border-t border-line pt-3">
@@ -68,7 +68,7 @@ export function DealAgreement({ dealRef }: { dealRef: DealRef }) {
         ) : null}
         {a.squad?.names.length ? <p className="mt-2 text-xs text-muted">Signed: {a.squad.names.join(", ")}</p> : null}
         {a.feeEnabled && !a.iSigned && a.state !== "CANCELLED" ? (
-          <p className="mt-2 text-muted [text-wrap:pretty]" data-testid="success-fee-heads-up">{successFeeHeadsUp(f.base, a.role)}</p>
+          <p className="mt-2 text-muted [text-wrap:pretty]" data-testid="success-fee-heads-up">{successFeeHeadsUp(f.total, a.role)}</p>
         ) : null}
         {!a.iSigned && a.state !== "CANCELLED" ? (
           <form className="mt-2 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); run(signDealAgreement({ data: { ...dealRef, name } })); }}>
@@ -87,12 +87,12 @@ export function DealAgreement({ dealRef }: { dealRef: DealRef }) {
             <li>GST (18%): ₹{f.gst.toFixed(2)}</li>
             {a.trialCredit > 0 ? (
               <>
-                <li>Total: ₹{f.exact.toFixed(2)} → ₹{f.total}</li>
+                <li>Total: ₹{f.exact.toFixed(2)}{f.exact !== f.total ? ` → ₹${f.total}` : ""}</li>
                 <li data-testid="trial-credit-line">Trial night credit: −₹{a.trialCredit}</li>
                 <li><strong>You pay ₹{a.payable}</strong></li>
               </>
             ) : (
-              <li>Total: ₹{f.exact.toFixed(2)} → you pay ₹{a.payable}</li>
+              <li>Total: ₹{f.exact.toFixed(2)}{f.exact !== a.payable ? ` → you pay ₹${a.payable}` : " (GST included)"}</li>
             )}
           </ul>
           {a.refundState ? (
@@ -119,7 +119,7 @@ export function DealAgreement({ dealRef }: { dealRef: DealRef }) {
           ) : (
             <button type="button" disabled={busy} className={`mt-2 ${btnSmallPrimary}`} data-testid="pay-success-fee"
               onClick={() => { setBusy(true); void startAgreementFee({ data: dealRef }).then(setCheckout).catch((e) => setError(errText(e))).finally(() => setBusy(false)); }}>
-              Pay ₹{a.payable}{a.trialCredit > 0 ? ` (₹${f.total} less ₹${a.trialCredit} trial credit)` : ` (₹${f.base} + GST)`}
+              Pay ₹{a.payable}{a.trialCredit > 0 ? ` (₹${f.total} less ₹${a.trialCredit} trial credit)` : f.exact === f.total ? " (incl. GST)" : ` (₹${f.base} + GST)`}
             </button>
           )}
         </div>

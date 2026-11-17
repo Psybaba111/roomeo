@@ -62,7 +62,7 @@ function Commissions() {
     <AdminFrame>
       <h1 className="font-display text-4xl">Owner commissions</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted">
-        Owners pay 20% of one month's rent (15% for founding partners) for each tenant (each bed) who moves in within 60 days of their first enquiry.
+        Owners pay a flat ₹499, GST included, for each tenant (each bed) who moves in within 60 days of their first enquiry. Rows from before 17 Nov 2026 keep their % amounts.
         Due 7 days after move-in. Tenants pay nothing. Tenant left within 15 days: record an early exit if unpaid (50% due) or a 50% refund if paid.
         Payment links are stubs in this build: no real Razorpay link is created.
       </p>
@@ -87,7 +87,7 @@ function Commissions() {
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-semibold">{c.ownerName} · {c.listingTitle}</p>
               <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${BADGE[c.status] ?? ""}`}>{LABEL[c.status] ?? c.status}</span>
-              {c.founding ? <span className="rounded-full bg-pop-soft px-2 py-0.5 text-xs font-semibold text-pop">Founding 15%</span> : null}
+              {c.founding ? <span className="rounded-full bg-pop-soft px-2 py-0.5 text-xs font-semibold text-pop">{c.ratePct ? `Founding ${c.ratePct}%` : "Founding partner"}</span> : null}
               {c.squad ? <span className="rounded-full border border-line px-2 py-0.5 text-xs font-semibold">Squad bed</span> : null}
               {(c.status === "due" || c.status === "due_50") && c.dueOn < today ? <span className="rounded-full bg-danger px-2 py-0.5 text-xs font-semibold text-card">Overdue</span> : null}
             </div>
@@ -133,7 +133,7 @@ function Commissions() {
       {data && data.items.length === 0 ? <p className="mt-4 text-muted">No commissions here.</p> : null}
 
       <h2 className="mt-10 text-2xl font-semibold">Founding partners</h2>
-      <p className="mt-1 max-w-2xl text-sm text-muted">Set by hand (for example, an owner who brought 2 more PGs). 15% instead of 20% on move-ins up to the end date. The end date defaults to 6 months from today.</p>
+      <p className="mt-1 max-w-2xl text-sm text-muted">Set by hand (for example, an owner who brought 2 more PGs). Recorded for the relationship; the fee is the same flat ₹499 for everyone since 17 Nov 2026. The end date defaults to 6 months from today.</p>
       <ul className="mt-3 space-y-1 text-sm">
         {(data?.founding ?? []).map((h) => (
           <li key={h.owner_id} className="flex flex-wrap items-center gap-2">

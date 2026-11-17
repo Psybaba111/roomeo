@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { currentUtm, trackEvent } from "@/lib/analytics/client";
 import { Link } from "@tanstack/react-router";
 import { control } from "@/components/cards";
 import { joinWaitlist } from "@/lib/roomsetu/waitlist-api";
@@ -43,7 +44,9 @@ export function WaitlistForm({ source = "home", defaultCity = "" }: { source?: W
     setBusy(true);
     setError("");
     try {
-      const r = await joinWaitlist({ data: { name, contact, city, role, consent: true, roomieType: type, source: type ? "quiz" : source } });
+      const src = type ? "quiz" : source;
+      const r = await joinWaitlist({ data: { name, contact, city, role, consent: true, roomieType: type, source: src, utm: currentUtm() } });
+      if (r.status === "joined") trackEvent("waitlist_join", { role, city: city.trim(), source: src, roomie_type: type ?? "" });
       setDone(r.status);
     } catch (err) {
       setError(errText(err));

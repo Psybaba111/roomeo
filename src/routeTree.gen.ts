@@ -55,6 +55,7 @@ import { Route as VerifyDigilockerRouteImport } from './routes/verify.digilocker
 import { Route as VerifyIdMockRouteImport } from './routes/verify.id-mock'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronPricingRouteImport } from './routes/api/cron/pricing'
+import { Route as ApiImgIdRouteImport } from './routes/api/img.$id'
 import { Route as ApiWebhooksMappstoreRouteImport } from './routes/api/webhooks/mappstore'
 import { Route as SquadsJoinCodeRouteImport } from './routes/squads.join.$code'
 import { Route as ApiOgListingIdRouteImport } from './routes/api/og/listing.$id'
@@ -289,6 +290,11 @@ const ApiCronPricingRoute = ApiCronPricingRouteImport.update({
   path: '/api/cron/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiImgIdRoute = ApiImgIdRouteImport.update({
+  id: '/api/img/$id',
+  path: '/api/img/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWebhooksMappstoreRoute = ApiWebhooksMappstoreRouteImport.update({
   id: '/api/webhooks/mappstore',
   path: '/api/webhooks/mappstore',
@@ -352,6 +358,7 @@ export interface FileRoutesByFullPath {
   '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/pricing': typeof ApiCronPricingRoute
+  '/api/img/$id': typeof ApiImgIdRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
   '/squads/join/$code': typeof SquadsJoinCodeRoute
   '/api/og/listing/$id': typeof ApiOgListingIdRoute
@@ -403,6 +410,7 @@ export interface FileRoutesByTo {
   '/squads': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/pricing': typeof ApiCronPricingRoute
+  '/api/img/$id': typeof ApiImgIdRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
   '/squads/join/$code': typeof SquadsJoinCodeRoute
   '/api/og/listing/$id': typeof ApiOgListingIdRoute
@@ -455,6 +463,7 @@ export interface FileRoutesById {
   '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/pricing': typeof ApiCronPricingRoute
+  '/api/img/$id': typeof ApiImgIdRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
   '/squads/join/$code': typeof SquadsJoinCodeRoute
   '/api/og/listing/$id': typeof ApiOgListingIdRoute
@@ -508,6 +517,7 @@ export interface FileRouteTypes {
     | '/squads/'
     | '/api/auth/$'
     | '/api/cron/pricing'
+    | '/api/img/$id'
     | '/api/webhooks/mappstore'
     | '/squads/join/$code'
     | '/api/og/listing/$id'
@@ -559,6 +569,7 @@ export interface FileRouteTypes {
     | '/squads'
     | '/api/auth/$'
     | '/api/cron/pricing'
+    | '/api/img/$id'
     | '/api/webhooks/mappstore'
     | '/squads/join/$code'
     | '/api/og/listing/$id'
@@ -610,6 +621,7 @@ export interface FileRouteTypes {
     | '/squads/'
     | '/api/auth/$'
     | '/api/cron/pricing'
+    | '/api/img/$id'
     | '/api/webhooks/mappstore'
     | '/squads/join/$code'
     | '/api/og/listing/$id'
@@ -662,6 +674,7 @@ export interface RootRouteChildren {
   SquadsIndexRoute: typeof SquadsIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCronPricingRoute: typeof ApiCronPricingRoute
+  ApiImgIdRoute: typeof ApiImgIdRoute
   ApiWebhooksMappstoreRoute: typeof ApiWebhooksMappstoreRoute
   SquadsJoinCodeRoute: typeof SquadsJoinCodeRoute
   ApiOgListingIdRoute: typeof ApiOgListingIdRoute
@@ -991,6 +1004,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronPricingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/img/$id': {
+      id: '/api/img/$id'
+      path: '/api/img/$id'
+      fullPath: '/api/img/$id'
+      preLoaderRoute: typeof ApiImgIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/webhooks/mappstore': {
       id: '/api/webhooks/mappstore'
       path: '/api/webhooks/mappstore'
@@ -1062,6 +1082,7 @@ const rootRouteChildren: RootRouteChildren = {
   SquadsIndexRoute: SquadsIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCronPricingRoute: ApiCronPricingRoute,
+  ApiImgIdRoute: ApiImgIdRoute,
   ApiWebhooksMappstoreRoute: ApiWebhooksMappstoreRoute,
   SquadsJoinCodeRoute: SquadsJoinCodeRoute,
   ApiOgListingIdRoute: ApiOgListingIdRoute,
