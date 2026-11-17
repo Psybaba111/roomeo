@@ -31,5 +31,5 @@ export function decodeDataUrl(url: string): { type: string; bytes: Uint8Array } 
   }
 }
 
-/** Public photos change only when an owner edits (new image ids), so the CDN can keep them for a long time. */
-export const IMAGE_CACHE = "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=604800";
+/** Photos get new ids when an owner edits, so caching is safe; kept to 1 day at the CDN so a hidden / removed listing's photo stops being served within a day. */
+export const IMAGE_CACHE = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400";
