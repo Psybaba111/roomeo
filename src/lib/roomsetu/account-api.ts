@@ -1,4 +1,7 @@
 import { lockedLine, locationAccess, locationUnlocked } from "@/lib/roomsetu/location-gate";
+import { imageUrlSql } from "@/lib/roomsetu/listing-image";
+import { cleanUtm } from "@/lib/analytics/utm";
+import { saveUtm } from "@/lib/analytics/utm-db";
 import { feeViewOf } from "@/lib/roomsetu/fee-copy";
 import { audit } from "@/lib/roomsetu/admin-api";
 import { trustOf, type TrustFields } from "@/lib/roomsetu/trust";
@@ -310,7 +313,7 @@ export const getDesk = createServerFn({ method: "GET" })
               l.room_type, l.gender_pref, l.occupation_pref, l.smoking_allowed, l.pets_allowed, l.food_available,
               l.title, l.deposit, l.furnished, case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status, l.status, l.listing_tier, l.is_demo,
               l.quality_score, p.property_type, pr.full_name as host_name,
-              (select i.url from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
+              (select ${imageUrlSql("i")} from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
        from listings l
        join profiles pr on pr.user_id = l.owner_id
        join properties p on p.id = l.property_id
@@ -535,7 +538,7 @@ async function attachAmenities(sql: Sql, listingId: string, draft: Draft) {
 
 export const createListing = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(draftOf)
+  .validator((input: unknown) => ({ ...draftOf(input), utm: cleanUtm((input as { utm?: unknown } | null)?.utm) }))
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const userId = context.userId;
@@ -651,6 +654,7 @@ export const createListing = createServerFn({ method: "POST" })
     await attachAmenities(sql, listingId, data);
     await writeTrust(sql, listingId, data.trust);
     await sql`insert into profile_roles (user_id, role) values (${userId}, 'HOST') on conflict do nothing`;
+    await saveUtm(sql, "listings", listingId, data.utm);
     logEvent("listing.created", { city: data.city, photos: data.photos.length });
     return { id: listingId };
   });
@@ -1277,7 +1281,7 @@ export const getMatches = createServerFn({ method: "GET" })
               l.gender_pref, l.available_from::text as available_from, case when pr.identity_status = 'VERIFIED' and pr.phone_verified_at is not null then 'VERIFIED' else 'UNVERIFIED' end as verification_status, l.status, l.listing_tier,
               l.is_demo, l.food_available, l.quality_score, l.occupation_pref, l.smoking_allowed, l.pets_allowed,
               p.property_type, pr.full_name as host_name,
-              (select i.url from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
+              (select ${imageUrlSql("i")} from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
        from listings l
        join profiles pr on pr.user_id = l.owner_id
        join properties p on p.id = l.property_id

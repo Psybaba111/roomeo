@@ -6,8 +6,9 @@ import {
   canMarkPaid,
   canRecordEarlyExit,
   canRefund50,
-  commissionAmounts,
   commissionDueOn,
+  flatCommissionAmounts,
+  ownerFeeFlatInr,
   defaultFoundingUntil,
   earlyExitDueInr,
   istYmd,
@@ -124,21 +125,22 @@ async function createOne(
   if (!att.ok) return { created: false, tenantId: d.tenantId, reason: "outside_window", days: att.days };
   const rent = d.rentInr ?? (await stayRent(sql, d.tenantId, d.listingId, d.squadRequestId));
   if (!(rent > 0)) return { created: false, tenantId: d.tenantId, reason: "no_rent" };
+  // Flat ₹499 all-in per tenant (17 Nov 2026). The founding flag is still recorded; it no longer changes the price.
   const rate = rateFor(await hostSetting(sql, d.ownerId), moveInOn);
-  const amt = commissionAmounts(rent, rate.ratePct, ownerFeeGstPct());
+  const amt = flatCommissionAmounts(rent, ownerFeeGstPct(), ownerFeeFlatInr());
   const id = crypto.randomUUID();
   const link = paymentLinkStub(id);
   const dueOn = commissionDueOn(moveInOn);
-  const ins = await sql<{ id: string }>`insert into owner_commissions (id, move_in_id, squad_move_in_id, listing_id, owner_id, tenant_id, first_enquiry_at, move_in_on, attribution_days, rent_inr, rate_pct, founding_rate,
+  const ins = await sql<{ id: string }>`insert into owner_commissions (id, move_in_id, squad_move_in_id, listing_id, owner_id, tenant_id, first_enquiry_at, move_in_on, attribution_days, rent_inr, rate_pct, fee_model, founding_rate,
       fee_inr, gst_pct, gst_inr, total_inr, amount_due_inr, basis_on, due_on, status, payment_link_mode, payment_link_ref)
-    values (${id}, ${d.key}, ${d.squadMoveInId}, ${d.listingId}, ${d.ownerId}, ${d.tenantId}, ${first}::timestamptz, ${moveInOn}::date, ${att.days}, ${rent}, ${rate.ratePct}, ${rate.founding},
+    values (${id}, ${d.key}, ${d.squadMoveInId}, ${d.listingId}, ${d.ownerId}, ${d.tenantId}, ${first}::timestamptz, ${moveInOn}::date, ${att.days}, ${rent}, ${null}, 'flat', ${rate.founding},
       ${amt.feeInr}, ${amt.gstPct}, ${amt.gstInr}, ${amt.totalInr}, ${amt.totalInr}, ${moveInOn}::date, ${dueOn}::date, 'due', ${link.mode}, ${link.ref})
     on conflict (move_in_id) do nothing returning id`;
   if (!ins.length) return { created: false, tenantId: d.tenantId, reason: "exists" };
-  const amount = amt.gstInr > 0 ? `₹${amt.feeInr} + ₹${amt.gstInr} GST = ₹${amt.totalInr}` : `₹${amt.feeInr}`;
-  await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${d.ownerId}, 'application', 'Roomeo commission due',
-    ${`A tenant moved in through Roomeo. Commission ${amount}, due by ${dueOn}. Roomeo will send a payment link.`}, '/owner-fees')`;
-  return { created: true, id, tenantId: d.tenantId, ratePct: rate.ratePct, feeInr: amt.feeInr, gstInr: amt.gstInr, totalInr: amt.totalInr, dueOn, founding: rate.founding };
+  const amount = amt.gstInr > 0 ? `₹${amt.totalInr} (GST included)` : `₹${amt.totalInr}`;
+  await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${d.ownerId}, 'application', 'Roomeo fee due',
+    ${`A tenant moved in through Roomeo. Roomeo's flat fee ${amount}, due by ${dueOn}. Roomeo will send a payment link.`}, '/owner-fees')`;
+  return { created: true, id, tenantId: d.tenantId, ratePct: 0, feeInr: amt.feeInr, gstInr: amt.gstInr, totalInr: amt.totalInr, dueOn, founding: rate.founding };
 }
 
 /**

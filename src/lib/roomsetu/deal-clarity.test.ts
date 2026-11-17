@@ -78,17 +78,26 @@ test("squad agreement issues only when the owner and every member signed; cancel
 
 test("GST invoice is created once per PAID fee with running numbers", async () => {
   const pg = await db(); const sql = sqlOf(pg);
-  for (const [id, st] of [["p1", "PAID"], ["p2", "PAID"], ["p3", "PENDING"]])
-    await pg.query(`insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, kind) values ($1,'u1','fee',1179,$2,'UPI',$3,'SUCCESS_FEE')`, [id, st, "R" + id]);
-  const now = new Date("2026-10-29T05:00:00Z");
-  const a = await createFeeInvoice(sql, "p1", 999, now);
-  const again = await createFeeInvoice(sql, "p1", 999, now);
-  const b = await createFeeInvoice(sql, "p2", 999, now);
+  for (const [id, st, amt] of [["p1", "PAID", 499], ["p2", "PAID", 499], ["p3", "PENDING", 499], ["p4", "PAID", 589]] as const)
+    await pg.query(`insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, kind) values ($1,'u1','fee',$4,$2,'UPI',$3,'SUCCESS_FEE')`, [id, st, "R" + id, amt]);
+  const now = new Date("2026-11-17T05:00:00Z");
+  const a = await createFeeInvoice(sql, "p1", 422.88, now);
+  const again = await createFeeInvoice(sql, "p1", 422.88, now);
+  const b = await createFeeInvoice(sql, "p2", 422.88, now);
   assert.equal(a?.number, "RMO/2026-27/000001");
   assert.equal(again?.number, a?.number);
   assert.equal(b?.number, "RMO/2026-27/000002");
-  assert.equal(await createFeeInvoice(sql, "p3", 999, now), null);
-  const r = (await pg.query<{ cgst_paise: number; total_paise: number; round_off_paise: number; place_of_supply: string }>(`select cgst_paise, total_paise, round_off_paise, place_of_supply from fee_invoices where payment_id='p1'`)).rows[0];
-  assert.deepEqual([r.cgst_paise, r.total_paise, r.round_off_paise, r.place_of_supply], [8991, 117882, 18, "Karnataka"]);
+  assert.equal(await createFeeInvoice(sql, "p3", 422.88, now), null);
+  type Row = { taxable_paise: number; cgst_paise: number; sgst_paise: number; igst_paise: number; total_paise: number; round_off_paise: number; place_of_supply: string };
+  const q = `select taxable_paise, cgst_paise, sgst_paise, igst_paise, total_paise, round_off_paise, place_of_supply from fee_invoices where payment_id=$1`;
+  // ₹499 all-in: 42288 + 3806 + 3806 = 49900 paise exactly, no round-off.
+  const r = (await pg.query<Row>(q, ["p1"])).rows[0];
+  assert.deepEqual([r.taxable_paise, r.cgst_paise, r.sgst_paise, r.igst_paise, r.total_paise, r.round_off_paise, r.place_of_supply], [42288, 3806, 3806, 0, 49900, 0, "Karnataka"]);
+  assert.equal(r.taxable_paise + r.cgst_paise + r.sgst_paise + r.igst_paise + r.round_off_paise, 49900);
+  // A ₹589 row created before 17 Nov 2026 keeps exactly the old (exclusive) invoice math for the base it is given.
+  await createFeeInvoice(sql, "p4", 499.15, now);
+  const old = (await pg.query<Row>(q, ["p4"])).rows[0];
+  const was = invoiceAmounts(499.15, null, 589);
+  assert.deepEqual([old.taxable_paise, old.cgst_paise, old.total_paise, old.round_off_paise], [was.taxable, was.cgst, was.total, was.roundOff]);
   await pg.close();
 });

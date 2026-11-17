@@ -17,8 +17,8 @@ test("any typed city is accepted and normalised", () => {
   assert.ok(isSearchCity("Pune"));
 });
 
-test("no city is featured", () => {
-  assert.deepEqual(citySearchPaths(), []);
+test("no city is the default; launch cities only get sitemap pages", () => {
+  assert.deepEqual(citySearchPaths(), ["/search?city=Bengaluru", "/search?city=Mangaluru"]);
   assert.equal(budgetHints("Mangaluru").placeholder, budgetHints("Pune").placeholder);
   assert.equal(citySeoTitle(""), "Spare beds and PG rooms");
   assert.deepEqual(areaCentroid("Pune", "Nowhere", [1, 2]), [1, 2]);

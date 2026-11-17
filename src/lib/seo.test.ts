@@ -56,7 +56,7 @@ test("robots.txt points at the same base as the sitemap", () => {
 });
 
 test("shared social/meta description: exact copy, no ₹ fee, used by site.json; listings keep their own", () => {
-  assert.equal(SHARE_DESCRIPTION, "AC PG beds for working men in Mangaluru. Dated photos, rent + bills in one price, meals optional. Deposit paid to the owner.");
+  assert.equal(SHARE_DESCRIPTION, "Spare PG beds and shared rooms in Bengaluru and Mangaluru. Dated photos, rent + bills in one price, meals optional. Deposit paid to the owner.");
   assert.ok(!/₹/.test(SHARE_DESCRIPTION));
   const site = JSON.parse(readFileSync(new URL("./og/site.json", import.meta.url), "utf8"));
   assert.equal(site.description, SHARE_DESCRIPTION, "default og:/twitter:description injected on non-listing pages");

@@ -9,6 +9,7 @@ import { badListingId, listingGone } from "@/lib/roomsetu/listing-gone";
 import { listingCard, num, str, bool, type ListingCard } from "@/lib/roomsetu/map";
 import { likeContains } from "@/lib/roomsetu/services";
 import { areaCentroid, searchCity } from "@/lib/roomsetu/cities";
+import { imageUrlSql } from "@/lib/roomsetu/listing-image";
 
 const CARD_SQL = `
   l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type, l.listing_kind, l.bedrooms,
@@ -18,7 +19,7 @@ const CARD_SQL = `
   l.wifi, l.ac, l.pets_allowed, l.smoking_allowed, l.kitchen, l.guest_policy, l.occupation_pref,
   p.property_type,
   pr.full_name as host_name,
-  (select i.url from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
+  (select ${imageUrlSql("i")} from listing_images i where i.listing_id = l.id order by i.sort_order limit 1) as photo
 `;
 
 const FROM = `
@@ -271,8 +272,11 @@ export const getListing = createServerFn({ method: "POST" })
       return { held: true as const };
     }
     await sql.query("update listings set views = views + 1 where id = $1", [id]);
+    // Public listings get short CDN URLs (/api/img/<id>) instead of ~90 KB base64 data: URLs per photo.
+    // The owner previewing a held listing keeps the raw URLs (the image route only serves public listings).
+    const urlExpr = visible ? imageUrlSql("i") : "i.url";
     const images = await sql.query<Record<string, unknown>>(
-      "select url, category from listing_images where listing_id = $1 order by sort_order",
+      `select ${urlExpr} as url, i.category from listing_images i where i.listing_id = $1 order by i.sort_order`,
       [id],
     );
     const amenities = await sql.query<Record<string, unknown>>(
@@ -284,7 +288,7 @@ export const getListing = createServerFn({ method: "POST" })
     const fee = feeViewOf(pricingConfig());
     const [trust, photoDates, access] = await Promise.all([
       readTrust(sql, id),
-      readPhotoDates(sql, id),
+      readPhotoDates(sql, id, visible),
       locationAccess(sql, id, str(row.owner_id), context.userId, fee.on),
     ]);
     // Exact address / pin / coordinates only leave the server once the gate opens.

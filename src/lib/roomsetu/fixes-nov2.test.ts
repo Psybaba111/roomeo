@@ -45,10 +45,10 @@ test("#3/#4 fee box uses payable (₹490 with credit) and shows refund state ins
   assert.match(d, /Pay ₹\{a\.payable\}/);
 });
 
-test("#5 deal steps copy: ₹499 + GST = ₹589, 7 days of paying, no ₹999", () => {
-  const s = dealSteps({ role: "tenant", iSigned: true, issued: true, cancelled: false, feeOn: true, feePaid: false, feeTotal: 589, movedIn: false });
+test("#5 deal steps copy: ₹499 all-in, 7 days of paying, no ₹999", () => {
+  const s = dealSteps({ role: "tenant", iSigned: true, issued: true, cancelled: false, feeOn: true, feePaid: false, feeTotal: 499, movedIn: false });
   const pay = s.find((x) => x.key === "pay")!;
-  assert.match(pay.hint, /₹589 once \(₹499 \+ 18% GST = ₹589\)/);
+  assert.match(pay.hint, /₹499 once \(18% GST included\)/);
   assert.match(pay.hint, /within 7 days of paying, both sides get their fee back/);
   assert.doesNotMatch(pay.hint, /999/);
   assert.match(dealSteps({ role: "tenant", iSigned: true, issued: true, cancelled: false, feeOn: true, feePaid: false, feeTotal: 490, movedIn: false })[2].hint, /₹490 once.*less your ₹99 trial credit, which is non-refundable/);
@@ -71,7 +71,7 @@ test("#9 pricing page explains trial nights and the ₹99 credit", () => {
   assert.match(p, /paid directly to the owner/);
   // The ₹99 credit line is built from the fee setting: shown with the fee on, absent while it is off.
   assert.match(p, /pricingTrialCreditBullet\(fee, TRIAL_FEE_INR, TRIAL_CREDIT_WINDOW_DAYS\)/);
-  assert.match(pricingTrialCreditBullet({ on: true, baseInr: 499, totalInr: 589 }, 99, 14) ?? "", /comes off your ₹589 fee/);
+  assert.match(pricingTrialCreditBullet({ on: true, baseInr: 422.88, totalInr: 499 }, 99, 14) ?? "", /comes off your ₹499 fee/);
   assert.equal(pricingTrialCreditBullet(FEE_OFF, 99, 14), null);
 });
 

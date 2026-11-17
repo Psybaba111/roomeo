@@ -32,7 +32,8 @@ test("terms fees match pricing defaults", () => {
   for (const k of ["not the owner, landlord", "acceptable use", "Mangaluru, Karnataka", "Limitation of liability", "Indemnity", "Intermediary Rules, 2021", "broker"]) assert.ok(T.includes(k), k);
   // Fee ON: the configured fee and the 7-day refund rule.
   const on = text(termsFor(feeViewOf(pricingConfig({ ROOMEO_FEE_ENABLED: "true" }))));
-  assert.ok(on.includes("₹499 plus 18% GST (₹589 in total), once"));
+  assert.ok(on.includes("flat platform fee of ₹499 including 18% GST, once"));
+  assert.ok(on.includes("₹422.88 fee + ₹76.12 GST") && !on.includes("₹589"));
   assert.ok(on.includes("vacates within 7 days of paying"));
   assert.ok(on.includes(`₹${SUCCESS_FEE_INR}`));
   assert.ok(on.includes("within 7 days"));

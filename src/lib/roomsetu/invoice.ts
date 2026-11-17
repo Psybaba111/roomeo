@@ -50,6 +50,23 @@ export function invoiceAmountsInclusive(paidInr: number, buyerState: string | nu
   return { taxable, cgst, sgst, igst, total: paid, roundOff: 0, paid, intraState, placeOfSupply: intraState ? SELLER.state : (buyerState as string) };
 }
 
+/** Pre-17 Nov 2026 success fee: ₹499 base + 18% GST, charged as ₹589. */
+export const LEGACY_FEE_TOTAL_INR = 589;
+
+/**
+ * Which split a SUCCESS_FEE invoice uses (17 Nov 2026, "₹499 all-in including GST").
+ * - A payment created under the old model (₹589, or ₹490 = ₹589 less the ₹99 trial credit) is invoiced exactly as
+ *   before: base + GST with a round-off line, or GST-inclusive when a credit was applied. Nothing about those changes.
+ * - Everything else (₹499, ₹400 after the credit, or whatever ROOMEO_SUCCESS_FEE_INR is) is GST-inclusive:
+ *   taxable = paid / 1.18 to the paisa, CGST + SGST (or IGST) = the rest, so the invoice total is the amount paid
+ *   to the paisa (₹499 → 42288 + 3806 + 3806 = 49900 paise), no round-off.
+ */
+export function successFeeInvoiceAmounts(paidInr: number, trialCreditInr: number, legacyBaseInr: number, buyerState: string | null, currentFeeInr: number): InvoiceAmounts {
+  const legacy = currentFeeInr !== LEGACY_FEE_TOTAL_INR && paidInr + Math.max(0, trialCreditInr) === LEGACY_FEE_TOTAL_INR;
+  if (legacy && !(trialCreditInr > 0)) return invoiceAmounts(legacyBaseInr, buyerState, paidInr);
+  return invoiceAmountsInclusive(paidInr, buyerState);
+}
+
 /** Indian financial year label in IST, e.g. 2026-27. */
 export function financialYear(d: Date): string {
   const ist = new Date(d.getTime() + 330 * 60_000);

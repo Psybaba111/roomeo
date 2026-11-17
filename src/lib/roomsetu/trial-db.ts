@@ -130,7 +130,7 @@ export async function findTrialCredit(sql: Sql, seekerId: string, dealIssuedAt: 
   return null;
 }
 
-/** Tenant's ₹589 fee, minus ₹99 if a trial credit applies. */
+/** Tenant's success fee (₹499 all-in since 17 Nov 2026; ₹589 before), minus ₹99 if a trial credit applies. */
 export async function tenantFeeWithTrialCredit(sql: Sql, seekerId: string, feeTotalInr: number, dealIssuedAt: string | Date) {
   const credit = await findTrialCredit(sql, seekerId, dealIssuedAt);
   const f = feeAfterTrialCredit(feeTotalInr, Boolean(credit));
