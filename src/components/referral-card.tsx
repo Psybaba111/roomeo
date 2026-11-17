@@ -39,7 +39,9 @@ export function ReferralCard() {
       </p>
       <h2 className="mt-2 font-display text-3xl">You both save ₹{data.perPerson} 🫶</h2>
       <p className="mt-2 max-w-prose text-muted">
-        Send your link to a friend who's hunting. When they move in through roomeo, you each get ₹{data.perPerson} off your first month. No catch, no fees.
+        {data.mode === "fee"
+          ? `Send your link to a friend who's hunting. Once they move in through roomeo and pay their first month, you each get ₹${data.perPerson} off your next Roomeo fee. It's credit, not cash.`
+          : `Send your link to a friend who's hunting. When they move in through roomeo, you each get ₹${data.perPerson} off your first month. No catch, no fees.`}
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <a

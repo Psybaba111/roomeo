@@ -8,11 +8,11 @@ export const PRIVACY_UPDATED = "17 Nov 2026";
  * Terms date shown only while the owner-fee model is live (OWNER_FEE_ENABLED on, tenant fee off): that copy
  * is different, so it carries its own date. ROHITH TO CONFIRM before switching the owner fee on.
  */
-export const OWNER_FEE_TERMS_UPDATED = "15 Nov 2026";
+export const OWNER_FEE_TERMS_UPDATED = "17 Nov 2026";
 
 /** "Last updated" for the terms the visitor actually sees. Unchanged unless the owner-fee copy is live. */
 export function termsUpdated(fee: FeeView): string {
-  return !fee.on && ownerOf(fee).on ? OWNER_FEE_TERMS_UPDATED : LEGAL_UPDATED;
+  return ownerOf(fee).on ? OWNER_FEE_TERMS_UPDATED : LEGAL_UPDATED;
 }
 export const OPERATOR = {
   name: "Athiti Hospitality Services Private Limited",
@@ -87,6 +87,10 @@ export const PRIVACY: LegalSection[] = [
 export function termsFor(fee: FeeView): LegalSection[] {
   const o = ownerOf(fee);
   const ownerModel = !fee.on && o.on;
+  const both = fee.on && o.on;
+  const ownerAfterDeposit = `Owners pay Roomeo a flat fee of ₹${o.flatInr} for each tenant who comes through Roomeo (for a squad, for each tenant, i.e. each bed), charged only after the owner has received that tenant's deposit and rent advance and marked it on Roomeo. Nothing is charged at listing time or upfront. ${o.gstPct ? `The ₹${o.flatInr} includes GST at ${o.gstPct}%, shown as a separate line on the invoice; nothing is added on top.` : `No GST is charged on it at present; if that changes, the ₹${o.flatInr} will stay all-in and only apply after we tell you.`} A tenant counts as coming through Roomeo when the deposit and advance are received within ${o.attributionDays} days of their first Roomeo enquiry to that owner.`;
+  const ownerDue = `The owner's fee is due within ${o.dueDays} days of marking the deposit and advance as received, by a Razorpay payment link Roomeo sends. If the mark was a mistake or the deposit is returned before the owner pays, the mark can be undone and nothing is owed. The tenant never sees or pays the owner's fee.`;
+  const creditsLine = "Referral credits, when Roomeo gives them, come off your next Roomeo fee automatically. They aren't cash, can't be paid out or transferred, and if the fee they were used on is refunded or cancelled the credit comes back as credit.";
   return [
     { id: "about", title: "The basics", body: [
       `These terms are an agreement between you and ${OPERATOR.name} (GSTIN ${OPERATOR.gstin}), ${OPERATOR.address}, which runs Roomeo. Using Roomeo means you accept them. You must be 18+.`,
@@ -114,9 +118,19 @@ export function termsFor(fee: FeeView): LegalSection[] {
       ...(ownerModel
         ? [
             `${FREE_TENANTS}: renters pay Roomeo nothing, ever, to search, chat, lock a bed or move in.`,
-            `Owners pay Roomeo a flat fee of ₹${o.flatInr} for each tenant who moves in through Roomeo (for a squad, for each tenant, i.e. each bed). ${o.gstPct ? `The ₹${o.flatInr} includes GST at ${o.gstPct}%, shown as a separate line on the invoice; nothing is added on top.` : `No GST is charged on it at present; if that changes, the ₹${o.flatInr} will stay all-in and only apply to move-ins after we tell you.`} A tenant counts as coming through Roomeo when they move in within ${o.attributionDays} days of their first Roomeo enquiry to that owner (the enquiry day is day 0; day ${o.attributionDays} counts, day ${o.attributionDays + 1} doesn't).`,
-            `The commission is due within ${o.dueDays} days of the move-in being confirmed on Roomeo, by a Razorpay payment link Roomeo sends. Amounts are rounded to the nearest rupee. The tenant never sees or pays the owner's commission.`,
+            `${ownerAfterDeposit} (The enquiry day is day 0; day ${o.attributionDays} counts, day ${o.attributionDays + 1} doesn't.)`,
+            `${ownerDue} Amounts are rounded to the nearest rupee.`,
+            creditsLine,
             `Founding partners, as confirmed by Roomeo in writing, pay ₹0 on move-ins up to the end date we tell them; no invoice is issued for a ₹0 fee. Owners who agreed a percentage commission before 17 Nov 2026 keep what they already owe for move-ins before that date; every later move-in is the flat ₹${o.flatInr}.`,
+            "Owners must not charge a Roomeo tenant any brokerage, finder's fee or similar charge. Doing so can get the listing removed and the account closed.",
+          ]
+        : both
+        ? [
+            `Roomeo charges the renter a flat platform fee of ₹${fee.totalInr} including 18% GST (₹${fee.baseInr.toFixed(2)} fee + ₹${(fee.totalInr - fee.baseInr).toFixed(2)} GST), once per stay, when the stay is confirmed. You get a GST invoice for it. No monthly fee. Roomeo never takes a cut of rent or deposit.`,
+            ownerAfterDeposit,
+            ownerDue,
+            "Founding partners, as confirmed by Roomeo in writing, pay ₹0 on tenants whose deposit is received up to the end date we tell them; no invoice is issued for a ₹0 fee.",
+            creditsLine,
             "Owners must not charge a Roomeo tenant any brokerage, finder's fee or similar charge. Doing so can get the listing removed and the account closed.",
           ]
         : fee.on
@@ -133,6 +147,8 @@ export function termsFor(fee: FeeView): LegalSection[] {
       "Pass promise: if every owner you contact during a pass declines or doesn't reply within 48 hours, the full pass price goes back to your UPI ID automatically.",
       ownerModel
         ? `Owner commission: if the tenant leaves within ${o.refundDays} days of moving in, the owner pays only ${o.refundPct}%. If the commission isn't paid yet, only ${o.refundPct}% is due; if it's already paid, Roomeo refunds ${o.refundPct}% of the commission${o.gstPct ? " and 50% of the GST charged" : ""}. After that it isn't refundable. Tenants pay nothing, so there's nothing to refund them. Deposits are paid directly to the owner and are never held or refunded by Roomeo.`
+        : both
+        ? `Platform fee: the renter's ₹${fee.totalInr} (GST included) fee is refunded in full only if the tenant vacates within 7 days of paying it. Owner fee: if the tenant leaves within ${o.refundDays} days of moving in, the owner pays only ${o.refundPct}% (₹${Math.round(o.flatInr / 2 + 0.01)} of ₹${o.flatInr}): half is waived if unpaid, or refunded if paid. Credit used on a refunded fee comes back as credit. Deposits are paid directly to the owner and are never held or refunded by Roomeo.`
         : fee.on
         ? `Platform fee: the ₹${fee.totalInr} (GST included) fee is refunded in full only if the tenant vacates within 7 days of paying it. The owner's fee is refunded too if the stay ends within 7 days of the owner's payment. In every other case, including moving out later, the fee is not refundable. Deposits are paid directly to the owner and are never held or refunded by Roomeo.`
         : "Platform fee: there is none right now, so there's nothing to refund. Deposits are paid directly to the owner and are never held or refunded by Roomeo.",

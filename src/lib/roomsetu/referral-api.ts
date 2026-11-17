@@ -13,6 +13,7 @@ import {
   referralsEnabled,
   REFERRAL_CREDIT_INR,
 } from "@/lib/roomsetu/referrals";
+import { feeCreditConfig } from "@/lib/roomsetu/fee-credits";
 
 async function ensureCode(sql: Sql, userId: string): Promise<string> {
   const have = await sql<{ code: string }>`select code from referral_codes where user_id = ${userId}`;
@@ -38,7 +39,23 @@ export const getMyReferral = createServerFn({ method: "GET" })
       const link = referralLink(SITE_URL, code);
       const stats = (await sql<{ joined: number; moved: number }>`select count(*)::int as joined, count(completed_at)::int as moved from referrals where referrer_id = ${context.userId}`)[0];
       const credit = (await sql<{ total: number }>`select coalesce(sum(amount_inr), 0)::int as total from referral_credits where user_id = ${context.userId} and status = 'AVAILABLE'`)[0];
+      const fc = feeCreditConfig();
+      if (fc.enabled) {
+        const { creditBalance } = await import("@/lib/roomsetu/fee-credits-db");
+        return {
+          enabled: true as const,
+          mode: "fee" as const,
+          code,
+          link,
+          shareText: `Found my PG on roomeo, zero broker fees 🙌 Sign up with my link. When you move in and pay your first month, we each get ₹${fc.amountInr} off our next Roomeo fee: ${link}`,
+          perPerson: fc.amountInr,
+          joined: Number(stats?.joined ?? 0),
+          movedIn: Number(stats?.moved ?? 0),
+          creditInr: await creditBalance(sql, context.userId),
+        };
+      }
       return {
+        mode: "rent" as const,
         enabled: true as const,
         code,
         link,

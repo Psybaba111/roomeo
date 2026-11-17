@@ -10,6 +10,7 @@ const LINKS = [
   ["/admin/verifications", "Checks"],
   ["/admin/payments", "Payments"],
   ["/admin/commissions", "Commissions"],
+  ["/admin/credits", "Credits"],
   ["/admin/revenue", "Revenue"],
   ["/admin/reports", "Reports"],
   ["/admin/analytics", "Charts"],

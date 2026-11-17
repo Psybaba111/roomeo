@@ -80,7 +80,7 @@ export const getDealAgreement = createServerFn({ method: "GET" })
       // Owner-fee model: a tenant-safe clause only (free for the tenant, no brokerage). The owner's rate and
       // amount never go into the shared agreement; the owner sees them in `ownerFee`/`ownerNote` below (null for a tenant).
       const { ownerFeeActive } = await import("@/lib/roomsetu/owner-fee-db");
-      const terms = { ...d.terms, feeBaseInr, feeInclGst: feeBaseInr > 0, ownerFee: feeBaseInr === 0 && ownerFeeActive() };
+      const terms = { ...d.terms, feeBaseInr, feeInclGst: feeBaseInr > 0, ownerFee: ownerFeeActive() };
       await sql.query(`insert into deal_agreements (id, application_id, listing_id, seeker_id, owner_id, terms_json, body, squad_request_id)
         values ($1,$2,$3,$4,$5,$6,$7,$8) on conflict (application_id) do nothing`,
         [crypto.randomUUID(), d.key, d.listingId, d.leadTenantId, d.ownerId, JSON.stringify(terms), agreementBody(terms), data.kind === "squad" ? data.id : null]);
@@ -91,7 +91,7 @@ export const getDealAgreement = createServerFn({ method: "GET" })
     const signers = data.kind === "squad" ? await squadSigners(sql, str(a.id)) : [];
     const iSigned = data.kind === "squad" ? signers.some((x) => x.user_id === context.userId) : Boolean(isOwner ? a.owner_signed_at : a.seeker_signed_at);
     const base = isOwner ? cfg.successFeeOwnerInr : cfg.successFeeTenantInr;
-    const fee = (await sql.query<{ id: string; status: string; paid_at: string; amount_inr: number; trial_credit_inr: number }>(`select id, status, coalesce(reviewed_at, created_at)::text as paid_at, amount_inr, coalesce(trial_credit_inr, 0) as trial_credit_inr from payments where agreement_id = $1 and kind = 'SUCCESS_FEE' and user_id = $2 order by created_at desc limit 1`, [str(a.id), context.userId]))[0];
+    const fee = (await sql.query<{ id: string; status: string; paid_at: string; amount_inr: number; trial_credit_inr: number; credit_applied_inr?: number }>(`select *, coalesce(reviewed_at, created_at)::text as paid_at, coalesce(trial_credit_inr, 0) as trial_credit_inr from payments where agreement_id = $1 and kind = 'SUCCESS_FEE' and user_id = $2 order by created_at desc limit 1`, [str(a.id), context.userId]))[0];
     const state = agreementState({ seekerSignedAt: str(a.seeker_signed_at) || (signers.some((x) => x.role === "TENANT") ? "x" : null), ownerSignedAt: str(a.owner_signed_at) || null, issuedAt: str(a.issued_at) || null, cancelledAt: str(a.cancelled_at) || null });
     const feeOn = cfg.successFeeEnabled && base > 0;
     // Owner-fee model: what the owner will owe on move-in (shown to the owner only). Tenants see nothing to pay.
@@ -139,7 +139,7 @@ export const getDealAgreement = createServerFn({ method: "GET" })
       refundState,
       feeStatus: str(fee?.status),
       feePaymentId: fee?.status === "PAID" ? str(fee.id) : "",
-      steps: dealSteps({ role: isOwner ? "owner" : "tenant", squad: data.kind === "squad", iSigned, issued: Boolean(a.issued_at), cancelled: Boolean(a.cancelled_at), feeOn, feePaid: fee?.status === "PAID" || Boolean(refundState), feeTotal: payable, feeBase: base, movedIn: d.movedIn, ownerFeeTotal: ownerFee ? ownerFee.totalInr * beds : undefined }),
+      steps: dealSteps({ role: isOwner ? "owner" : "tenant", squad: data.kind === "squad", iSigned, issued: Boolean(a.issued_at), cancelled: Boolean(a.cancelled_at), feeOn, feePaid: fee?.status === "PAID" || Boolean(refundState), feeTotal: payable, feeBase: base, movedIn: d.movedIn, ownerFeeTotal: ownerFee ? ownerFee.totalInr * beds : undefined, ownerAfterDeposit: ownerFeeActive(), creditInr: num(fee?.credit_applied_inr), trialCreditInr: trialCredit }),
     };
   });
 
@@ -212,7 +212,14 @@ export const startAgreementFee = createServerFn({ method: "POST" })
       await sql.query(`insert into payments (id, user_id, purpose, amount_inr, status, provider, ref, kind, listing_id, agreement_id, squad_id, trial_credit_inr, trial_credit_booking_id)
         values ($1,$2,$3,$4,'PENDING','UPI',$5,'SUCCESS_FEE',$6,$7,$8,$9,$10)`,
         [crypto.randomUUID(), context.userId, `Success fee (${isOwner ? "owner" : d.squadId ? "squad member" : "tenant"}) ₹${fee.total} incl. GST (₹${fee.base.toFixed(2)} + ₹${fee.gst.toFixed(2)} GST)${creditNote}`, credit.amount, makeRef(), d.listingId, str(a.id), d.squadId, credit.credit, credit.bookingId]);
+      // Referral credit (ROOMEO_REFERRAL_CREDITS_ENABLED, off by default): comes off this fee automatically. Fully covered → PAID by credit, no UPI, no invoice.
+      const created = (await sql.query<{ id: string }>(`select id from payments where agreement_id = $1 and kind = 'SUCCESS_FEE' and user_id = $2 and status = 'PENDING' order by created_at desc limit 1`, [str(a.id), context.userId]))[0];
+      if (created) {
+        const { applyCreditsToPayment } = await import("@/lib/roomsetu/fee-credits-db");
+        await applyCreditsToPayment(sql, created.id);
+      }
       row = (await find())[0];
+      if (row?.status === "PAID") return { ref: str(row.ref), status: "PAID", amount: 0, plan: "the one-time success fee (paid with your Roomeo credit)", payee: payee.name, vpa: payee.vpa, link: "", qr: "" };
     }
     const link = buildUpiLink({ vpa: payee.vpa, name: payee.name, amountInr: num(row.amount_inr), ref: str(row.ref) });
     const qr = await QRCode.toDataURL(link, { margin: 1, width: 320, errorCorrectionLevel: "M" });

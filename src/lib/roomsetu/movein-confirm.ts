@@ -4,6 +4,7 @@ import type { Sql } from "../db.ts";
 import { moveInConfirmed } from "./pricing.ts";
 import { completionCredits, isMissingTable, referralsEnabled } from "./referrals.ts";
 import { commissionOnMoveIn } from "./owner-fee-db.ts";
+import { feeCreditConfig } from "./fee-credits.ts";
 
 /**
  * Called once a move-in is confirmed. If the renter came in on an invite and this is their
@@ -16,6 +17,9 @@ export async function completeReferralOnMoveIn(sql: Sql, seekerId: string, appli
       where referee_id = ${seekerId} and completed_at is null returning id, referrer_id`;
     const r = done[0];
     if (!r) return false;
+    // Referral fee credits programme on: credits are issued by hand by an admin (₹499 off the next Roomeo fee),
+    // so the old automatic ₹500-off-rent credit is not created as well.
+    if (feeCreditConfig().enabled) return true;
     for (const c of completionCredits({ id: r.id, referrerId: r.referrer_id, refereeId: seekerId })) {
       await sql`insert into referral_credits (id, user_id, referral_id, amount_inr, reason) values (${crypto.randomUUID()}, ${c.userId}, ${c.referralId}, ${c.amountInr}, ${c.reason}) on conflict (user_id, referral_id) do nothing`;
       await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${c.userId}, 'application', ${`₹${c.amountInr} off your first month`}, ${c.reason + ". Show this at move-in, we'll knock it off the rent."}, '/dashboard')`;

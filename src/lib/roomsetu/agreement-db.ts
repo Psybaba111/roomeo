@@ -2,6 +2,7 @@ import type { Sql } from "../db.ts";
 import { istDate, refundableOnVacate } from "./deal-agreement.ts";
 import { buyerState as pickBuyerState, invoiceAmountsInclusive, invoiceNumber, normalizeGstin, successFeeInvoiceAmounts, trialInvoiceNumber } from "./invoice.ts";
 import { successFeeInr } from "./pricing.ts";
+import { restoreCreditsForFee } from "./fee-credits-db.ts";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? "" : String(v));
@@ -42,11 +43,15 @@ export async function refundFeesForStayEnd(sql: Sql, agreementId: string, endedO
     [agreementId],
   );
   // Never refund money we did not receive: unapproved fees are closed instead.
-  await sql.query(`update payments set status = 'CANCELLED' where agreement_id = $1 and kind = 'SUCCESS_FEE' and status in ('PENDING','SUBMITTED')`, [agreementId]);
+  const closed = await sql.query<Row>(`update payments set status = 'CANCELLED' where agreement_id = $1 and kind = 'SUCCESS_FEE' and status in ('PENDING','SUBMITTED') returning id`, [agreementId]);
   const due = paid.filter((r) => refundableOnVacate(s(r.paid_at), endedOn)).map((r) => s(r.id));
   if (due.length) {
     await sql.query(`update payments set status = 'REFUND_DUE', refund_due_at = now(), refund_reason = $2 where id = any($1::text[]) and status = 'PAID'`, [due, reason]);
+    // Paid entirely by credit: nothing to send back by UPI.
+    await sql.query(`update payments set status = 'REFUNDED', refunded_at = now() where id = any($1::text[]) and status = 'REFUND_DUE' and amount_inr = 0`, [due]);
   }
+  // Credit used on a cancelled or refunded fee goes back as credit (never cash).
+  for (const id of [...closed.map((r) => s(r.id)), ...due]) await restoreCreditsForFee(sql, { feeKind: "tenant_fee", feeId: id, actorId: "system", reason });
   return { refunds: due.length, kept: paid.length - due.length };
 }
 
@@ -60,7 +65,7 @@ export async function cancelAgreement(sql: Sql, p: { applicationId: string; user
   if (!a || !allowed.includes(p.userId)) throw new Error("Agreement not found.");
   if (a.cancelled_at) return { refunds: 0, refundable: false };
   await sql.query(`update deal_agreements set cancelled_at = now(), cancelled_by = $2, cancel_reason = $3 where id = $1`, [a.id, p.userId, p.reason.slice(0, 300)]);
-  await sql.query(`update payments set status = 'CANCELLED' where agreement_id = $1 and kind = 'SUCCESS_FEE' and status = 'PENDING'`, [a.id]);
+  // Open checkouts are closed (and any credit on them restored) inside refundFeesForStayEnd.
   const { refunds } = await refundFeesForStayEnd(sql, s(a.id), istDate(p.now ?? new Date()), "Stay ended within 7 days of paying the fee (agreement cancelled).");
   return { refunds, refundable: refunds > 0 };
 }
@@ -121,6 +126,8 @@ export async function createFeeInvoice(sql: Sql, paymentId: string, baseInr: num
     `select p.user_id, p.amount_inr, coalesce(p.trial_credit_inr, 0) as trial_credit_inr, p.agreement_id, p.kind, p.status, p.utr, ${snap ? "p.buyer_gstin" : "null::text as buyer_gstin"}, pr.full_name, pr.city, pr.phone_e164, u.email
      from payments p left join profiles pr on pr.user_id = p.user_id left join "user" u on u.id = p.user_id where p.id = $1`, [paymentId]))[0];
   if (!pay || s(pay.kind) !== "SUCCESS_FEE" || s(pay.status) !== "PAID") return null;
+  // Fully covered by Roomeo credit: ₹0 consideration, so no tax invoice (CA to confirm; see fee-credits.ts).
+  if (!(Number(pay.amount_inr) > 0)) return null;
   const gstin = normalizeGstin(s(pay.buyer_gstin));
   const buyerState = pickBuyerState(gstin, s(pay.city));
   const amt = successFeeInvoiceAmounts(Number(pay.amount_inr), Number(pay.trial_credit_inr), baseInr, buyerState, successFeeInr());

@@ -5,17 +5,21 @@ import { LEGACY_SUCCESS_FEE_TOTAL_INR, SUCCESS_FEE_INR } from "./pricing.ts";
 export type StepState = "done" | "now" | "todo";
 export type DealStep = { key: "accepted" | "sign" | "pay" | "movein"; label: string; state: StepState; hint: string };
 
-export function dealSteps(p: { role: "tenant" | "owner"; squad?: boolean; iSigned: boolean; issued: boolean; cancelled: boolean; feeOn: boolean; feePaid: boolean; feeTotal: number; feeBase?: number; movedIn: boolean; ownerFeeTotal?: number }): DealStep[] {
+export function dealSteps(p: { role: "tenant" | "owner"; squad?: boolean; iSigned: boolean; issued: boolean; cancelled: boolean; feeOn: boolean; feePaid: boolean; feeTotal: number; feeBase?: number; movedIn: boolean; ownerFeeTotal?: number; ownerAfterDeposit?: boolean; creditInr?: number; trialCreditInr?: number }): DealStep[] {
   const f = successFeeSplit(p.feeBase ?? SUCCESS_FEE_INR);
   const other = p.role === "tenant" ? (p.squad ? "the owner and your squad" : "the owner") : p.squad ? "every squad member" : "the tenant";
   const signHint = p.issued ? "Signed by everyone. Agreement issued." : p.iSigned ? `You signed. Waiting on ${other}.` : `Read it, type your name, sign. ${other[0].toUpperCase() + other.slice(1)} signs too.`;
   const payHint = !p.feeOn
     ? p.role === "tenant"
       ? "Free for tenants. Nothing to pay Roomeo. Skip ahead 🙌"
-      : p.ownerFeeTotal
-        ? `Nothing to pay now. Roomeo's commission (₹${p.ownerFeeTotal}) is due within 7 days of move-in.`
+      : p.ownerFeeTotal != null
+        ? p.ownerFeeTotal > 0
+          ? `Nothing to pay now. Roomeo's ₹${p.ownerFeeTotal} is charged only after you mark the deposit + rent advance as received (on Fees), then due within 7 days.`
+          : "Nothing to pay. You're a founding partner: ₹0 Roomeo fee."
         : "No fee right now. Skip ahead 🙌"
-    : p.feePaid ? "Paid. Invoice is ready." : payLine(p.feeTotal, f.total, p.role);
+    : p.feePaid
+      ? p.feeTotal === 0 && (p.creditInr ?? 0) > 0 ? `Paid in full with your ₹${p.creditInr} Roomeo credit. No invoice for ₹0.` : "Paid. Invoice is ready."
+      : payLine(p.feeTotal, f.total, p.role, { ownerAfterDeposit: Boolean(p.ownerAfterDeposit), creditInr: p.creditInr ?? 0, trialCreditInr: p.trialCreditInr });
   const steps: Omit<DealStep, "state">[] = [
     { key: "accepted", label: "Accepted", hint: "Owner said yes 🎉" },
     { key: "sign", label: "Sign agreement", hint: signHint },
@@ -35,8 +39,13 @@ export function dealSteps(p: { role: "tenant" | "owner"; squad?: boolean; iSigne
  * The pay-step line. A fee row created before 17 Nov 2026 keeps its ₹589 (₹499 + GST) wording, or ₹490 after the
  * ₹99 trial credit; everything newer is the all-in amount (₹499, GST included).
  */
-function payLine(feeTotal: number, total: number, role: "tenant" | "owner"): string {
+function payLine(feeTotal: number, total: number, role: "tenant" | "owner", o: { ownerAfterDeposit: boolean; creditInr: number; trialCreditInr?: number } = { ownerAfterDeposit: false, creditInr: 0 }): string {
   const otherSide = role === "tenant" ? "owner" : "tenant";
+  if (o.ownerAfterDeposit || o.creditInr > 0) {
+    const less = [o.trialCreditInr ? `₹${o.trialCreditInr} trial credit` : "", o.creditInr ? `₹${o.creditInr} Roomeo credit` : ""].filter(Boolean).join(" and ");
+    const owner = o.ownerAfterDeposit && role === "tenant" ? " The owner's Roomeo fee is separate and never passed on to you." : o.ownerAfterDeposit ? "" : ` The ${otherSide} pays ₹${total} once too.`;
+    return `You pay ₹${feeTotal} once (₹${total} incl. 18% GST${less ? `, less your ${less}` : ""}), before move in.${owner} If you move out within 7 days of paying, it's refunded${o.creditInr ? " (credit goes back as credit, never cash)" : ""}.`;
+  }
   const refund = "If the stay ends within 7 days of paying, both sides get their fee back.";
   const credit = ", less your ₹99 trial credit, which is non-refundable";
   const legacy = total !== LEGACY_SUCCESS_FEE_TOTAL_INR && (feeTotal === LEGACY_SUCCESS_FEE_TOTAL_INR || feeTotal === LEGACY_SUCCESS_FEE_TOTAL_INR - 99);

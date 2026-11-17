@@ -28,6 +28,8 @@ import {
   createCommissionsForSquadMoveIn,
   commissionsOnSquadMoveIn,
   withCommissionTables,
+  markDepositReceived,
+  undoDepositMark,
   COMMISSION_TABLES_MISSING,
   isMissingCommissionTable,
 } from "./owner-fee-db.ts";
@@ -93,8 +95,11 @@ async function flow(pg: PGlite, sql: never, o: { owner: string; tenant: string; 
   await confirmMoveInRecord(sql, { applicationId: app, listingId: o.listingId, seekerId: o.tenant, ownerId: o.owner, side: "seeker", notifyUserId: o.owner });
   const r = await confirmMoveInRecord(sql, { applicationId: app, listingId: o.listingId, seekerId: o.tenant, ownerId: o.owner, side: "owner", notifyUserId: o.tenant });
   assert.equal(r.confirmed, true);
-  const rows = (await allCommissions(sql)).filter((c) => c.moveInId === r.moveInId);
-  return { app, moveInId: r.moveInId, commission: rows[0] ?? null, body: agreementBody(terms) };
+  assert.equal((await allCommissions(sql)).filter((c) => c.tenantId === o.tenant && c.listingId === o.listingId).length, 0, "move-in alone never charges the owner");
+  // 7. Owner marks "deposit + rent advance received" → the owner fee is created now (never earlier).
+  const mark = await markDepositReceived(sql, { applicationId: app, actorId: o.owner, role: "owner" });
+  const rows = (await allCommissions(sql)).filter((c) => c.tenantId === o.tenant && c.listingId === o.listingId && c.status !== "void");
+  return { app, moveInId: r.moveInId, mark, commission: rows[0] ?? null, body: agreementBody(terms) };
 }
 
 describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
@@ -103,7 +108,7 @@ describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
     await person(pg, "zz-owner-1", "ZZ TEST Owner", "LISTING");
     await person(pg, "zz-tenant-1", "ZZ TEST Tenant");
     await listing(pg, "ZZL1", "zz-owner-1", 5999);
-    const { commission: c, body } = await flow(pg, sql, { owner: "zz-owner-1", tenant: "zz-tenant-1", listingId: "ZZL1", rent: 5999, enquiryDaysAgo: 10 });
+    const { commission: c, body, app, moveInId } = await flow(pg, sql, { owner: "zz-owner-1", tenant: "zz-tenant-1", listingId: "ZZL1", rent: 5999, enquiryDaysAgo: 10 });
     assert.doesNotMatch(body, /₹(499|589)/);
     assert.doesNotMatch(body, /20%|commission/i, "tenant's copy of the agreement has no commission");
     assert.ok(c, "commission created");
@@ -128,8 +133,12 @@ describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
     const note = (await pg.query(`select body from notifications where user_id = 'zz-owner-1' and title = 'Roomeo fee due'`)).rows;
     assert.equal(note.length, 1);
     assert.doesNotMatch(String((note[0] as { body: string }).body), /GST/);
-    // Re-confirming never creates a second commission.
-    assert.equal((await createCommissionForMoveIn(sql, c.moveInId, { force: true })).created, false);
+    assert.equal(c.trigger, "deposit");
+    assert.equal(c.moveInId, `deposit:${app}`);
+    // Marking twice, or the legacy move-in path, never creates a second commission.
+    assert.equal((await markDepositReceived(sql, { applicationId: app, actorId: "zz-owner-1", role: "owner" })).commission?.created ?? false, false);
+    assert.equal((await createCommissionForMoveIn(sql, moveInId, { force: true })).created, false);
+    assert.equal((await allCommissions(sql)).length, 1);
     // Refund before payment isn't allowed; mark paid; refund at day 16 refused; day 15 OK.
     await assert.rejects(recordCommissionRefund(sql, c.id, "zz-admin", { vacatedOn: addDays(today, 3), refundedOn: addDays(today, 4), ref: "x" }), /Only a paid commission/);
     const paid = await markCommissionPaid(sql, c.id, "zz-admin", today, "ZZTEST-PAY-1");
@@ -206,8 +215,10 @@ describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
     await pg.query(`insert into squad_move_ins (id, squad_request_id, squad_id, listing_id, owner_id, owner_confirmed_at, confirmed_at) values ('ZZSM','ZZSR','ZZSQ','ZZLS','zz-owner-s', now(), now())`);
     for (const t of ["zz-sq-a", "zz-sq-b", "zz-sq-c"]) await pg.query(`insert into squad_move_in_confirms (squad_move_in_id, user_id) values ('ZZSM',$1)`, [t]);
     assert.ok(await firstEnquiryAt(sql, "zz-sq-a", "zz-owner-s"), "squad request counts as the first enquiry");
-    const res = await commissionsOnSquadMoveIn(sql, "ZZSM");
-    assert.equal(res?.filter((r) => r.created).length, 2);
+    assert.equal(await commissionsOnSquadMoveIn(sql, "ZZSM"), null, "squad move-in no longer charges the owner (deposit marks only)");
+    assert.equal((await allCommissions(sql)).length, 0);
+    const res = await createCommissionsForSquadMoveIn(sql, "ZZSM", { force: true }); // admin-only legacy path
+    assert.equal(res.filter((r) => r.created).length, 2);
     const rows = (await allCommissions(sql)).filter((c) => c.squad);
     assert.equal(rows.length, 2, "one per bed: a and b");
     assert.deepEqual(rows.map((c) => c.tenantId).sort(), ["zz-sq-a", "zz-sq-b"]);
@@ -262,16 +273,18 @@ describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
     assert.equal(second.commission?.feeInr, 499);
   }));
 
-  test("founding ₹0 without migration 0031: no row is written (owner still owes nothing)", () => withEnv(MODEL, async () => {
+  test("without migration 0032's commission block: the mark is kept, no fee row is written", () => withEnv(MODEL, async () => {
     const { pg, sql } = await testDb();
-    await pg.exec(`alter table owner_commissions drop constraint owner_commissions_status_waived_check`);
+    await pg.exec(`alter table owner_commissions drop constraint owner_commissions_status_v2_check`);
     assert.equal(await waivedRowsSupported(sql), false);
     await person(pg, "zz-owner-w", "ZZ TEST Founding Owner W", "LISTING");
     await person(pg, "zz-tenant-w", "ZZ TEST Tenant W");
     await listing(pg, "ZZLW", "zz-owner-w", 6999);
     await setFoundingPartner(sql, "zz-owner-w", "zz-admin", { on: true });
-    const { commission } = await flow(pg, sql, { owner: "zz-owner-w", tenant: "zz-tenant-w", listingId: "ZZLW", rent: 6999, enquiryDaysAgo: 2 });
+    const { commission, mark } = await flow(pg, sql, { owner: "zz-owner-w", tenant: "zz-tenant-w", listingId: "ZZLW", rent: 6999, enquiryDaysAgo: 2 });
     assert.equal(commission, null);
+    assert.equal(mark.commission && !mark.commission.created ? mark.commission.reason : "", "not_migrated");
+    assert.equal(mark.mark.receivedOn, istYmd(new Date()));
   }));
 
   test("0031 leaves existing rows unchanged, rejects ₹0 rows that aren't 'waived', and is safe to re-run", () => withEnv(MODEL, async () => {
