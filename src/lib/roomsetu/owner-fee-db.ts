@@ -360,15 +360,20 @@ export async function foundingHosts(sql: Sql) {
     from host_fee_settings s left join profiles p on p.user_id = s.owner_id where s.founding_partner order by s.founding_until`;
 }
 
-// ─── Owner ₹499 after "deposit + rent advance received" (17 Nov 2026, 10:05 PM IST) ─────────────────────────────
+// ─── Owner ₹499 after "deposit + rent advance received" + admin check (17 Nov 2026; admin check 18 Nov 10:02 AM IST) ─
 //
-// The owner (or an admin) marks the deposit + first rent advance as received on an accepted request. Only that
-// mark creates the owner's fee: never at listing, acceptance, signing or move-in confirmation.
-// - One mark per request (deposit_marks.application_id unique): marking twice, or owner + admin both marking,
-//   never creates a second fee.
+// The owner (or an admin) marks the deposit + first rent advance as received on an accepted request. The mark alone
+// triggers nothing: an admin verifies it in /admin/commissions, and only that verification creates the owner's fee,
+// due 7 days after the verification. An admin can reject a mark with a reason (the owner can mark again). Never at
+// listing, acceptance, signing or move-in confirmation.
+// - One mark per request (deposit_marks.application_id unique): marking or verifying twice never creates a second fee.
 // - Undo (deposit refunded / deal fell through) before the owner has paid cash: the fee becomes 'void' and any
 //   credit used on it is restored. After a cash payment, undo is refused: record the 50% refund instead.
-// - Marking again after an undo reuses the same fee row (back to due), so it still can't double charge.
+// - Marking again after an undo or a rejection reuses the same mark (back to "waiting for the admin check"); the
+//   next verification reuses the same fee row (back to due), so it still can't double charge.
+// TODO(squads): squad move-ins are NOT covered by deposit marks, so squads carry no owner fee at all while
+//   OWNER_FEE_ENABLED is on (Rohith accepted this gap, 18 Nov 2026). Risk: owners could steer tenants into squads
+//   to skip the fee. See the "squad gap" test in owner-fee-db.test.ts.
 // - Founding partners: a ₹0 'waived' row (0031/0032 logic), no payment link, no invoice.
 // - Early exit (tenant leaves within 15 days of moving in): unchanged 50% rule, ₹250 of ₹499.
 // - Referral credit: applied automatically to the new fee; fully covered → 'paid' by credit (paid_inr 0).
@@ -376,6 +381,9 @@ export async function foundingHosts(sql: Sql) {
 export type DepositMark = {
   id: string; applicationId: string; listingId: string; ownerId: string; tenantId: string; receivedOn: string; markedAt: string; markedBy: string;
   markedRole: "owner" | "admin"; undoneAt: string | null; undoneBy: string | null; undoReason: string; markCount: number;
+  verifiedAt: string | null; verifiedBy: string | null; rejectedAt: string | null; rejectedBy: string | null; rejectReason: string;
+  /** pending = waiting for the admin check. */
+  state: "pending" | "verified" | "rejected" | "undone";
 };
 function toMark(r: Record<string, unknown>): DepositMark {
   const s = (v: unknown) => (v == null ? "" : String(v));
@@ -383,10 +391,15 @@ function toMark(r: Record<string, unknown>): DepositMark {
     id: s(r.id), applicationId: s(r.application_id), listingId: s(r.listing_id), ownerId: s(r.owner_id), tenantId: s(r.tenant_id), receivedOn: s(r.received_on),
     markedAt: s(r.marked_at), markedBy: s(r.marked_by), markedRole: s(r.marked_role) === "admin" ? "admin" : "owner", undoneAt: r.undone_at == null ? null : s(r.undone_at),
     undoneBy: r.undone_by == null ? null : s(r.undone_by), undoReason: s(r.undo_reason), markCount: Number(r.mark_count ?? 1),
+    verifiedAt: r.verified_at == null ? null : s(r.verified_at), verifiedBy: r.verified_by == null ? null : s(r.verified_by),
+    rejectedAt: r.rejected_at == null ? null : s(r.rejected_at), rejectedBy: r.rejected_by == null ? null : s(r.rejected_by), rejectReason: s(r.reject_reason),
+    state: r.undone_at != null ? "undone" : r.rejected_at != null ? "rejected" : r.verified_at != null ? "verified" : "pending",
   };
 }
 const MARK_COLS = `id, application_id, listing_id, owner_id, tenant_id, received_on::text as received_on, marked_at::text as marked_at, marked_by, marked_role,
-  undone_at::text as undone_at, undone_by, undo_reason, mark_count`;
+  undone_at::text as undone_at, undone_by, undo_reason, mark_count, verified_at::text as verified_at, verified_by, rejected_at::text as rejected_at, rejected_by, reject_reason`;
+const MARK_COLS_M = `m.id, m.application_id, m.listing_id, m.owner_id, m.tenant_id, m.received_on::text as received_on, m.marked_at::text as marked_at, m.marked_by, m.marked_role,
+  m.undone_at::text as undone_at, m.undone_by, m.undo_reason, m.mark_count, m.verified_at::text as verified_at, m.verified_by, m.rejected_at::text as rejected_at, m.rejected_by, m.reject_reason`;
 
 export async function depositMarkFor(sql: Sql, applicationId: string): Promise<DepositMark | null> {
   const r = (await sql.query(`select ${MARK_COLS} from deposit_marks where application_id = $1`, [applicationId]))[0];
@@ -401,12 +414,12 @@ async function dealFor(sql: Sql, applicationId: string) {
   return { app: a, moveIn: m };
 }
 
-export type MarkResult = { mark: DepositMark; already: boolean; commission: CreateResult | null };
+export type MarkResult = { mark: DepositMark; already: boolean };
 
-/** Owner or admin: "deposit + rent advance received". Idempotent. Creates the owner fee only while OWNER_FEE_ENABLED is on. */
+/** Owner or admin: "deposit + rent advance received". Idempotent. Never creates a fee: it waits for the admin check. */
 export async function markDepositReceived(
   sql: Sql,
-  d: { applicationId: string; actorId: string; role: "owner" | "admin"; receivedOn?: string; today?: string; force?: boolean },
+  d: { applicationId: string; actorId: string; role: "owner" | "admin"; receivedOn?: string; today?: string },
 ): Promise<MarkResult> {
   const today = d.today ?? istYmd(new Date());
   const { app, moveIn } = await dealFor(sql, d.applicationId);
@@ -418,11 +431,13 @@ export async function markDepositReceived(
   if (receivedOn < istYmd(app.created_at)) throw new Error("That date is before the request was made.");
   const existing = await depositMarkFor(sql, d.applicationId);
   let already = false;
-  if (existing && !existing.undoneAt) {
+  if (existing && (existing.state === "pending" || existing.state === "verified")) {
     already = true;
   } else if (existing) {
-    await sql`update deposit_marks set undone_at = null, undone_by = null, undo_reason = '', received_on = ${receivedOn}::date, marked_at = now(), marked_by = ${d.actorId},
-      marked_role = ${d.role}, mark_count = mark_count + 1, updated_at = now() where id = ${existing.id} and undone_at is not null`;
+    // Revive after an undo or a rejection: back to "waiting for the admin check".
+    await sql`update deposit_marks set undone_at = null, undone_by = null, undo_reason = '', rejected_at = null, rejected_by = null, reject_reason = '',
+      verified_at = null, verified_by = null, received_on = ${receivedOn}::date, marked_at = now(), marked_by = ${d.actorId},
+      marked_role = ${d.role}, mark_count = mark_count + 1, updated_at = now() where id = ${existing.id} and (undone_at is not null or rejected_at is not null)`;
   } else {
     await sql`insert into deposit_marks (id, application_id, listing_id, owner_id, tenant_id, received_on, marked_by, marked_role)
       values (${crypto.randomUUID()}, ${d.applicationId}, ${app.listing_id}, ${app.host_id}, ${app.seeker_id}, ${receivedOn}::date, ${d.actorId}, ${d.role})
@@ -430,16 +445,56 @@ export async function markDepositReceived(
   }
   const mark = (await depositMarkFor(sql, d.applicationId)) as DepositMark;
   if (!already) await creditEvent(sql, { entity: "deposit_mark", entityId: mark.id, action: existing ? "re-marked" : "marked", actorId: d.actorId, userId: app.host_id, note: `received ${receivedOn} (${d.role})` });
+  if (!already) {
+    await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${app.host_id}, 'application', 'Deposit mark sent for checking',
+      ${'Roomeo will check your "deposit + rent advance received" mark. Nothing is due until it\'s checked.'}, '/owner-fees')`;
+  }
+  void moveIn;
+  return { mark, already };
+}
+
+export type VerifyResult = { mark: DepositMark; already: boolean; commission: CreateResult | null };
+
+/**
+ * Admin: verify an owner's deposit mark. Only this creates the owner fee (while OWNER_FEE_ENABLED is on, or with
+ * force), due 7 days after the verification. Idempotent: verifying again never creates a second fee.
+ */
+export async function verifyDepositMark(sql: Sql, d: { applicationId: string; adminId: string; force?: boolean }): Promise<VerifyResult> {
+  const existing = await depositMarkFor(sql, d.applicationId);
+  if (!existing || existing.state === "undone") throw new Error("There's no deposit mark to verify on this request.");
+  if (existing.state === "rejected") throw new Error("This mark was rejected. The owner has to mark it again before it can be verified.");
+  const already = existing.state === "verified";
+  if (!already) {
+    await sql`update deposit_marks set verified_at = now(), verified_by = ${d.adminId}, updated_at = now() where id = ${existing.id} and verified_at is null`;
+    await creditEvent(sql, { entity: "deposit_mark", entityId: existing.id, action: "verified", actorId: d.adminId, userId: existing.ownerId, note: `received ${existing.receivedOn}` });
+  }
+  const mark = (await depositMarkFor(sql, d.applicationId)) as DepositMark;
   let commission: CreateResult | null = null;
   if (d.force || ownerFeeActive()) {
+    const { moveIn } = await dealFor(sql, d.applicationId);
     try {
-      commission = await createCommissionForDeposit(sql, mark.id, { force: true, actorId: d.actorId, moveInConfirmedAt: moveIn?.confirmed_at ?? null });
+      commission = await createCommissionForDeposit(sql, mark.id, { force: true, actorId: d.adminId, moveInConfirmedAt: moveIn?.confirmed_at ?? null });
     } catch (err) {
       if (!isMissingCommissionTable(err)) throw err;
       commission = { created: false, reason: "not_migrated" };
     }
   }
   return { mark, already, commission };
+}
+
+/** Admin: reject a mark that isn't verified yet, with a reason. Nothing is charged; the owner can mark again. */
+export async function rejectDepositMark(sql: Sql, d: { applicationId: string; adminId: string; reason: string }): Promise<DepositMark> {
+  const why = d.reason.trim().slice(0, 200);
+  if (!why) throw new Error("Say why (for example: tenant says no deposit paid yet).");
+  const m = await depositMarkFor(sql, d.applicationId);
+  if (!m || m.state === "undone") throw new Error("There's no deposit mark to reject.");
+  if (m.state === "rejected") throw new Error("Already rejected.");
+  if (m.state === "verified") throw new Error("This mark is already verified. Use Undo instead (it voids an unpaid fee).");
+  await sql`update deposit_marks set rejected_at = now(), rejected_by = ${d.adminId}, reject_reason = ${why}, updated_at = now() where id = ${m.id} and verified_at is null and rejected_at is null`;
+  await creditEvent(sql, { entity: "deposit_mark", entityId: m.id, action: "rejected", actorId: d.adminId, userId: m.ownerId, note: why });
+  await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${m.ownerId}, 'application', 'Deposit mark not accepted',
+    ${`Roomeo couldn't verify your deposit + rent advance mark: ${why}. Nothing is due. You can mark it again once it's received.`}, '/owner-fees')`;
+  return (await depositMarkFor(sql, d.applicationId)) as DepositMark;
 }
 
 /**
@@ -449,9 +504,10 @@ export async function markDepositReceived(
 export async function createCommissionForDeposit(sql: Sql, markId: string, opts: { force?: boolean; actorId?: string; moveInConfirmedAt?: string | null } = {}): Promise<CreateResult> {
   if (!opts.force && !ownerFeeActive()) return { created: false, reason: "off" };
   if (!(await ownerFeeSchemaReady(sql))) return { created: false, reason: "not_migrated" };
-  const mark = (await sql.query(`select ${MARK_COLS} from deposit_marks where id = $1 and undone_at is null`, [markId]))[0];
+  const mark = (await sql.query(`select ${MARK_COLS} from deposit_marks where id = $1 and undone_at is null and rejected_at is null and verified_at is not null`, [markId]))[0];
   if (!mark) return { created: false, reason: "not_marked" };
   const m = toMark(mark as Record<string, unknown>);
+  const verifiedOn = istYmd(m.verifiedAt as string);
   const key = `deposit:${m.applicationId}`;
   const legacy = await sql<{ id: string }>`select c.id from owner_commissions c join move_ins mi on mi.id = c.move_in_id where mi.application_id = ${m.applicationId} and c.status <> 'void'`;
   if (legacy.length) return { created: false, tenantId: m.tenantId, reason: "exists" };
@@ -466,7 +522,7 @@ export async function createCommissionForDeposit(sql: Sql, markId: string, opts:
   const founding = rateFor(await hostSetting(sql, m.ownerId), m.receivedOn).founding;
   const amt = founding ? foundingCommissionAmounts(rent) : flatCommissionAmounts(rent, ownerFeeGstPct(), ownerFeeFlatInr());
   const moveInOn = opts.moveInConfirmedAt ? istYmd(opts.moveInConfirmedAt) : m.receivedOn;
-  const dueOn = commissionDueOn(m.receivedOn);
+  const dueOn = commissionDueOn(verifiedOn); // 7 days after the admin check, not after the owner's mark
   const status: CommissionStatus = founding ? "waived" : "due";
   const id = prior?.id ?? crypto.randomUUID();
   const link = founding ? { mode: "none", ref: "" } : paymentLinkStub(id);
@@ -493,17 +549,17 @@ export async function createCommissionForDeposit(sql: Sql, markId: string, opts:
       const due = amt.totalInr - credit;
       finalStatus = due <= 0 ? "paid" : "due";
       await sql`update owner_commissions set credit_applied_inr = ${credit}, amount_due_inr = ${Math.max(0, due)}, status = ${finalStatus},
-        paid_on = ${due <= 0 ? m.receivedOn : null}::date, paid_inr = ${due <= 0 ? 0 : null}, paid_ref = ${due <= 0 ? "referral credit" : ""},
+        paid_on = ${due <= 0 ? verifiedOn : null}::date, paid_inr = ${due <= 0 ? 0 : null}, paid_ref = ${due <= 0 ? "referral credit" : ""},
         paid_recorded_by = ${due <= 0 ? "system" : null}, payment_link_mode = ${due <= 0 ? "none" : link.mode}, updated_at = now() where id = ${id}`;
     }
   }
   const amountDue = founding ? 0 : Math.max(0, amt.totalInr - credit);
   const title = founding ? "No Roomeo fee: founding partner" : amountDue === 0 ? "Roomeo fee covered by your credit" : "Roomeo fee due";
   const body = founding
-    ? "You marked the deposit and rent advance as received. You're a founding partner, so the Roomeo fee is ₹0. Nothing to pay."
+    ? "Roomeo checked your deposit + rent advance mark. You're a founding partner, so the Roomeo fee is ₹0. Nothing to pay."
     : amountDue === 0
-      ? `You marked the deposit and rent advance as received. Roomeo's ₹${amt.totalInr} fee is fully covered by your Roomeo credit. Nothing to pay.`
-      : `You marked the deposit and rent advance as received. Roomeo's flat fee ₹${amt.totalInr}${amt.gstInr > 0 ? " (GST included)" : ""}${credit > 0 ? `, less ₹${credit} credit = ₹${amountDue}` : ""}, due by ${dueOn}. Roomeo will send a payment link.`;
+      ? `Roomeo checked your deposit + rent advance mark. Roomeo's ₹${amt.totalInr} fee is fully covered by your Roomeo credit. Nothing to pay.`
+      : `Roomeo checked your deposit + rent advance mark. Roomeo's flat fee ₹${amt.totalInr}${amt.gstInr > 0 ? " (GST included)" : ""}${credit > 0 ? `, less ₹${credit} credit = ₹${amountDue}` : ""}, due by ${dueOn}. Roomeo will send a payment link.`;
   await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${m.ownerId}, 'application', ${title}, ${body}, '/owner-fees')`;
   await creditEvent(sql, { entity: "owner_fee", entityId: id, action: prior ? "reinstated" : "created", actorId: opts.actorId ?? "system", userId: m.ownerId, amountInr: amountDue, note: `${finalStatus}${credit ? `, ₹${credit} credit` : ""}` });
   return { created: true, id, tenantId: m.tenantId, ratePct: 0, feeInr: amt.feeInr, gstInr: amt.gstInr, totalInr: amt.totalInr, dueOn, founding, creditInr: credit, amountDueInr: amountDue, status: finalStatus };
@@ -553,5 +609,12 @@ export async function depositCandidates(sql: Sql, ownerId: string): Promise<Depo
 
 /** Admin: recent deposit marks. */
 export async function recentDepositMarks(sql: Sql, limit = 100) {
-  return (await sql.query(`select ${MARK_COLS} from deposit_marks order by updated_at desc limit $1`, [limit])).map((r) => toMark(r as Record<string, unknown>));
+  const rows = await sql.query(`select ${MARK_COLS_M},
+      coalesce(l.title, 'Listing') as listing_title, coalesce(op.full_name, 'Owner') as owner_name, coalesce(tp.full_name, 'Tenant') as tenant_name
+    from deposit_marks m left join listings l on l.id = m.listing_id left join profiles op on op.user_id = m.owner_id left join profiles tp on tp.user_id = m.tenant_id
+    order by (m.verified_at is null and m.rejected_at is null and m.undone_at is null) desc, m.updated_at desc limit $1`, [limit]);
+  return rows.map((r) => {
+    const x = r as Record<string, unknown>;
+    return { ...toMark(x), listingTitle: String(x.listing_title ?? ""), ownerName: String(x.owner_name ?? ""), tenantName: String(x.tenant_name ?? "") };
+  });
 }

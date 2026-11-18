@@ -149,7 +149,7 @@ export const markMyDeposit = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const r = await db.markDepositReceived(sql, { applicationId: data.applicationId, actorId: context.userId, role: "owner", receivedOn: data.receivedOn });
-    return { already: r.already, receivedOn: r.mark.receivedOn, fee: r.commission };
+    return { already: r.already, receivedOn: r.mark.receivedOn, state: r.mark.state };
   });
 
 export const undoMyDeposit = createServerFn({ method: "POST" })
@@ -182,7 +182,31 @@ export const adminMarkDeposit = createServerFn({ method: "POST" })
     await assertAdmin(sql, context.userId);
     const r = await db.markDepositReceived(sql, { applicationId: data.applicationId, actorId: context.userId, role: "admin", receivedOn: data.receivedOn });
     await audit(sql, context.userId, "DEPOSIT_MARKED", "application", data.applicationId, `received ${r.mark.receivedOn}${r.already ? " (already marked)" : ""}`);
-    return { already: r.already, receivedOn: r.mark.receivedOn, fee: r.commission };
+    return { already: r.already, receivedOn: r.mark.receivedOn, state: r.mark.state };
+  });
+
+/** Admin check: verify the owner's mark. Only this creates the owner fee (flag on), due 7 days from now. */
+export const adminVerifyDeposit = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((i: unknown) => ({ applicationId: appId(rec(i).applicationId) }))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    const r = await db.verifyDepositMark(sql, { applicationId: data.applicationId, adminId: context.userId });
+    await audit(sql, context.userId, "DEPOSIT_MARK_VERIFIED", "application", data.applicationId, r.commission?.created ? `fee ${r.commission.id}` : r.already ? "already verified" : "verified (no fee)");
+    return { already: r.already, fee: r.commission };
+  });
+
+/** Admin check: reject an unverified mark, with a reason. Nothing is charged; the owner can mark again. */
+export const adminRejectDeposit = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((i: unknown) => ({ applicationId: appId(rec(i).applicationId), reason: reason(rec(i).reason) }))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    const m = await db.rejectDepositMark(sql, { applicationId: data.applicationId, adminId: context.userId, reason: data.reason });
+    await audit(sql, context.userId, "DEPOSIT_MARK_REJECTED", "application", data.applicationId, data.reason);
+    return { state: m.state };
   });
 
 export const adminUndoDeposit = createServerFn({ method: "POST" })

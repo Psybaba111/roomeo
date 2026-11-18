@@ -7,7 +7,7 @@ import { AdminFrame } from "@/components/admin-frame";
 import { errText } from "@/lib/ui-text";
 import { readableDate, istToday } from "@/lib/roomsetu/dates";
 import { commissionLine, refundInr, type CommissionStatus } from "@/lib/roomsetu/owner-fee";
-import { adminDepositMarks, adminMarkDeposit, adminUndoDeposit, adminCommissions, adminMarkCommissionPaid, adminRecordCommissionRefund, adminRecordEarlyExit, adminSetFoundingPartner } from "@/lib/roomsetu/owner-fee-api";
+import { adminDepositMarks, adminMarkDeposit, adminUndoDeposit, adminVerifyDeposit, adminRejectDeposit, adminCommissions, adminMarkCommissionPaid, adminRecordCommissionRefund, adminRecordEarlyExit, adminSetFoundingPartner } from "@/lib/roomsetu/owner-fee-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/admin/commissions")({
@@ -36,6 +36,7 @@ function Commissions() {
   const [host, setHost] = useState({ ownerId: "", until: "", note: "" });
   const [marks, setMarks] = useState<Awaited<ReturnType<typeof adminDepositMarks>> | null>(null);
   const [dep, setDep] = useState({ applicationId: "", receivedOn: "", reason: "" });
+  const [rej, setRej] = useState<Record<string, string>>({});
   const today = istToday();
   function load() {
     void adminCommissions({ data: { status: filter || undefined } })
@@ -138,7 +139,7 @@ function Commissions() {
       {data && data.items.length === 0 ? <p className="mt-4 text-muted">No commissions here.</p> : null}
 
       <h2 className="mt-10 text-2xl font-semibold">Deposit + rent advance marks</h2>
-      <p className="mt-1 text-sm text-muted">The owner's ₹499 is created only by this mark (owner or admin), never at listing, signing or move-in. One mark per request; undo voids an unpaid fee and restores any credit.</p>
+      <p className="mt-1 text-sm text-muted">The owner marks "deposit + advance received"; the owner's ₹499 is created only when you verify it here (due 7 days after your check), never at listing, signing or move-in. Reject needs a reason (the owner can mark again). One mark per request; undo voids an unpaid fee and restores any credit.</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <input className={input} placeholder="Request (application) id" aria-label="Request id" value={dep.applicationId} onChange={(e) => setDep({ ...dep, applicationId: e.target.value.trim() })} data-testid="admin-deposit-app" />
         <input type="date" className={input} aria-label="Received on" value={dep.receivedOn || today} onChange={(e) => setDep({ ...dep, receivedOn: e.target.value })} />
@@ -146,10 +147,23 @@ function Commissions() {
         <input className={input} placeholder="Undo reason" aria-label="Undo reason" value={dep.reason} onChange={(e) => setDep({ ...dep, reason: e.target.value })} />
         <button type="button" className={btn} disabled={!dep.applicationId || !dep.reason || busy === "dep"} onClick={() => run("dep", adminUndoDeposit({ data: { applicationId: dep.applicationId, reason: dep.reason } }))}>Undo mark</button>
       </div>
-      <ul className="mt-3 space-y-1 text-sm" data-testid="admin-deposit-marks">
+      <ul className="mt-3 space-y-2 text-sm" data-testid="admin-deposit-marks">
         {(marks?.items ?? []).map((m) => (
-          <li key={m.id} className="border-b border-line py-1">
-            {m.applicationId} · received {readableDate(m.receivedOn)} · by {m.markedRole} {m.markedBy} · marked {m.markCount}×{m.undoneAt ? ` · undone: ${m.undoReason}` : ""}
+          <li key={m.id} className="rounded-2xl border border-line bg-card p-3" data-testid="admin-deposit-row">
+            <p className="font-semibold">{m.ownerName} · {m.listingTitle} · tenant {m.tenantName}</p>
+            <p className="text-muted">
+              Request {m.applicationId} · received {readableDate(m.receivedOn)} · marked by {m.markedRole} · {m.markCount}×
+            </p>
+            <p data-testid="admin-deposit-state">
+              {m.state === "pending" ? "⏳ Waiting for your check" : m.state === "verified" ? `✅ Verified ${readableDate(m.verifiedAt ?? "")}` : m.state === "rejected" ? `✖ Rejected: ${m.rejectReason}` : `↩ Undone: ${m.undoReason}`}
+            </p>
+            {m.state === "pending" ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button type="button" className={btn} disabled={busy === m.id} data-testid="admin-deposit-verify" onClick={() => run(m.id, adminVerifyDeposit({ data: { applicationId: m.applicationId } }))}>Verify</button>
+                <input className={input} placeholder="Reject reason" aria-label="Reject reason" value={rej[m.id] ?? ""} onChange={(e) => setRej({ ...rej, [m.id]: e.target.value })} />
+                <button type="button" className={btn} disabled={busy === m.id || !(rej[m.id] ?? "").trim()} data-testid="admin-deposit-reject" onClick={() => run(m.id, adminRejectDeposit({ data: { applicationId: m.applicationId, reason: rej[m.id] ?? "" } }))}>Reject</button>
+              </div>
+            ) : null}
           </li>
         ))}
       </ul>

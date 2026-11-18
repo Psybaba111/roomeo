@@ -11,9 +11,13 @@ import {
   referralLink,
   referralShareText,
   referralsEnabled,
-  REFERRAL_CREDIT_INR,
 } from "@/lib/roomsetu/referrals";
 import { feeCreditConfig } from "@/lib/roomsetu/fee-credits";
+
+function linkedMessage(): string {
+  const fc = feeCreditConfig();
+  return fc.enabled ? `You're linked 🎉 Once you move in and pay your first month, Roomeo adds ₹${fc.amountInr} credit for you both, off your next Roomeo fee.` : "You're linked 🎉";
+}
 
 async function ensureCode(sql: Sql, userId: string): Promise<string> {
   const have = await sql<{ code: string }>`select code from referral_codes where user_id = ${userId}`;
@@ -54,13 +58,15 @@ export const getMyReferral = createServerFn({ method: "GET" })
           creditInr: await creditBalance(sql, context.userId),
         };
       }
+      // The automatic ₹500-off-rent reward is retired (18 Nov 2026): no reward is promised while fee credits are off.
+      void referralShareText;
       return {
-        mode: "rent" as const,
+        mode: "paused" as const,
         enabled: true as const,
         code,
         link,
-        shareText: referralShareText(link),
-        perPerson: REFERRAL_CREDIT_INR,
+        shareText: `Found my PG on roomeo, zero broker fees 🙌 Sign up with my link: ${link}`,
+        perPerson: 0,
         joined: Number(stats?.joined ?? 0),
         movedIn: Number(stats?.moved ?? 0),
         creditInr: Number(credit?.total ?? 0),
@@ -82,7 +88,7 @@ export const claimReferral = createServerFn({ method: "POST" })
       const sql = await getSql();
       const owner = (await sql<{ user_id: string }>`select user_id from referral_codes where code = ${data.code}`)[0];
       const existing = (await sql<{ referrer_id: string }>`select referrer_id from referrals where referee_id = ${context.userId}`)[0];
-      if (existing && owner && existing.referrer_id === owner.user_id) return { ok: true, message: "You're linked. ₹500 off lands when you move in 🎉" };
+      if (existing && owner && existing.referrer_id === owner.user_id) return { ok: true, message: linkedMessage() };
       const u = (await sql<{ created: string }>`select "createdAt"::text as created from "user" where id = ${context.userId}`)[0];
       const moved = (await sql<{ n: number }>`select count(*)::int as n from move_ins where seeker_id = ${context.userId} and confirmed_at is not null`)[0];
       const check = canClaim({
@@ -94,7 +100,7 @@ export const claimReferral = createServerFn({ method: "POST" })
       });
       if (!check.ok) return { ok: false, message: CLAIM_MESSAGES[check.reason] };
       await sql`insert into referrals (id, referrer_id, referee_id, code) values (${crypto.randomUUID()}, ${owner!.user_id}, ${context.userId}, ${data.code}) on conflict (referee_id) do nothing`;
-      return { ok: true, message: "You're linked. ₹500 off your first month when you move in 🎉" };
+      return { ok: true, message: linkedMessage() };
     } catch (err) {
       if (isMissingTable(err)) return { ok: false, message: "Invites aren't live yet." };
       throw err;
@@ -112,7 +118,9 @@ export const getInviteStatus = createServerFn({ method: "GET" })
     try {
       const sql = await getSql();
       const r = await sql<{ code: string }>`select code from referral_codes where code = ${code}`;
-      return r[0] ? { live: true as const, perPerson: REFERRAL_CREDIT_INR } : { live: false as const };
+      // ₹500-off-rent retired (18 Nov 2026): only promise the admin-issued fee credit while that programme is on.
+      const fc = feeCreditConfig();
+      return r[0] ? { live: true as const, perPerson: fc.enabled ? fc.amountInr : 0 } : { live: false as const };
     } catch (e) {
       if (isMissingTable(e)) return { live: false as const };
       throw e;

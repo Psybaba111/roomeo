@@ -37,10 +37,10 @@ function Invite() {
   return (
     <Shell>
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">You got invited 💌</p>
-      <h1 className="mt-2 font-display text-5xl" data-testid="invite-h1">{offer ? `₹${offer} off your first month` : "A friend invited you to roomeo"}</h1>
+      <h1 className="mt-2 font-display text-5xl" data-testid="invite-h1">{offer ? `₹${offer} Roomeo credit for you both` : "A friend invited you to roomeo"}</h1>
       <p className="mt-3 max-w-md text-muted">
         {offer
-          ? `Make an account, find your bed, move in. You and your friend both get ₹${offer} off. Zero broker fees, always.`
+          ? `Make an account, find your bed, move in. Once you've paid your first month, you and your friend each get ₹${offer} off your next Roomeo fee (credit, not cash). Zero broker fees, always.`
           : valid
             ? inviteBody(fee)
             : "This invite link looks off. You can still sign up, it's free."}

@@ -37,7 +37,6 @@ function OwnerFees() {
   };
   useEffect(() => {
     if (user) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
   function run(key: string, p: Promise<unknown>, done: (r: unknown) => string) {
     setError("");
@@ -59,7 +58,7 @@ function OwnerFees() {
       <h1 className="font-display text-4xl">Roomeo commissions</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted">
         {v?.on
-          ? `Listing is free. You pay Roomeo a flat ₹${v.flatInr}${v.gstPct ? ` (GST included)` : ""} (₹0 for founding partners) per tenant, only after you've received their deposit and rent advance and marked it below. Never upfront. It's due within ${v.dueDays} days of the mark. If the tenant leaves within ${v.refundDays} days of moving in, you pay only ${v.refundPct}%. Please don't charge Roomeo tenants any brokerage.`
+          ? `Listing is free. You pay Roomeo a flat ₹${v.flatInr}${v.gstPct ? ` (GST included)` : ""} (₹0 for founding partners) per tenant, only after you've received their deposit and rent advance, marked it below, and Roomeo has checked it. Never upfront. It's due within ${v.dueDays} days of Roomeo's check. If the tenant leaves within ${v.refundDays} days of moving in, you pay only ${v.refundPct}%. Please don't charge Roomeo tenants any brokerage.`
           : "Roomeo doesn't charge owners a commission right now."}
       </p>
       {error ? <p className="mt-3 text-danger" role="alert">{error}</p> : null}
@@ -68,17 +67,18 @@ function OwnerFees() {
       {marks && marks.items.length ? (
         <section className="mt-6" data-testid="deposit-marks">
           <h2 className="text-2xl font-semibold">Deposit + rent advance</h2>
-          <p className="mt-1 text-sm text-muted">Tap once you've actually received the tenant's deposit and first rent advance. {marks.active ? "That's when Roomeo's fee starts; marking twice never charges twice." : "Roomeo doesn't charge owners right now; marking just keeps your records straight."}</p>
+          <p className="mt-1 text-sm text-muted">Tap once you've actually received the tenant's deposit and first rent advance. {marks.active ? "Roomeo then checks it; the fee starts only after that check. Marking twice never charges twice." : "Roomeo doesn't charge owners this way right now; marking just keeps your records straight."}</p>
           <ul className="mt-3 space-y-3">
             {marks.items.map((m) => {
-              const on = m.mark && !m.mark.undoneAt;
+              const st = m.mark?.state;
+              const on = st === "pending" || st === "verified";
               return (
                 <li key={m.applicationId} className="rounded-2xl border border-line bg-card p-4" data-testid="deposit-row">
                   <p className="font-semibold">{m.tenantName} · {m.listingTitle}</p>
                   {on ? (
                     <>
                       <p className="mt-1 text-sm">
-                        ✅ Received {readableDate(m.mark!.receivedOn)}
+                        {st === "verified" ? "✅" : "⏳"} Received {readableDate(m.mark!.receivedOn)} · {st === "verified" ? `checked by Roomeo ${readableDate(m.mark!.verifiedAt ?? "")}` : "waiting for Roomeo's check"}
                         {m.feeStatus ? ` · Roomeo fee: ${LABEL[m.feeStatus] ?? m.feeStatus}${m.amountDueInr != null && (m.feeStatus === "due" || m.feeStatus === "due_50") ? ` ₹${m.amountDueInr}` : ""}` : ""}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-2">
@@ -90,16 +90,16 @@ function OwnerFees() {
                       </div>
                     </>
                   ) : (
+                    <>
+                    {st === "rejected" ? <p className="mt-1 text-sm text-danger" data-testid="deposit-rejected">Not accepted by Roomeo: {m.mark!.rejectReason}. Nothing is due. Mark it again once it's received.</p> : null}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <input type="date" max={today} className="h-11 rounded-full border border-line bg-transparent px-4 text-sm" aria-label="Date received" value={recvOn[m.applicationId] ?? today} onChange={(e) => setRecvOn({ ...recvOn, [m.applicationId]: e.target.value })} />
                       <button type="button" className="h-11 rounded-full bg-brand px-4 text-sm font-semibold text-card disabled:opacity-40" disabled={busy === m.applicationId} data-testid="deposit-mark"
-                        onClick={() => run(m.applicationId, markMyDeposit({ data: { applicationId: m.applicationId, receivedOn: recvOn[m.applicationId] ?? today } }), (r) => {
-                          const fee = (r as { fee?: { created?: boolean; status?: string; amountDueInr?: number } | null })?.fee;
-                          return fee?.created ? (fee.status === "waived" ? "Marked. Founding partner: ₹0, nothing to pay." : fee.amountDueInr === 0 ? "Marked. Fully covered by your Roomeo credit." : `Marked. Roomeo fee ₹${fee.amountDueInr} is due in 7 days.`) : "Marked as received.";
-                        })}>
+                        onClick={() => run(m.applicationId, markMyDeposit({ data: { applicationId: m.applicationId, receivedOn: recvOn[m.applicationId] ?? today } }), () => "Marked. Roomeo will check it; nothing is due until then.")}>
                         Deposit + advance received
                       </button>
                     </div>
+                    </>
                   )}
                 </li>
               );

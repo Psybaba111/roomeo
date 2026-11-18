@@ -26,15 +26,15 @@ async function withFlag<T>(on: boolean, fn: () => Promise<T>) {
   try { return await fn(); } finally { if (prev === undefined) delete process.env.ROOMEO_REFERRALS_ENABLED; else process.env.ROOMEO_REFERRALS_ENABLED = prev; }
 }
 
-test("signing the agreement creates a confirmed move-in and credits the referral", () => withFlag(true, async () => {
+test("signing the agreement creates a confirmed move-in and completes the referral (₹500 auto credit retired)", () => withFlag(true, async () => {
   const { sql, id, count } = await setup();
   await signAgreement(sql, id, "tenant", "Asha Tenant", meta);
   assert.equal(await count(`select count(*)::int n from move_ins where seeker_id='tenant' and listing_id='L1' and confirmed_at is not null and owner_id='owner'`), 1);
-  assert.equal(await count(`select count(*)::int n from referral_credits`), 2);
+  assert.equal(await count(`select count(*)::int n from referral_credits`), 0, "the automatic ₹500 credit is retired");
   assert.equal(await count(`select count(*)::int n from referrals where completed_at is not null`), 1);
 }));
 
-test("re-sign + old in-app confirm → one move-in, one credit pair", () => withFlag(true, async () => {
+test("re-sign + old in-app confirm → one move-in, no auto credit", () => withFlag(true, async () => {
   const { pg, sql, id, count } = await setup();
   await pg.query(`insert into applications (id, listing_id, seeker_id, host_id, status) values ('A1','L1','tenant','owner','ACCEPTED')`);
   await signAgreement(sql, id, "tenant", "Asha Tenant", meta);
@@ -43,18 +43,18 @@ test("re-sign + old in-app confirm → one move-in, one credit pair", () => with
     await confirmMoveInRecord(sql, { applicationId: "A1", listingId: "L1", seekerId: "tenant", ownerId: "owner", side, notifyUserId: null });
   assert.equal(await count(`select count(*)::int n from move_ins`), 1);
   assert.equal(await count(`select count(*)::int n from move_ins where application_id='A1' and confirmed_at is not null`), 1);
-  assert.equal(await count(`select count(*)::int n from referral_credits`), 2);
+  assert.equal(await count(`select count(*)::int n from referral_credits`), 0, "the automatic ₹500 credit is retired");
   assert.equal(await count(`select count(*)::int n from notifications where title='Move in confirmed'`), 1);
 }));
 
-test("old in-app confirm first, then sign → still one move-in, one credit pair", () => withFlag(true, async () => {
+test("old in-app confirm first, then sign → still one move-in, no auto credit", () => withFlag(true, async () => {
   const { pg, sql, id, count } = await setup();
   await pg.query(`insert into applications (id, listing_id, seeker_id, host_id, status) values ('A1','L1','tenant','owner','ACCEPTED')`);
   for (const side of ["seeker", "owner"] as const)
     await confirmMoveInRecord(sql, { applicationId: "A1", listingId: "L1", seekerId: "tenant", ownerId: "owner", side, notifyUserId: "owner" });
   await signAgreement(sql, id, "tenant", "Asha Tenant", meta);
   assert.equal(await count(`select count(*)::int n from move_ins`), 1);
-  assert.equal(await count(`select count(*)::int n from referral_credits`), 2);
+  assert.equal(await count(`select count(*)::int n from referral_credits`), 0, "the automatic ₹500 credit is retired");
 }));
 
 test("referrals flag off → signed move-in confirmed, no credit", () => withFlag(false, async () => {
@@ -63,4 +63,24 @@ test("referrals flag off → signed move-in confirmed, no credit", () => withFla
   assert.equal(await count(`select count(*)::int n from move_ins where confirmed_at is not null`), 1);
   assert.equal(await count(`select count(*)::int n from referral_credits`), 0);
   assert.equal(await count(`select count(*)::int n from referrals where completed_at is not null`), 0);
+}));
+
+test("₹500 auto credit retired whatever ROOMEO_REFERRAL_CREDITS_ENABLED says; existing credits are left untouched", () => withFlag(true, async () => {
+  for (const credits of ["false", "true"]) {
+    const prev = process.env.ROOMEO_REFERRAL_CREDITS_ENABLED;
+    process.env.ROOMEO_REFERRAL_CREDITS_ENABLED = credits;
+    try {
+      const { pg, sql, id, count } = await setup();
+      // An old ₹500 credit from an earlier referral stays exactly as it was.
+      await pg.query(`insert into referral_credits (id, user_id, referral_id, amount_inr, reason) values ('ZZOLD','owner','ZZOLDREF',500,'ZZ TEST old credit')`);
+      const before = (await pg.query(`select * from referral_credits where id = 'ZZOLD'`)).rows;
+      await signAgreement(sql, id, "tenant", "Asha Tenant", meta);
+      assert.equal(await count(`select count(*)::int n from referrals where completed_at is not null`), 1, "referral still completed");
+      assert.equal(await count(`select count(*)::int n from referral_credits`), 1, `no new credit (credits flag ${credits})`);
+      assert.deepEqual((await pg.query(`select * from referral_credits where id = 'ZZOLD'`)).rows, before, "existing credit untouched");
+      assert.equal(await count(`select count(*)::int n from notifications where title like '%off your first month%'`), 0);
+    } finally {
+      if (prev === undefined) delete process.env.ROOMEO_REFERRAL_CREDITS_ENABLED; else process.env.ROOMEO_REFERRAL_CREDITS_ENABLED = prev;
+    }
+  }
 }));

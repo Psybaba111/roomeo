@@ -29,7 +29,7 @@ import {
   commissionsOnSquadMoveIn,
   withCommissionTables,
   markDepositReceived,
-  undoDepositMark,
+  verifyDepositMark,
   COMMISSION_TABLES_MISSING,
   isMissingCommissionTable,
 } from "./owner-fee-db.ts";
@@ -96,8 +96,10 @@ async function flow(pg: PGlite, sql: never, o: { owner: string; tenant: string; 
   const r = await confirmMoveInRecord(sql, { applicationId: app, listingId: o.listingId, seekerId: o.tenant, ownerId: o.owner, side: "owner", notifyUserId: o.tenant });
   assert.equal(r.confirmed, true);
   assert.equal((await allCommissions(sql)).filter((c) => c.tenantId === o.tenant && c.listingId === o.listingId).length, 0, "move-in alone never charges the owner");
-  // 7. Owner marks "deposit + rent advance received" → the owner fee is created now (never earlier).
-  const mark = await markDepositReceived(sql, { applicationId: app, actorId: o.owner, role: "owner" });
+  // 7. Owner marks "deposit + rent advance received" → nothing yet; 8. an admin verifies it → the owner fee is created.
+  await markDepositReceived(sql, { applicationId: app, actorId: o.owner, role: "owner" });
+  assert.equal((await allCommissions(sql)).filter((c) => c.tenantId === o.tenant && c.listingId === o.listingId).length, 0, "the owner's mark alone triggers nothing");
+  const mark = await verifyDepositMark(sql, { applicationId: app, adminId: "zz-admin" });
   const rows = (await allCommissions(sql)).filter((c) => c.tenantId === o.tenant && c.listingId === o.listingId && c.status !== "void");
   return { app, moveInId: r.moveInId, mark, commission: rows[0] ?? null, body: agreementBody(terms) };
 }
@@ -136,7 +138,8 @@ describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
     assert.equal(c.trigger, "deposit");
     assert.equal(c.moveInId, `deposit:${app}`);
     // Marking twice, or the legacy move-in path, never creates a second commission.
-    assert.equal((await markDepositReceived(sql, { applicationId: app, actorId: "zz-owner-1", role: "owner" })).commission?.created ?? false, false);
+    assert.equal((await markDepositReceived(sql, { applicationId: app, actorId: "zz-owner-1", role: "owner" })).already, true);
+    assert.equal((await verifyDepositMark(sql, { applicationId: app, adminId: "zz-admin" })).commission?.created ?? false, false);
     assert.equal((await createCommissionForMoveIn(sql, moveInId, { force: true })).created, false);
     assert.equal((await allCommissions(sql)).length, 1);
     // Refund before payment isn't allowed; mark paid; refund at day 16 refused; day 15 OK.
@@ -202,7 +205,27 @@ describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
     });
   }));
 
-  test("squad move-in: one flat ₹499 per bed (per tenant), rent share still recorded, idempotent", () => withEnv(MODEL, async () => {
+  // SQUAD GAP (accepted by Rohith, 18 Nov 2026): with OWNER_FEE_ENABLED on, a squad move-in carries NO owner fee:
+  // no deposit-mark fee (marks are per request, not per squad) and no upfront agreement fee (owner side is ₹0).
+  // Risk: owners could steer tenants into squads to skip the fee. TODO(squads) in owner-fee-db.ts.
+  test("SQUAD GAP: with the owner fee on, a squad move-in carries no owner fee at all (documented, accepted)", () => withEnv({ ...MODEL, ROOMEO_FEE_ENABLED: "true", ROOMEO_TENANT_FEE_ENABLED: "true" }, async () => {
+    const { pg, sql } = await testDb();
+    await person(pg, "zz-owner-sg", "ZZ TEST Owner Squad Gap", "LISTING");
+    for (const t of ["zz-sg-a", "zz-sg-b"]) await person(pg, t, `ZZ TEST ${t}`);
+    await listing(pg, "ZZLSG", "zz-owner-sg", 6999);
+    await pg.query(`insert into squads (id, creator_id, name, area, budget_per_person, size, invite_code) values ('ZZSG','zz-sg-a','ZZ TEST Squad Gap','Bunder',7000,2,'ZZTESTSG')`);
+    for (const t of ["zz-sg-a", "zz-sg-b"]) await pg.query(`insert into squad_members (squad_id, user_id, joined_at) values ('ZZSG',$1, now() - interval '30 days')`, [t]);
+    await pg.query(`insert into squad_requests (id, squad_id, listing_id, owner_id, status, created_at) values ('ZZSGR','ZZSG','ZZLSG','zz-owner-sg','ACCEPTED', now() - interval '5 days')`);
+    await pg.query(`insert into squad_move_ins (id, squad_request_id, squad_id, listing_id, owner_id, owner_confirmed_at, confirmed_at) values ('ZZSGM','ZZSGR','ZZSG','ZZLSG','zz-owner-sg', now(), now())`);
+    for (const t of ["zz-sg-a", "zz-sg-b"]) await pg.query(`insert into squad_move_in_confirms (squad_move_in_id, user_id) values ('ZZSGM',$1)`, [t]);
+    assert.equal(await commissionsOnSquadMoveIn(sql, "ZZSGM"), null, "squad move-in creates no owner fee");
+    assert.equal((await allCommissions(sql)).length, 0);
+    assert.equal(pricingConfig().successFeeOwnerInr, 0, "and the owner's upfront agreement fee is ₹0 too");
+    // A squad has no single request id, so there is nothing for a deposit mark to attach to.
+    await assert.rejects(markDepositReceived(sql, { applicationId: "ZZSGR", actorId: "zz-owner-sg", role: "owner" }), /Request not found/);
+  }));
+
+  test("squad legacy path (admin force only): one flat ₹499 per bed (per tenant), rent share still recorded, idempotent", () => withEnv(MODEL, async () => {
     const { pg, sql } = await testDb();
     await person(pg, "zz-owner-s", "ZZ TEST Owner Squad", "LISTING");
     for (const t of ["zz-sq-a", "zz-sq-b", "zz-sq-c"]) await person(pg, t, `ZZ TEST ${t}`);
@@ -256,7 +279,7 @@ describe("owner-fee workflow (PGlite, ZZ TEST data)", () => {
     const raw = (await pg.query<{ payment_link_mode: string; payment_link_ref: string }>(`select payment_link_mode, payment_link_ref from owner_commissions where id = $1`, [c.id])).rows[0];
     assert.equal(raw.payment_link_mode, "none", "no payment link / invoice for ₹0");
     assert.equal(raw.payment_link_ref, "");
-    const note = (await pg.query<{ title: string; body: string }>(`select title, body from notifications where user_id = 'zz-owner-2' and href = '/owner-fees'`)).rows;
+    const note = (await pg.query<{ title: string; body: string }>(`select title, body from notifications where user_id = 'zz-owner-2' and href = '/owner-fees' and title <> 'Deposit mark sent for checking'`)).rows;
     assert.equal(note.length, 1);
     assert.match(note[0].title, /founding partner/i);
     assert.doesNotMatch(note[0].body, /due by|payment link|₹499/);

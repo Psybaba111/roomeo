@@ -148,7 +148,7 @@ export function pricingCopy(f: FeeView, trial: { feeInr: number; windowDays: num
       tagline: [`${FREE_TENANTS}.`, "Not a broker's month."],
       faq: [
         o.on
-          ? ["What does Roomeo cost?", `Nothing for tenants. Searching, chatting, squads and locking a bed are free. Owners list free and pay Roomeo a flat ₹${o.flatInr} per tenant${o.gstPct ? ` (${o.gstPct}% GST included, shown separately on the invoice)` : ""}, ₹0 for founding partners, only for a tenant who pays them the deposit and rent advance within ${o.attributionDays} days of their first Roomeo enquiry. It's charged only after the owner marks the deposit and advance as received, never upfront, and is due within ${o.dueDays} days by a Razorpay payment link.`]
+          ? ["What does Roomeo cost?", `Nothing for tenants. Searching, chatting, squads and locking a bed are free. Owners list free and pay Roomeo a flat ₹${o.flatInr} per tenant${o.gstPct ? ` (${o.gstPct}% GST included, shown separately on the invoice)` : ""}, ₹0 for founding partners, only for a tenant who pays them the deposit and rent advance within ${o.attributionDays} days of their first Roomeo enquiry. It's charged only after the owner marks the deposit and advance as received and Roomeo checks it, never upfront, and is due within ${o.dueDays} days of that check by a Razorpay payment link.`]
           : ["What does Roomeo cost?", "Nothing right now. Searching, chatting, squads, listing and locking a bed are free while we pilot. If that ever changes, the price is shown with GST before anyone signs or pays, and it never applies to a stay that's already confirmed."],
         ...(o.on
           ? ([
@@ -167,14 +167,14 @@ export function pricingCopy(f: FeeView, trial: { feeInr: number; windowDays: num
     headTitle: `Pricing: ₹${f.totalInr} once, not a broker's month`,
     h1: `₹${f.totalInr} once. Not a broker's month.`,
     sub: od
-      ? `₹${f.totalInr} from the renter, once per stay, GST included, refunded if the renter moves out within 7 days of paying. Owners pay ₹${ownerFlat} only after they've received the deposit and rent advance (₹0 for founding partners). No chat passes. No cut of your rent.`
+      ? `₹${f.totalInr} from the renter, once per stay, GST included, refunded if the renter moves out within 7 days of paying. Owners pay ₹${ownerFlat} only after they've received the deposit and rent advance and Roomeo checks it (₹0 for founding partners). No chat passes. No cut of your rent.`
       : `₹${f.totalInr} from the renter and ₹${f.totalInr} from the owner, once per stay, GST included. Refunded if the renter moves out within 7 days of paying. No chat passes. No cut of your rent.`,
     planPrice: `₹${f.totalInr} once`,
     planNote: `all-in, 18% GST included (₹${f.baseInr.toFixed(2)} + ₹${(f.totalInr - f.baseInr).toFixed(2)} GST)`,
     tagline: [`₹${f.totalInr} once.`, "Not a broker's month."],
     faq: [
       od
-        ? ["What does Roomeo cost?", `₹${f.totalInr} once, 18% GST included, from the renter, per stay. Owners pay ₹${ownerFlat} once per tenant, only after they've received the tenant's deposit and rent advance; never upfront, never at listing time. Founding partners pay ₹0. Not every month, and not a cut of the rent. Searching, chatting, squads and listing are free.`]
+        ? ["What does Roomeo cost?", `₹${f.totalInr} once, 18% GST included, from the renter, per stay. Owners pay ₹${ownerFlat} once per tenant, only after they've received the tenant's deposit and rent advance and Roomeo checks it, never upfront, never at listing time. Founding partners pay ₹0. Not every month, and not a cut of the rent. Searching, chatting, squads and listing are free.`]
         : ["What does Roomeo cost?", `₹${f.totalInr} once, 18% GST included. The renter pays it once and the owner pays it once, per person, per stay. Not every month, and not a cut of the rent. Searching, chatting, squads and listing are free.`],
       ["Is the fee refundable?", `Only if the renter moves out within 7 days of paying it. Then the renter's ₹${f.totalInr} (or ₹${refundAfterCredit} after a trial credit) is refunded to the UPI ID that paid, and the owner's fee too if the stay ended within 7 days of the owner's payment. After that, no refund.`],
       [`Is the ₹${trial.feeInr} trial night fee refundable?`, `No. The ₹${trial.feeInr} trial fee is never refunded. If you stay on and sign within ${trial.windowDays} days of your trial, it comes off your ₹${f.totalInr} fee once, so you pay ₹${refundAfterCredit}, then monthly rent goes straight to the owner.`],

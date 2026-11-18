@@ -6,7 +6,7 @@ import type { PGlite } from "@electric-sql/pglite";
 import { testDb, migrationsDir } from "./pgtest.ts";
 import { feeCreditConfig } from "./fee-credits.ts";
 import { applyCreditsToPayment, creditBalance, issuePairCredits, listCredits, pairsUsed, restoreCreditsForFee, voidCredit, recentCreditEvents } from "./fee-credits-db.ts";
-import { allCommissions, markDepositReceived, undoDepositMark, recordEarlyExit, recordCommissionRefund, markCommissionPaid, setFoundingPartner, createCommissionForMoveIn } from "./owner-fee-db.ts";
+import { allCommissions, markDepositReceived, verifyDepositMark, rejectDepositMark, undoDepositMark, recordEarlyExit, recordCommissionRefund, markCommissionPaid, setFoundingPartner, createCommissionForMoveIn } from "./owner-fee-db.ts";
 import { createFeeInvoice } from "./agreement-db.ts";
 import { istYmd, addDays } from "./owner-fee.ts";
 
@@ -34,6 +34,11 @@ async function deal(pg: PGlite, owner: string, tenant: string, listing: string, 
   const app = `A-${tenant}-${listing}`;
   await pg.query(`insert into applications (id, listing_id, seeker_id, host_id, status, created_at) values ($1,$2,$3,$4,'ACCEPTED', now() - ($5 || ' days')::interval)`, [app, listing, tenant, owner, String(daysAgo)]);
   return app;
+}
+/** Owner marks, admin verifies (the only path that creates the owner fee). */
+async function markAndVerify(sql: never, app: string, owner: string) {
+  await markDepositReceived(sql, { applicationId: app, actorId: owner, role: "owner" });
+  return verifyDepositMark(sql, { applicationId: app, adminId: "zz-admin" });
 }
 const fee = async (sql: never, app: string) => (await allCommissions(sql)).find((c) => c.moveInId === `deposit:${app}`) ?? null;
 
@@ -118,46 +123,80 @@ describe("referral credits ledger", () => {
   });
 });
 
-describe("owner fee after the deposit + advance mark", () => {
+describe("owner fee after the deposit + advance mark and the admin check", () => {
   const OWNER = { OWNER_FEE_ENABLED: "true" };
-  test("flag off → the mark is recorded but no fee; on → ₹499 due 7 days after the mark, never at accept", () => withEnv({}, async () => {
+  test("owner's mark alone triggers nothing; admin verify creates ₹499 due 7 days after the VERIFICATION; flag off → no fee", () => withEnv({}, async () => {
     const { pg, sql } = await testDb();
-    const app = await deal(pg, "zz-own", "zz-ten", "ZZL1");
-    const off = await markDepositReceived(sql, { applicationId: app, actorId: "zz-own", role: "owner" });
-    assert.equal(off.commission, null);
+    const today = istYmd(new Date());
+    const app = await deal(pg, "zz-own", "zz-ten", "ZZL1", 10);
+    await markDepositReceived(sql, { applicationId: app, actorId: "zz-own", role: "owner" });
+    const offV = await verifyDepositMark(sql, { applicationId: app, adminId: "zz-admin" });
+    assert.equal(offV.commission, null, "flag off: verified, but no fee");
+    assert.equal(offV.mark.state, "verified");
     assert.equal(await fee(sql, app), null);
     await withEnv(OWNER, async () => {
-      const app2 = await deal(pg, "zz-own", "zz-ten2", "ZZL2");
+      const app2 = await deal(pg, "zz-own", "zz-ten2", "ZZL2", 10);
       assert.equal(await fee(sql, app2), null, "accepting a request charges nothing");
+      await assert.rejects(verifyDepositMark(sql, { applicationId: app2, adminId: "zz-admin" }), /no deposit mark/);
       await assert.rejects(markDepositReceived(sql, { applicationId: app2, actorId: "zz-ten2", role: "owner" }), /Only the owner/);
-      await assert.rejects(markDepositReceived(sql, { applicationId: app2, actorId: "zz-own", role: "owner", receivedOn: addDays(istYmd(new Date()), 1) }), /future/);
-      const r = await markDepositReceived(sql, { applicationId: app2, actorId: "zz-own", role: "owner" });
-      assert.equal(r.commission?.created, true);
+      await assert.rejects(markDepositReceived(sql, { applicationId: app2, actorId: "zz-own", role: "owner", receivedOn: addDays(today, 1) }), /future/);
+      const m = await markDepositReceived(sql, { applicationId: app2, actorId: "zz-own", role: "owner", receivedOn: addDays(today, -3) });
+      assert.equal(m.mark.state, "pending");
+      assert.equal(await fee(sql, app2), null, "the owner's mark alone creates no fee");
+      assert.equal((await pg.query(`select 1 from notifications where user_id = 'zz-own' and title = 'Deposit mark sent for checking'`)).rows.length >= 1, true);
+      const v = await verifyDepositMark(sql, { applicationId: app2, adminId: "zz-admin" });
+      assert.equal(v.commission?.created, true);
       const c = (await fee(sql, app2))!;
       assert.equal(c.totalInr, 499);
       assert.equal(c.status, "due");
       assert.equal(c.trigger, "deposit");
-      assert.equal(c.dueOn, addDays(istYmd(new Date()), 7));
-      // Duplicate marks: no second fee.
-      const again = await markDepositReceived(sql, { applicationId: app2, actorId: "zz-admin", role: "admin" });
-      assert.equal(again.already, true);
+      assert.equal(c.basisOn, addDays(today, -3), "basis is the received date");
+      assert.equal(c.dueOn, addDays(today, 7), "due 7 days after the admin check, not after the received date");
+      // Duplicate marks / verifies: no second fee.
+      assert.equal((await markDepositReceived(sql, { applicationId: app2, actorId: "zz-admin", role: "admin" })).already, true);
+      const v2 = await verifyDepositMark(sql, { applicationId: app2, adminId: "zz-admin" });
+      assert.equal(v2.already, true);
+      assert.equal(v2.commission?.created ?? false, false);
       assert.equal((await allCommissions(sql)).length, 1);
-      // Admin can mark too (no ownership check), e.g. the earlier request once the flag is on.
-      const adm = await markDepositReceived(sql, { applicationId: app, actorId: "zz-admin", role: "admin" });
-      assert.equal(adm.already, true, "already marked while off: re-marking doesn't create a fee by itself");
+      await assert.rejects(rejectDepositMark(sql, { applicationId: app2, adminId: "zz-admin", reason: "late" }), /already verified/);
     });
   }));
 
-  test("undo voids an unpaid fee; re-mark reinstates the same row (no double charge); undo refused after a cash payment", () => withEnv(OWNER, async () => {
+  test("admin reject (reason required): no fee, owner notified; owner re-marks → pending again → verify creates the fee", () => withEnv(OWNER, async () => {
     const { pg, sql } = await testDb();
     const app = await deal(pg, "zz-own", "zz-ten", "ZZL1");
     await markDepositReceived(sql, { applicationId: app, actorId: "zz-own", role: "owner" });
+    await assert.rejects(rejectDepositMark(sql, { applicationId: app, adminId: "zz-admin", reason: " " }), /Say why/);
+    const r = await rejectDepositMark(sql, { applicationId: app, adminId: "zz-admin", reason: "ZZ TEST tenant says no deposit yet" });
+    assert.equal(r.state, "rejected");
+    assert.equal(r.rejectReason, "ZZ TEST tenant says no deposit yet");
+    await assert.rejects(rejectDepositMark(sql, { applicationId: app, adminId: "zz-admin", reason: "again" }), /Already rejected/);
+    await assert.rejects(verifyDepositMark(sql, { applicationId: app, adminId: "zz-admin" }), /rejected/);
+    assert.equal(await fee(sql, app), null);
+    assert.equal((await pg.query(`select 1 from notifications where user_id = 'zz-own' and title = 'Deposit mark not accepted'`)).rows.length, 1);
+    assert.ok((await recentCreditEvents(sql)).some((e) => e.action === "rejected"));
+    const again = await markDepositReceived(sql, { applicationId: app, actorId: "zz-own", role: "owner" });
+    assert.equal(again.already, false);
+    assert.equal(again.mark.state, "pending");
+    assert.equal(again.mark.markCount, 2);
+    assert.equal(again.mark.rejectReason, "");
+    assert.equal((await verifyDepositMark(sql, { applicationId: app, adminId: "zz-admin" })).commission?.created, true);
+    assert.equal((await allCommissions(sql)).length, 1);
+  }));
+
+  test("undo voids an unpaid fee; re-mark needs a fresh admin check, which reinstates the same row (no double charge); undo refused after a cash payment", () => withEnv(OWNER, async () => {
+    const { pg, sql } = await testDb();
+    const app = await deal(pg, "zz-own", "zz-ten", "ZZL1");
+    await markAndVerify(sql, app, "zz-own");
     const first = (await fee(sql, app))!;
     await assert.rejects(undoDepositMark(sql, { applicationId: app, actorId: "zz-own", role: "owner", reason: "" }), /Say why/);
     const u = await undoDepositMark(sql, { applicationId: app, actorId: "zz-own", role: "owner", reason: "ZZ TEST deposit returned" });
     assert.equal(u.voided, first.id);
     assert.equal((await fee(sql, app))!.status, "void");
-    await markDepositReceived(sql, { applicationId: app, actorId: "zz-own", role: "owner" });
+    const re = await markDepositReceived(sql, { applicationId: app, actorId: "zz-own", role: "owner" });
+    assert.equal(re.mark.state, "pending", "re-marking after undo waits for a new admin check");
+    assert.equal((await fee(sql, app))!.status, "void", "still void until verified");
+    await verifyDepositMark(sql, { applicationId: app, adminId: "zz-admin" });
     const back = (await allCommissions(sql));
     assert.equal(back.length, 1, "same row reinstated");
     assert.equal(back[0].id, first.id);
@@ -172,7 +211,7 @@ describe("owner fee after the deposit + advance mark", () => {
     const { pg, sql } = await testDb();
     const app = await deal(pg, "zz-own", "zz-ten", "ZZL1");
     await setFoundingPartner(sql, "zz-own", "zz-admin", { on: true, note: "ZZ TEST" });
-    await markDepositReceived(sql, { applicationId: app, actorId: "zz-own", role: "owner" });
+    await markAndVerify(sql, app, "zz-own");
     const c = (await fee(sql, app))!;
     assert.equal(c.status, "waived");
     assert.equal(c.totalInr, 0);
@@ -185,7 +224,7 @@ describe("owner fee after the deposit + advance mark", () => {
     const app = await deal(pg, "zz-own", "zz-ten", "ZZL1");
     await person(pg, "zz-friend");
     await issuePairCredits(sql, "zz-admin", { referrer: "zz-own", friend: "zz-friend" }, ON);
-    await markDepositReceived(sql, { applicationId: app, actorId: "zz-own", role: "owner" });
+    await markAndVerify(sql, app, "zz-own");
     const c = (await fee(sql, app))!;
     assert.equal(c.status, "paid");
     assert.equal(c.creditInr, 499);
@@ -202,13 +241,13 @@ describe("owner fee after the deposit + advance mark", () => {
     const today = istYmd(new Date());
     // No credit: plain ₹250.
     const a0 = await deal(pg, "zz-own0", "zz-ten0", "ZZL0");
-    await markDepositReceived(sql, { applicationId: a0, actorId: "zz-own0", role: "owner" });
+    await markAndVerify(sql, a0, "zz-own0");
     assert.equal((await recordEarlyExit(sql, (await fee(sql, a0))!.id, "zz-admin", today)).amountDueInr, 250);
     // ₹200 credit used → ₹299 due; early exit → ₹250 owed, ₹200 of it credit, ₹50 cash due.
     const app = await deal(pg, "zz-own", "zz-ten", "ZZL1");
     await person(pg, "zz-friend");
     await issuePairCredits(sql, "zz-admin", { referrer: "zz-own", friend: "zz-friend" }, { ...ON, amountInr: 200 });
-    await markDepositReceived(sql, { applicationId: app, actorId: "zz-own", role: "owner" });
+    await markAndVerify(sql, app, "zz-own");
     const c = (await fee(sql, app))!;
     assert.equal(c.creditInr, 200);
     assert.equal(c.amountDueInr, 299);
@@ -224,7 +263,7 @@ describe("owner fee after the deposit + advance mark", () => {
     const app = await deal(pg, "zz-own", "zz-ten", "ZZL1");
     await person(pg, "zz-friend");
     await issuePairCredits(sql, "zz-admin", { referrer: "zz-own", friend: "zz-friend" }, ON);
-    await markDepositReceived(sql, { applicationId: app, actorId: "zz-own", role: "owner" });
+    await markAndVerify(sql, app, "zz-own");
     const c = (await fee(sql, app))!;
     const r = await recordCommissionRefund(sql, c.id, "zz-admin", { vacatedOn: today, refundedOn: today, ref: "ZZ TEST" });
     assert.equal(r.status, "refunded_50");
@@ -232,10 +271,38 @@ describe("owner fee after the deposit + advance mark", () => {
     assert.equal(await creditBalance(sql, "zz-own"), 250);
   }));
 
+  test("50% refund, part credit + part cash: credit goes back FIRST, only the rest is cash (₹200 credit + ₹299 cash → ₹200 credit back, ₹50 cash)", () => withEnv({ ...OWNER, ROOMEO_REFERRAL_CREDITS_ENABLED: "true" }, async () => {
+    const { pg, sql } = await testDb();
+    const today = istYmd(new Date());
+    const app = await deal(pg, "zz-own", "zz-ten", "ZZL1");
+    await person(pg, "zz-friend");
+    await issuePairCredits(sql, "zz-admin", { referrer: "zz-own", friend: "zz-friend" }, { ...ON, amountInr: 200 });
+    // The fee is created at verification, which reads the env cap/amount; the credit itself is ₹200.
+    await markAndVerify(sql, app, "zz-own");
+    const c = (await fee(sql, app))!;
+    assert.equal(c.creditInr, 200);
+    assert.equal(c.amountDueInr, 299);
+    const paid = await markCommissionPaid(sql, c.id, "zz-admin", today, "ZZTEST-PAY-MIX");
+    assert.equal(paid.paidInr, 299);
+    const r = await recordCommissionRefund(sql, c.id, "zz-admin", { vacatedOn: today, refundedOn: today, ref: "ZZ TEST" });
+    assert.equal(r.status, "refunded_50");
+    assert.equal(await creditBalance(sql, "zz-own"), 200, "all ₹200 credit back first");
+    assert.equal(r.refundInr, 50, "only ₹250 − ₹200 = ₹50 in cash");
+  }));
+
+  test("0033 (admin check columns) is safe to re-run and leaves marks unchanged", () => withEnv(OWNER, async () => {
+    const { pg, sql } = await testDb();
+    const app = await deal(pg, "zz-own", "zz-ten", "ZZL1");
+    await markAndVerify(sql, app, "zz-own");
+    const before = (await pg.query(`select * from deposit_marks order by 1`)).rows;
+    await pg.exec(readFileSync(new URL("0033_deposit_mark_admin_check.sql", migrationsDir), "utf8"));
+    assert.deepEqual((await pg.query(`select * from deposit_marks order by 1`)).rows, before);
+  }));
+
   test("0032 is safe to re-run and leaves existing rows unchanged", () => withEnv(OWNER, async () => {
     const { pg, sql } = await testDb();
     const app = await deal(pg, "zz-own", "zz-ten", "ZZL1");
-    await markDepositReceived(sql, { applicationId: app, actorId: "zz-own", role: "owner" });
+    await markAndVerify(sql, app, "zz-own");
     const tables = ["owner_commissions", "deposit_marks", "referral_credits", "payments"];
     const before = await Promise.all(tables.map(async (t) => (await pg.query(`select * from ${t} order by 1`)).rows));
     await pg.exec(readFileSync(new URL("0032_owner_fee_deposit_credits.sql", migrationsDir), "utf8"));

@@ -273,7 +273,7 @@ export function ownerCommissionNote(a: CommissionAmounts, beds = 1): string {
   if (!a.ratePct) {
     const incl = a.gstInr > 0 ? ` (GST included: ₹${a.feeInr} + ₹${a.gstInr} GST)` : "";
     const each = beds > 1 ? ` per tenant, for each of the ${beds} tenants (₹${a.totalInr * beds} in all)` : "";
-    return `Roomeo fee (only you see this): a flat ₹${a.totalInr}${incl}${each}, charged only after you mark the tenant's deposit and rent advance as received on Roomeo, then due within ${OWNER_FEE_DUE_DAYS} days by a Razorpay payment link. Never upfront. Any Roomeo credit you have comes off it. If the tenant leaves within ${OWNER_REFUND_DAYS} days of moving in, you pay only ${OWNER_REFUND_PCT}% (or get ${OWNER_REFUND_PCT}% back if you've paid). Please don't charge the tenant any brokerage.`;
+    return `Roomeo fee (only you see this): a flat ₹${a.totalInr}${incl}${each}, charged only after you mark the tenant's deposit and rent advance as received on Roomeo and Roomeo checks it, then due within ${OWNER_FEE_DUE_DAYS} days of that check by a Razorpay payment link. Never upfront. Any Roomeo credit you have comes off it. If the tenant leaves within ${OWNER_REFUND_DAYS} days of moving in, you pay only ${OWNER_REFUND_PCT}% (or get ${OWNER_REFUND_PCT}% back if you've paid). Please don't charge the tenant any brokerage.`;
   }
   const amount = a.gstInr > 0 ? `₹${a.feeInr} + ₹${a.gstInr} GST (${a.gstPct}%) = ₹${a.totalInr}` : `₹${a.feeInr}`;
   const each = beds > 1 ? ` per tenant, for each of the ${beds} tenants (₹${a.rentInr} rent each; ₹${a.totalInr * beds} in all)` : "";

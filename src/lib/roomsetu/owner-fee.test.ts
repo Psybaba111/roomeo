@@ -207,12 +207,12 @@ describe("tenant never sees a Roomeo fee while the tenant fee is off", () => {
   test("terms: owner commission, refund, no-brokerage; own date; nothing to tenants", () => {
     const t = termsFor(f).flatMap((s) => s.body).join("\n");
     assert.match(t, /Free for tenants: renters pay Roomeo nothing/);
-    assert.match(t, /flat fee of ₹499 for each tenant who comes through Roomeo.*charged only after the owner has received that tenant's deposit and rent advance and marked it on Roomeo\. Nothing is charged at listing time or upfront\./);
+    assert.match(t, /flat fee of ₹499 for each tenant who comes through Roomeo.*charged only after the owner has received that tenant's deposit and rent advance, marked it on Roomeo, and Roomeo has checked that mark\. Nothing is charged at listing time or upfront\./);
     assert.doesNotMatch(t, /20% of one month's rent|15% instead of 20%/);
     assert.match(t, /Founding partners, as confirmed by Roomeo in writing, pay ₹0.*no invoice is issued for a ₹0 fee.*every later move-in is the flat ₹499\./);
     assert.match(t, /day 60 counts, day 61 doesn't/);
-    assert.match(t, /due within 7 days of marking the deposit and advance as received.*the mark can be undone and nothing is owed/);
-    assert.match(t, /each tenant, i\.e\. each bed/);
+    assert.match(t, /due within 7 days of Roomeo checking the mark.*Roomeo may decline a mark it can't verify.*the mark can be undone and nothing is owed/);
+    assert.doesNotMatch(t, /i\.e\. each bed/, "squads carry no owner fee under the deposit model (accepted gap)");
     assert.match(t, /No GST is charged on it at present/);
     assert.match(t, /If the commission isn't paid yet, only 50% is due/);
     assert.match(t, /refunds 50% of the commission\./);
@@ -282,6 +282,30 @@ test("deal steps: tenant sees Free for tenants; owner sees the fee comes only af
   assert.match(tenant.hint, /Free for tenants/);
   assert.doesNotMatch(tenant.hint, /₹/);
   const owner = dealSteps({ ...base, role: "owner", ownerFeeTotal: 1200 }).find((s) => s.key === "pay")!;
-  assert.match(owner.hint, /Nothing to pay now\. Roomeo's ₹1200 is charged only after you mark the deposit \+ rent advance as received/);
+  assert.match(owner.hint, /Nothing to pay now\. Roomeo's ₹1200 is charged only after you mark the deposit \+ rent advance as received \(on Fees\) and Roomeo checks it/);
   assert.equal(dealSteps({ ...base, role: "owner" }).find((s) => s.key === "pay")!.hint, "No fee right now. Skip ahead 🙌");
+});
+
+describe("flag-aware copy (Rohith, 18 Nov 2026): OWNER_FEE_ENABLED off still describes today's prod", () => {
+  const prod = { ROOMEO_FEE_ENABLED: "true" }; // prod today: tenant ₹499 on, OWNER_FEE_ENABLED absent
+  const on = { ...prod, OWNER_FEE_ENABLED: "true" };
+  test("flag off: the owner still pays ₹499 upfront in the agreement step, and the copy says so", () => {
+    assert.equal(pricingConfig(prod).successFeeOwnerInr, 499);
+    const f = feeViewOf(pricingConfig(prod), prod);
+    assert.match(homeChatStep(f), /renter and owner each pay ₹499/);
+    const t = termsFor(f).flatMap((x) => x.body).join("\n");
+    assert.doesNotMatch(t, /deposit and rent advance, marked it on Roomeo/);
+    assert.equal(termsUpdated(f), LEGAL_UPDATED);
+  });
+  test("flag on: the upfront owner ₹499 is replaced by the after-deposit, admin-checked fee everywhere", () => {
+    assert.equal(pricingConfig(on).successFeeOwnerInr, 0, "no upfront owner fee in the agreement step");
+    assert.equal(pricingConfig(on).successFeeTenantInr, 499, "tenant fee unchanged");
+    const f = feeViewOf(pricingConfig(on), on);
+    assert.match(homeChatStep(f), /Owners pay ₹499 only after they've received the deposit and rent advance/);
+    const p = pricingCopy(f, { feeInr: 99, windowDays: 14 });
+    assert.ok(p.faq.some(([, a]) => /Roomeo checks it, never upfront/.test(a)), "pricing FAQ");
+    const t = termsFor(f).flatMap((x) => x.body).join("\n");
+    assert.match(t, /marked it on Roomeo, and Roomeo has checked that mark/);
+    assert.equal(termsUpdated(f), OWNER_FEE_TERMS_UPDATED);
+  });
 });

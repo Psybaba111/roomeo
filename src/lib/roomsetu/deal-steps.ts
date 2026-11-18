@@ -14,7 +14,7 @@ export function dealSteps(p: { role: "tenant" | "owner"; squad?: boolean; iSigne
       ? "Free for tenants. Nothing to pay Roomeo. Skip ahead 🙌"
       : p.ownerFeeTotal != null
         ? p.ownerFeeTotal > 0
-          ? `Nothing to pay now. Roomeo's ₹${p.ownerFeeTotal} is charged only after you mark the deposit + rent advance as received (on Fees), then due within 7 days.`
+          ? `Nothing to pay now. Roomeo's ₹${p.ownerFeeTotal} is charged only after you mark the deposit + rent advance as received (on Fees) and Roomeo checks it, then due within 7 days.`
           : "Nothing to pay. You're a founding partner: ₹0 Roomeo fee."
         : "No fee right now. Skip ahead 🙌"
     : p.feePaid
