@@ -323,3 +323,25 @@ describe("owner fee after the deposit + advance mark and the admin check", () =>
     await assert.rejects(pg.query(`update owner_commissions set fee_inr = 0, total_inr = 0 where status = 'due'`), /check/i);
   }));
 });
+
+describe("prod schema without 0032/0033 (flags off)", () => {
+  test("deposit-mark and credit actions fail closed with a clear message; owner/admin lists are empty", async () => {
+    const { pg, sql } = await testDb();
+    const app = await deal(pg, "zz-noschema-owner", "zz-noschema-t", "ZZNOSCHEMA");
+    await pg.exec(`drop table deposit_marks cascade; drop table fee_credit_applications cascade;`);
+    const { depositCandidates, recentDepositMarks, depositMarksReady } = await import("./owner-fee-db.ts");
+    assert.equal(await depositMarksReady(sql), false);
+    assert.deepEqual(await depositCandidates(sql, "zz-noschema-owner"), []);
+    assert.deepEqual(await recentDepositMarks(sql), []);
+    for (const p of [
+      markDepositReceived(sql, { applicationId: app, actorId: "zz-noschema-owner", role: "owner" }),
+      markDepositReceived(sql, { applicationId: app, actorId: "zz-admin", role: "admin" }),
+      verifyDepositMark(sql, { applicationId: app, adminId: "zz-admin" }),
+      rejectDepositMark(sql, { applicationId: app, adminId: "zz-admin", reason: "ZZ TEST" }),
+      undoDepositMark(sql, { applicationId: app, actorId: "zz-admin", role: "admin", reason: "ZZ TEST" }),
+    ]) await assert.rejects(p, /aren't set up on this database yet/);
+    await assert.rejects(voidCredit(sql, "zz-admin", "zzcredit01", "ZZ TEST"), /isn't set up on this database yet/);
+    const n = (await pg.query<{ n: number }>(`select count(*)::int as n from notifications where user_id = 'zz-noschema-owner'`)).rows[0].n;
+    assert.equal(n, 0);
+  });
+});

@@ -141,6 +141,7 @@ export async function issuePairCredits(sql: Sql, adminId: string, d: { referrer:
 export async function voidCredit(sql: Sql, adminId: string, creditId: string, reason: string): Promise<CreditRow> {
   const why = reason.trim().slice(0, 200);
   if (!why) throw new Error("Say why you're voiding this credit.");
+  if (!(await feeCreditsReady(sql))) throw new Error("The credits ledger isn't set up on this database yet (migration 0032). Nothing was changed.");
   const c = await oneCredit(sql, creditId);
   if (c.status === "void") throw new Error("Already void.");
   if (c.status === "applied") throw new Error("This credit is fully used on a fee. Void the fee's deposit mark or record the refund instead.");

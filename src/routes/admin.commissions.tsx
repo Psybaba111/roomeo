@@ -140,6 +140,8 @@ function Commissions() {
 
       <h2 className="mt-10 text-2xl font-semibold">Deposit + rent advance marks</h2>
       <p className="mt-1 text-sm text-muted">The owner marks "deposit + advance received"; the owner's ₹499 is created only when you verify it here (due 7 days after your check), never at listing, signing or move-in. Reject needs a reason (the owner can mark again). One mark per request; undo voids an unpaid fee and restores any credit.</p>
+      {marks && !marks.ready ? <p className="mt-3 text-danger" data-testid="admin-deposit-not-ready">Migrations 0032 and 0033 aren't applied on this database yet, so deposit marks are off.</p> : null}
+      {marks?.ready ? (
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <input className={input} placeholder="Request (application) id" aria-label="Request id" value={dep.applicationId} onChange={(e) => setDep({ ...dep, applicationId: e.target.value.trim() })} data-testid="admin-deposit-app" />
         <input type="date" className={input} aria-label="Received on" value={dep.receivedOn || today} onChange={(e) => setDep({ ...dep, receivedOn: e.target.value })} />
@@ -147,6 +149,7 @@ function Commissions() {
         <input className={input} placeholder="Undo reason" aria-label="Undo reason" value={dep.reason} onChange={(e) => setDep({ ...dep, reason: e.target.value })} />
         <button type="button" className={btn} disabled={!dep.applicationId || !dep.reason || busy === "dep"} onClick={() => run("dep", adminUndoDeposit({ data: { applicationId: dep.applicationId, reason: dep.reason } }))}>Undo mark</button>
       </div>
+      ) : null}
       <ul className="mt-3 space-y-2 text-sm" data-testid="admin-deposit-marks">
         {(marks?.items ?? []).map((m) => (
           <li key={m.id} className="rounded-2xl border border-line bg-card p-3" data-testid="admin-deposit-row">

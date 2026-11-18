@@ -167,9 +167,9 @@ export const adminDepositMarks = createServerFn({ method: "GET" })
     const sql = await getSql();
     await assertAdmin(sql, context.userId);
     try {
-      return { items: await db.recentDepositMarks(sql) };
+      return { ready: await db.depositMarksReady(sql), items: await db.recentDepositMarks(sql) };
     } catch (err) {
-      if (/deposit_marks/.test(String((err as Error)?.message))) return { items: [] };
+      if (/deposit_marks/.test(String((err as Error)?.message))) return { ready: false, items: [] };
       throw err;
     }
   });

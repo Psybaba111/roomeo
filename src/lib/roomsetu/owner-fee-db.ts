@@ -401,6 +401,18 @@ const MARK_COLS = `id, application_id, listing_id, owner_id, tenant_id, received
 const MARK_COLS_M = `m.id, m.application_id, m.listing_id, m.owner_id, m.tenant_id, m.received_on::text as received_on, m.marked_at::text as marked_at, m.marked_by, m.marked_role,
   m.undone_at::text as undone_at, m.undone_by, m.undo_reason, m.mark_count, m.verified_at::text as verified_at, m.verified_by, m.rejected_at::text as rejected_at, m.rejected_by, m.reject_reason`;
 
+export const DEPOSIT_MARKS_NOT_READY = "Deposit marks aren't set up on this database yet (migrations 0032 and 0033). Nothing was changed.";
+
+/** True once 0032 (deposit_marks) and 0033 (admin check columns) are on this database. */
+export async function depositMarksReady(sql: Sql): Promise<boolean> {
+  const r = await sql.query<{ ok: boolean }>(`select (to_regclass('public.deposit_marks') is not null
+    and exists (select 1 from information_schema.columns where table_name = 'deposit_marks' and column_name = 'reject_reason')) as ok`, []);
+  return Boolean(r[0]?.ok);
+}
+async function requireDepositMarks(sql: Sql): Promise<void> {
+  if (!(await depositMarksReady(sql))) throw new Error(DEPOSIT_MARKS_NOT_READY);
+}
+
 export async function depositMarkFor(sql: Sql, applicationId: string): Promise<DepositMark | null> {
   const r = (await sql.query(`select ${MARK_COLS} from deposit_marks where application_id = $1`, [applicationId]))[0];
   return r ? toMark(r as Record<string, unknown>) : null;
@@ -421,6 +433,7 @@ export async function markDepositReceived(
   sql: Sql,
   d: { applicationId: string; actorId: string; role: "owner" | "admin"; receivedOn?: string; today?: string },
 ): Promise<MarkResult> {
+  await requireDepositMarks(sql);
   const today = d.today ?? istYmd(new Date());
   const { app, moveIn } = await dealFor(sql, d.applicationId);
   if (d.role === "owner" && app.host_id !== d.actorId) throw new Error("Only the owner of this listing can mark the deposit as received.");
@@ -460,6 +473,7 @@ export type VerifyResult = { mark: DepositMark; already: boolean; commission: Cr
  * force), due 7 days after the verification. Idempotent: verifying again never creates a second fee.
  */
 export async function verifyDepositMark(sql: Sql, d: { applicationId: string; adminId: string; force?: boolean }): Promise<VerifyResult> {
+  await requireDepositMarks(sql);
   const existing = await depositMarkFor(sql, d.applicationId);
   if (!existing || existing.state === "undone") throw new Error("There's no deposit mark to verify on this request.");
   if (existing.state === "rejected") throw new Error("This mark was rejected. The owner has to mark it again before it can be verified.");
@@ -484,6 +498,7 @@ export async function verifyDepositMark(sql: Sql, d: { applicationId: string; ad
 
 /** Admin: reject a mark that isn't verified yet, with a reason. Nothing is charged; the owner can mark again. */
 export async function rejectDepositMark(sql: Sql, d: { applicationId: string; adminId: string; reason: string }): Promise<DepositMark> {
+  await requireDepositMarks(sql);
   const why = d.reason.trim().slice(0, 200);
   if (!why) throw new Error("Say why (for example: tenant says no deposit paid yet).");
   const m = await depositMarkFor(sql, d.applicationId);
@@ -567,6 +582,7 @@ export async function createCommissionForDeposit(sql: Sql, markId: string, opts:
 
 /** Owner or admin: take the mark back (deposit refunded, deal fell through). Refused once the owner has paid cash. */
 export async function undoDepositMark(sql: Sql, d: { applicationId: string; actorId: string; role: "owner" | "admin"; reason: string }): Promise<{ mark: DepositMark; voided: string | null; creditRestored: number }> {
+  await requireDepositMarks(sql);
   const why = d.reason.trim().slice(0, 200);
   if (!why) throw new Error("Say why (for example: deposit refunded, tenant didn't move in).");
   const mark = await depositMarkFor(sql, d.applicationId);
@@ -594,6 +610,7 @@ export type DepositCandidate = { applicationId: string; listingTitle: string; te
 
 /** Owner: accepted requests and move-ins, with their deposit mark (if any) and fee status. */
 export async function depositCandidates(sql: Sql, ownerId: string): Promise<DepositCandidate[]> {
+  if (!(await depositMarksReady(sql))) return [];
   const rows = await sql<{ id: string; title: string | null; tenant: string | null; at: string }>`select a.id, l.title, p.full_name as tenant, coalesce(a.updated_at, a.created_at)::text as at
     from applications a left join listings l on l.id = a.listing_id left join profiles p on p.user_id = a.seeker_id
     where a.host_id = ${ownerId} and (a.status = 'ACCEPTED' or exists (select 1 from move_ins mi where mi.application_id = a.id)) order by a.created_at desc limit 50`;
@@ -609,6 +626,7 @@ export async function depositCandidates(sql: Sql, ownerId: string): Promise<Depo
 
 /** Admin: recent deposit marks. */
 export async function recentDepositMarks(sql: Sql, limit = 100) {
+  if (!(await depositMarksReady(sql))) return [];
   const rows = await sql.query(`select ${MARK_COLS_M},
       coalesce(l.title, 'Listing') as listing_title, coalesce(op.full_name, 'Owner') as owner_name, coalesce(tp.full_name, 'Tenant') as tenant_name
     from deposit_marks m left join listings l on l.id = m.listing_id left join profiles op on op.user_id = m.owner_id left join profiles tp on tp.user_id = m.tenant_id
