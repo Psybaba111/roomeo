@@ -301,7 +301,7 @@ describe("flag-aware copy (Rohith, 18 Nov 2026): OWNER_FEE_ENABLED off still des
     assert.equal(pricingConfig(on).successFeeOwnerInr, 0, "no upfront owner fee in the agreement step");
     assert.equal(pricingConfig(on).successFeeTenantInr, 499, "tenant fee unchanged");
     const f = feeViewOf(pricingConfig(on), on);
-    assert.match(homeChatStep(f), /Owners pay ₹499 only after they've received the deposit and rent advance/);
+    assert.match(homeChatStep(f), /Owners pay ₹499 only after they've received the deposit and rent advance and Roomeo checks it/);
     const p = pricingCopy(f, { feeInr: 99, windowDays: 14 });
     assert.ok(p.faq.some(([, a]) => /Roomeo checks it, never upfront/.test(a)), "pricing FAQ");
     const t = termsFor(f).flatMap((x) => x.body).join("\n");

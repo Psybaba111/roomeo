@@ -66,11 +66,11 @@ export function feeLine(f: FeeView): string {
 /** Home "how it works" step 3 body. */
 export function homeChatStep(f: FeeView): string {
   return ownerAfterDeposit(f)
-    ? `Unlimited owner chats, free. Listing is free too. When a stay is locked, the renter pays ₹${f.totalInr} (incl. GST) once, refundable within 7 days. Owners pay ₹${ownerOf(f).flatInr} only after they've received the deposit and rent advance.`
+    ? `Unlimited owner chats, free. Listing is free too. When a stay is locked, the renter pays ₹${f.totalInr} (incl. GST) once, refundable within 7 days. Owners pay ₹${ownerOf(f).flatInr} only after they've received the deposit and rent advance and Roomeo checks it.`
     : f.on
     ? `Unlimited owner chats, free. Listing is free too. When a stay is locked, renter and owner each pay ₹${f.totalInr} (incl. GST) once, refundable within 7 days.`
     : ownerOf(f).on
-      ? `Unlimited owner chats, free. ${FREE_TENANTS}. Listing is free; owners pay Roomeo a flat ₹${ownerOf(f).flatInr} (GST included) only after they've received the tenant's deposit and rent advance. Rent and deposit go straight to the owner.`
+      ? `Unlimited owner chats, free. ${FREE_TENANTS}. Listing is free; owners pay Roomeo a flat ₹${ownerOf(f).flatInr} (GST included) only after they've received the tenant's deposit and rent advance and Roomeo checks it. Rent and deposit go straight to the owner.`
       : `Unlimited owner chats, free. Listing is free too. ${FREE_TENANTS}: no Roomeo fee. Rent and deposit go straight to the owner.`;
 }
 
@@ -141,7 +141,7 @@ export function pricingCopy(f: FeeView, trial: { feeInr: number; windowDays: num
       headTitle: "Pricing: free for tenants, not a broker's month",
       h1: `${FREE_TENANTS}. Not a broker's month.`,
       sub: o.on
-        ? `Tenants pay Roomeo nothing. Owners pay a flat ₹${o.flatInr}, GST included, only after they've received a Roomeo tenant's deposit and rent advance (₹0 for founding partners). Rent and deposit go straight to the owner. No chat passes.`
+        ? `Tenants pay Roomeo nothing. Owners pay a flat ₹${o.flatInr}, GST included, only after they've received a Roomeo tenant's deposit and rent advance and Roomeo checks it (₹0 for founding partners). Rent and deposit go straight to the owner. No chat passes.`
         : "No Roomeo fee for renters or owners right now. Rent and deposit go straight to the owner. No chat passes. No cut of your rent.",
       planPrice: "₹0",
       planNote: FREE_TENANTS,

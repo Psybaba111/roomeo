@@ -1,9 +1,20 @@
 // Referral credits ledger + owner fee after the deposit mark (migration 0032). PGlite, ZZ TEST data only.
-import test, { describe } from "node:test";
+import test, { describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { PGlite } from "@electric-sql/pglite";
-import { testDb, migrationsDir } from "./pgtest.ts";
+import { testDb as baseTestDb, migrationsDir } from "./pgtest.ts";
+
+// Close every PGlite after each test so the many in-memory databases in this file don't pile up (memory).
+const open: { close: () => Promise<void> }[] = [];
+async function testDb() {
+  const d = await baseTestDb();
+  open.push(d.pg);
+  return d;
+}
+afterEach(async () => {
+  while (open.length) await open.pop()!.close().catch(() => {});
+});
 import { feeCreditConfig } from "./fee-credits.ts";
 import { applyCreditsToPayment, creditBalance, issuePairCredits, listCredits, pairsUsed, restoreCreditsForFee, voidCredit, recentCreditEvents } from "./fee-credits-db.ts";
 import { allCommissions, markDepositReceived, verifyDepositMark, rejectDepositMark, undoDepositMark, recordEarlyExit, recordCommissionRefund, markCommissionPaid, setFoundingPartner, createCommissionForMoveIn } from "./owner-fee-db.ts";
