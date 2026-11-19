@@ -1,7 +1,7 @@
 import { RoomieOccupants } from "@/components/roomie-sections";
 import { asFeeView, feeUnderPrice, lockedLocationLine } from "@/lib/roomsetu/fee-copy";
 import { TrialNightsBooking, TrialNightsLink } from "@/components/trial-nights";
-import { MESSAGE_CTA, ctaDisabled, isAlreadyRequested, requestCtaLabel, requestSentLine } from "@/lib/roomsetu/booking-cta";
+import { MESSAGE_CTA, ctaDisabled, isAlreadyRequested, requestCtaLabel, requestFeeNote, requestSentLine, viewerSignedIn } from "@/lib/roomsetu/booking-cta";
 import { listingHead } from "@/lib/seo";
 import { ContactGate } from "@/components/contact-gate";
 import { sendLead } from "@/lib/analytics/ga4";
@@ -106,7 +106,11 @@ function ListingBody({ room }: { room: LoadedRoom }) {
   const [requesting, setRequesting] = useState(false);
   const [messaging, setMessaging] = useState(false);
   const navigate = useNavigate();
-  const cta = { requesting, sessionPending: isPending, signedIn: Boolean(user) };
+  // Server-resolved viewer first, so the CTA is right on first paint (no loading label); the client session takes over once loaded.
+  const signedIn = viewerSignedIn(Boolean(room.viewer?.signedIn), { isPending, signedIn: Boolean(user) });
+  const isOwnerView = isPending ? Boolean(room.viewer?.isOwner) : user?.id === room.ownerId;
+  const cta = { requesting, signedIn };
+  const feeView = asFeeView(room.fee);
   const busy = ctaDisabled(cta) || messaging;
 
   function goSignIn() {
@@ -116,8 +120,8 @@ function ListingBody({ room }: { room: LoadedRoom }) {
 
   /** Secondary action: open the chat without sending a bed request. Contact gates still apply server-side. */
   function messageOwner() {
-    if (isPending || messaging || requesting) return;
-    if (!user) return goSignIn();
+    if (messaging || requesting) return;
+    if (!signedIn) return goSignIn();
     setMessaging(true);
     setError("");
     setMessage("");
@@ -134,8 +138,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
 
   /** The one CTA: send the request (existing action, same notifications), then open the chat with the owner. */
   function requestBed() {
-    if (isPending) return;
-    if (!user) return goSignIn();
+    if (!signedIn) return goSignIn();
     if (requesting || messaging) return;
     setRequesting(true);
     setError("");
@@ -298,7 +301,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
                 data-testid="save-icon"
                 className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border ${saved ? "border-brand bg-brand-soft text-brand" : "border-line bg-card"}`}
                 onClick={() => {
-                  if (!user) {
+                  if (!signedIn) {
                     sessionStorage.setItem("roomsetu-next", `/listing/${room.id}`);
                     window.location.href = "/login";
                     return;
@@ -343,7 +346,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
             </p>
           </div>
           <p className="mt-3 text-sm font-medium [text-wrap:pretty]" data-testid="fee-line">
-            {feeUnderPrice(asFeeView(room.fee))}.{" "}
+            {feeUnderPrice(feeView)}.{" "}
             <Link to="/pricing" className="font-semibold text-brand">How pricing works</Link>
           </p>
           <div id="contact" className="mt-4 flex scroll-mt-24 flex-col gap-2">
@@ -351,15 +354,15 @@ function ListingBody({ room }: { room: LoadedRoom }) {
               <button
                 type="button"
                 disabled={busy}
-                aria-busy={isPending || requesting}
-                className={`inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-brand text-base font-semibold text-card transition-transform active:scale-[0.98] disabled:opacity-60 ${isPending ? "animate-pulse motion-reduce:animate-none" : ""}`}
+                aria-busy={requesting}
+                className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-brand text-base font-semibold text-card transition-transform hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 active:scale-[0.98] disabled:opacity-60"
                 data-testid="request-bed"
                 onClick={requestBed}
               >
                 <ChatCircleDots size={22} aria-hidden="true" />
                 {requestCtaLabel(cta)}
               </button>
-              {user?.id === room.ownerId ? null : <button
+              {isOwnerView ? null : <button
                 type="button"
                 disabled={busy}
                 aria-busy={messaging}
@@ -370,7 +373,9 @@ function ListingBody({ room }: { room: LoadedRoom }) {
                 {messaging ? "Opening chat…" : MESSAGE_CTA}
               </button>}
             </div>
-            <p className="text-center text-xs text-muted">Free to request. Opens a chat with the owner right away 💬</p>
+            <p className="text-center text-sm text-muted [text-wrap:pretty]" data-testid="request-fee-note">
+              {requestFeeNote(feeView)}. Opens a chat with the owner right away.
+            </p>
             {user ? <ContactGate listingId={room.id} isDemo={room.isDemo} hideOpen /> : null}
             {user ? <SquadShortlistButton listingId={room.id} /> : null}
             <TrialNightsLink listingId={room.id} />
@@ -502,7 +507,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
                 className="mt-3 space-y-2"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (!user && !isPending) {
+                  if (!signedIn) {
                     sessionStorage.setItem("roomsetu-next", safeNext(`/listing/${room.id}`));
                     window.location.href = "/login";
                     return;
@@ -573,14 +578,14 @@ function ListingBody({ room }: { room: LoadedRoom }) {
               {inr(headlinePrice(room.rent, room.trust.allInInr).amount)}
               <span className="text-xs font-medium text-muted"> / month</span>
             </p>
-            <p className="truncate text-xs text-muted">{inr(room.deposit)} deposit, paid to the owner</p>
+            <p className="truncate text-xs text-muted" data-testid="sticky-fee-note">{requestFeeNote(feeView, true)}</p>
           </div>
           <button
             type="button"
             disabled={busy}
-            aria-busy={isPending || requesting}
+            aria-busy={requesting}
             data-testid="sticky-request-bed"
-            className={`h-12 shrink-0 rounded-full bg-brand px-4 text-sm font-semibold text-card transition-transform duration-300 active:scale-[0.98] disabled:opacity-60 ${isPending ? "animate-pulse motion-reduce:animate-none" : ""}`}
+            className="h-12 shrink-0 rounded-full bg-brand px-4 text-base font-semibold text-card transition-transform duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 active:scale-[0.98] disabled:opacity-60"
             onClick={requestBed}
           >
             {requestCtaLabel(cta, true)}

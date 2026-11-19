@@ -2,8 +2,13 @@ import type { ReactNode } from "react";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Shell } from "@/components/shell";
 
-export function NeedAccount({ next, children }: { next: string; children: ReactNode }) {
+/**
+ * Gate for signed-in pages. `loading` (optional) replaces the "Checking your session…" line with the page's
+ * own skeleton, so the page goes straight from skeleton to content (QA review Q3, 19 Nov 2026).
+ */
+export function NeedAccount({ next, children, loading }: { next: string; children: ReactNode; loading?: ReactNode }) {
   const { user, isPending } = useCurrentUserState();
+  if (isPending && loading) return <>{loading}</>;
   if (isPending) {
     return (
       <Shell>
