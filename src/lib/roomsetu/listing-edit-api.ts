@@ -6,6 +6,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { audit } from "@/lib/roomsetu/admin-api";
 import { bool, num, str } from "@/lib/roomsetu/map";
 import { logEvent } from "@/lib/roomsetu/services";
+import { contactDetailError } from "@/lib/roomsetu/owner-only";
 import {
   EDIT_AMENITIES,
   canEditListing,
@@ -77,6 +78,14 @@ export const updateListing = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const { asAdmin } = await access(sql, data.id, context.userId);
+    // No contact details in new text (P0 broker plan). Text that was already saved is left alone and
+    // flagged for an operator instead, so an existing owner can still edit rent or photos.
+    const before = (await sql<{ title: string; description: string }>`select title, description from listings where id = ${data.id}`)[0];
+    const contactErr = contactDetailError({
+      title: data.title && data.title !== before?.title ? data.title : "",
+      description: data.description && data.description !== before?.description ? data.description : "",
+    });
+    if (contactErr) throw new Error(contactErr);
     const existing = (await sql<{ id: string }>`select id from listing_images where listing_id = ${data.id} order by sort_order, id`).map((r) => str(r.id));
     const keep = validKeeps(existing, data.keepPhotoIds);
     if (keep.length + data.newPhotos.length < 1) throw new Error("Keep at least one photo.");

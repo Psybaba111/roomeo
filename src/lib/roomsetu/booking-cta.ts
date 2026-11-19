@@ -30,11 +30,11 @@ export function ctaDisabled(s: Pick<CtaState, "requesting">): boolean {
 /**
  * The fee note that sits next to every "Request this bed" (QA review Q11). Built from the tenant fee flag,
  * so it never shows an amount while the fee is off. With the fee on (prod today): requesting is free and
- * the ₹499 (GST included) is only charged after the owner accepts, when the stay is locked.
+ * the tenant fee (GST included) is only charged after the owner accepts, when the stay is locked.
  */
 export function requestFeeNote(f: { on: boolean; totalInr: number }, compact = false): string {
   if (f.on && f.totalInr > 0)
-    return compact ? `₹${f.totalInr} only if the owner says yes` : `Free to request. ₹${f.totalInr} Roomeo fee (GST included), charged only after the owner says yes`;
+    return compact ? `₹${f.totalInr} only after the owner says yes` : `Free to request. ₹${f.totalInr} Roomeo fee (GST included), charged only after the owner says yes`;
   return compact ? "Free to request" : "Free to request. No Roomeo fee for tenants";
 }
 // The fee line under the price is `feeUnderPrice(fee)` in `fee-copy.ts` (built from the fee setting).

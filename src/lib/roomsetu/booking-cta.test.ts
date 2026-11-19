@@ -76,7 +76,7 @@ test("request CTA is right on first paint: server viewer first, no Loading label
 
 test("fee note next to every Request this bed follows the tenant fee flag (QA Q11)", () => {
   assert.equal(requestFeeNote({ on: true, totalInr: 499 }), "Free to request. ₹499 Roomeo fee (GST included), charged only after the owner says yes");
-  assert.equal(requestFeeNote({ on: true, totalInr: 499 }, true), "₹499 only if the owner says yes");
+  assert.equal(requestFeeNote({ on: true, totalInr: 499 }, true), "₹499 only after the owner says yes");
   assert.doesNotMatch(requestFeeNote({ on: false, totalInr: 0 }), /₹\d/);
   assert.doesNotMatch(requestFeeNote({ on: false, totalInr: 0 }, true), /₹\d/);
   const src = readFileSync(new URL("../../routes/listing.$id.tsx", import.meta.url), "utf8");

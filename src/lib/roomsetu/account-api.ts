@@ -25,6 +25,8 @@ import {
   upiPayee,
 } from "@/lib/roomsetu/upi";
 import { getSql, type Sql } from "@/lib/db";
+import { DECLARATION_REQUIRED, PENDING_REVIEW, PENDING_REVIEW_LOCKED, contactDetailError } from "@/lib/roomsetu/owner-only";
+import { newListingStatus, ownerActivateStatus, recordOwnerDeclaration } from "@/lib/roomsetu/owner-only-db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { listingCard, bool, num, str } from "@/lib/roomsetu/map";
 import { searchCity } from "@/lib/roomsetu/cities";
@@ -538,13 +540,23 @@ async function attachAmenities(sql: Sql, listingId: string, draft: Draft) {
 
 export const createListing = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: unknown) => ({ ...draftOf(input), utm: cleanUtm((input as { utm?: unknown } | null)?.utm) }))
+  .validator((input: unknown) => ({
+    ...draftOf(input),
+    utm: cleanUtm((input as { utm?: unknown } | null)?.utm),
+    ownerDeclared: (input as { ownerDeclared?: unknown } | null)?.ownerDeclared === true,
+  }))
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const userId = context.userId;
+    // Owner-only checks first (P0 broker plan): declaration ticked, no contact details in the text.
+    if (!data.ownerDeclared) throw new Error(DECLARATION_REQUIRED);
+    const contactErr = contactDetailError({ title: data.title, description: data.description });
+    if (contactErr) throw new Error(contactErr);
     await requireProfile(sql, userId);
     await requirePublishable(sql, userId);
     await hitLimit(sql, userId, "listing");
+    // Above the live-bed cap a new bed waits for an operator instead of going live. Existing beds are untouched.
+    const startStatus = await newListingStatus(sql, userId);
     // Any city (Rohith, 31 Oct 2026): a typed city or locality that isn't known yet is added.
     const cityName = searchCity(data.city);
     if (!cityName) throw new Error("Type the city the bed is in.");
@@ -647,7 +659,8 @@ export const createListing = createServerFn({ method: "POST" })
         Math.min(98, quality),
       ],
     );
-    await sql`update listings set listing_kind = ${data.listingKind}, bedrooms = ${data.bedrooms || null} where id = ${listingId}`;
+    await sql`update listings set listing_kind = ${data.listingKind}, bedrooms = ${data.bedrooms || null}, status = ${startStatus} where id = ${listingId}`;
+    await recordOwnerDeclaration(sql, userId, listingId);
     for (let i = 0; i < data.photos.length; i++) {
       await sql`insert into listing_images (id, listing_id, url, category, sort_order) values (${crypto.randomUUID()}, ${listingId}, ${data.photos[i].url}, ${data.photos[i].category}, ${i})`;
     }
@@ -655,8 +668,8 @@ export const createListing = createServerFn({ method: "POST" })
     await writeTrust(sql, listingId, data.trust);
     await sql`insert into profile_roles (user_id, role) values (${userId}, 'HOST') on conflict do nothing`;
     await saveUtm(sql, "listings", listingId, data.utm);
-    logEvent("listing.created", { city: data.city, photos: data.photos.length });
-    return { id: listingId };
+    logEvent("listing.created", { city: data.city, photos: data.photos.length, review: startStatus === PENDING_REVIEW });
+    return { id: listingId, review: startStatus === PENDING_REVIEW };
   });
 
 export const setListingStatus = createServerFn({ method: "POST" })
@@ -672,11 +685,15 @@ export const setListingStatus = createServerFn({ method: "POST" })
     const sql = await getSql();
     await requireProfile(sql, context.userId);
     if (data.status === "ACTIVE") await requirePublishable(sql, context.userId);
+    // A bed waiting for review can only be removed by its owner; "Resume" above the cap waits for review too.
+    const next = await ownerActivateStatus(sql, context.userId, data.id);
+    if (next === "LOCKED" && data.status !== "REMOVED") throw new Error(PENDING_REVIEW_LOCKED);
+    const status = data.status === "ACTIVE" && next === PENDING_REVIEW ? PENDING_REVIEW : data.status;
     const updated =
-      await sql`update listings set status = ${data.status}, updated_at = now() where id = ${data.id} and owner_id = ${context.userId} returning id`;
+      await sql`update listings set status = ${status}, updated_at = now() where id = ${data.id} and owner_id = ${context.userId} returning id`;
     if (!updated.length) throw new Error("You can only change your own listing.");
-    await audit(sql, context.userId, `owner.${data.status.toLowerCase()}`, "listing", data.id, "");
-    return { ok: true };
+    await audit(sql, context.userId, `owner.${status.toLowerCase()}`, "listing", data.id, "");
+    return { ok: true, review: status === PENDING_REVIEW };
   });
 
 export const createRoomWanted = createServerFn({ method: "POST" })

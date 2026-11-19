@@ -37,6 +37,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminCommissionsRouteImport } from './routes/admin.commissions'
 import { Route as AdminCreditsRouteImport } from './routes/admin.credits'
+import { Route as AdminFlagsRouteImport } from './routes/admin.flags'
 import { Route as AdminHostsRouteImport } from './routes/admin.hosts'
 import { Route as AdminListingsRouteImport } from './routes/admin.listings'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
@@ -201,6 +202,11 @@ const AdminCreditsRoute = AdminCreditsRouteImport.update({
   path: '/admin/credits',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminFlagsRoute = AdminFlagsRouteImport.update({
+  id: '/admin/flags',
+  path: '/admin/flags',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminHostsRoute = AdminHostsRouteImport.update({
   id: '/admin/hosts',
   path: '/admin/hosts',
@@ -345,6 +351,7 @@ export interface FileRoutesByFullPath {
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/credits': typeof AdminCreditsRoute
+  '/admin/flags': typeof AdminFlagsRoute
   '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -398,6 +405,7 @@ export interface FileRoutesByTo {
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/credits': typeof AdminCreditsRoute
+  '/admin/flags': typeof AdminFlagsRoute
   '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -452,6 +460,7 @@ export interface FileRoutesById {
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/credits': typeof AdminCreditsRoute
+  '/admin/flags': typeof AdminFlagsRoute
   '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -507,6 +516,7 @@ export interface FileRouteTypes {
     | '/admin/analytics'
     | '/admin/commissions'
     | '/admin/credits'
+    | '/admin/flags'
     | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
@@ -560,6 +570,7 @@ export interface FileRouteTypes {
     | '/admin/analytics'
     | '/admin/commissions'
     | '/admin/credits'
+    | '/admin/flags'
     | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
@@ -613,6 +624,7 @@ export interface FileRouteTypes {
     | '/admin/analytics'
     | '/admin/commissions'
     | '/admin/credits'
+    | '/admin/flags'
     | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
@@ -667,6 +679,7 @@ export interface RootRouteChildren {
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminCommissionsRoute: typeof AdminCommissionsRoute
   AdminCreditsRoute: typeof AdminCreditsRoute
+  AdminFlagsRoute: typeof AdminFlagsRoute
   AdminHostsRoute: typeof AdminHostsRoute
   AdminListingsRoute: typeof AdminListingsRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
@@ -891,6 +904,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCreditsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/flags': {
+      id: '/admin/flags'
+      path: '/admin/flags'
+      fullPath: '/admin/flags'
+      preLoaderRoute: typeof AdminFlagsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/hosts': {
       id: '/admin/hosts'
       path: '/admin/hosts'
@@ -1083,6 +1103,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminCommissionsRoute: AdminCommissionsRoute,
   AdminCreditsRoute: AdminCreditsRoute,
+  AdminFlagsRoute: AdminFlagsRoute,
   AdminHostsRoute: AdminHostsRoute,
   AdminListingsRoute: AdminListingsRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,

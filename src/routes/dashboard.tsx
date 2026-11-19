@@ -386,7 +386,7 @@ function Desk() {
                 <div>
                   <p className="font-semibold">{listing.title}</p>
                   <p className="text-sm text-muted">
-                    {listing.city} · {inr(listing.rent)} · {listing.status} · {listing.views} views
+                    {listing.city} · {inr(listing.rent)} · {listing.status === "PENDING_REVIEW" ? "Waiting for Roomeo review" : listing.status} · {listing.views} views
                     · quality {listing.quality}
                   </p>
                 </div>
@@ -406,6 +406,7 @@ function Desk() {
                   >
                     Edit
                   </Link>
+                  {listing.status === "PENDING_REVIEW" ? null : (<>
                   {listing.status !== "PAUSED" ? (
                     <button
                       type="button"
@@ -442,6 +443,7 @@ function Desk() {
                   >
                     Occupied
                   </button>
+                  </>)}
                   <button
                     type="button"
                     className="h-10 rounded-full px-3 text-sm text-danger"

@@ -689,3 +689,33 @@ export const adminTrialBookings = createServerFn({ method: "GET" })
     await assertAdmin(sql, context.userId);
     return loadTrialBookings(sql);
   });
+
+/** Owner-only review queue (P0 broker plan): accounts and listings to look at. Flags only; nothing is blocked. */
+export const adminFlagged = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    const { flaggedForReview } = await import("@/lib/roomsetu/owner-only-db");
+    return flaggedForReview(sql);
+  });
+
+export const adminMarkFlagReviewed = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => {
+    const o = asRecord(input);
+    const targetType = str(o.targetType);
+    const targetId = str(o.targetId).slice(0, 120);
+    const reason = str(o.reason);
+    if (targetType !== "account" && targetType !== "listing") throw new Error("Unknown target.");
+    if (!["SHARED_PHONE", "OVER_CAP", "CONTACT_IN_TEXT", "BROKER_REPORT", "PENDING_REVIEW"].includes(reason)) throw new Error("Unknown flag.");
+    if (!targetId) throw new Error("Unknown target.");
+    return { targetType: targetType as "account" | "listing", targetId, reason: reason as "SHARED_PHONE" | "OVER_CAP" | "CONTACT_IN_TEXT" | "BROKER_REPORT" | "PENDING_REVIEW" };
+  })
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    const { markFlagReviewed } = await import("@/lib/roomsetu/owner-only-db");
+    await markFlagReviewed(sql, context.userId, data.targetType, data.targetId, data.reason);
+    return { ok: true };
+  });
