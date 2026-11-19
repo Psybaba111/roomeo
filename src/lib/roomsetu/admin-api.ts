@@ -1,5 +1,6 @@
 import { ACTION_DONE, LISTING_ACTIONS, auditAction, moderationBlock, type ListingAction } from "@/lib/roomsetu/listing-moderation";
 import { canPublish } from "@/lib/roomsetu/otp";
+import { FLAG_REASONS, type FlagReason } from "@/lib/roomsetu/owner-only";
 import { createServerFn } from "@tanstack/react-start";
 import { applyPaidPayment } from "@/lib/roomsetu/pricing-db";
 import { getSql, type Sql } from "@/lib/db";
@@ -708,9 +709,9 @@ export const adminMarkFlagReviewed = createServerFn({ method: "POST" })
     const targetId = str(o.targetId).slice(0, 120);
     const reason = str(o.reason);
     if (targetType !== "account" && targetType !== "listing") throw new Error("Unknown target.");
-    if (!["SHARED_PHONE", "OVER_CAP", "CONTACT_IN_TEXT", "BROKER_REPORT", "PENDING_REVIEW"].includes(reason)) throw new Error("Unknown flag.");
+    if (!(FLAG_REASONS as readonly string[]).includes(reason)) throw new Error("Unknown flag.");
     if (!targetId) throw new Error("Unknown target.");
-    return { targetType: targetType as "account" | "listing", targetId, reason: reason as "SHARED_PHONE" | "OVER_CAP" | "CONTACT_IN_TEXT" | "BROKER_REPORT" | "PENDING_REVIEW" };
+    return { targetType: targetType as "account" | "listing", targetId, reason: reason as FlagReason };
   })
   .handler(async ({ context, data }) => {
     const sql = await getSql();

@@ -5,9 +5,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { AdminFrame } from "@/components/admin-frame";
 import { errText } from "@/lib/ui-text";
-import { adminFlagged, adminMarkFlagReviewed, adminSetListing } from "@/lib/roomsetu/admin-api";
+import { adminFlagged, adminMarkFlagReviewed } from "@/lib/roomsetu/admin-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { ACTIVE_LISTING_CAP, FLAG_LABEL, type FlagReason } from "@/lib/roomsetu/owner-only";
+import { LIVE_BED_FLAG_THRESHOLD, FLAG_LABEL, type FlagReason } from "@/lib/roomsetu/owner-only";
 
 export const Route = createFileRoute("/admin/flags")({
   beforeLoad: adminBeforeLoad,
@@ -47,7 +47,7 @@ function Flags() {
     <AdminFrame>
       <h1 className="font-display text-4xl [text-wrap:balance]">Owner checks</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted [text-wrap:pretty]">
-        Accounts and beds that might be a broker. Flags only: nobody is blocked by this list. Beds over the {ACTIVE_LISTING_CAP} live bed cap wait here until you put them live.
+        Accounts and beds that might be a broker. Flags only: nobody is blocked by this list, and owners with more than {LIVE_BED_FLAG_THRESHOLD} live beds stay live.
       </p>
       {error ? <p className="mt-3 text-sm text-danger" role="alert">{error}</p> : null}
       {note ? <p className="mt-3 text-sm text-brand" role="status">{note}</p> : null}
@@ -72,18 +72,10 @@ function Flags() {
                   {l.reasons.map((r, i) => (
                     <li key={r} className="flex flex-wrap items-center justify-between gap-2">
                       <span><span className="font-semibold">{FLAG_LABEL[r]}</span> · {l.detail[i]}</span>
-                      {r === "PENDING_REVIEW" ? null : (
-                        <button type="button" className={btn} disabled={Boolean(busy)} onClick={() => reviewed("listing", l.id, r)}>Mark reviewed</button>
-                      )}
+                      <button type="button" className={btn} disabled={Boolean(busy)} onClick={() => reviewed("listing", l.id, r)}>Mark reviewed</button>
                     </li>
                   ))}
                 </ul>
-                {l.status === "PENDING_REVIEW" ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" className={btn} disabled={Boolean(busy)} onClick={() => run(`go:${l.id}`, () => adminSetListing({ data: { id: l.id, action: "activate", reason: "owner checks: approved over cap" } }), "Bed is live.")}>Put live</button>
-                    <button type="button" className={btn} disabled={Boolean(busy)} onClick={() => run(`rm:${l.id}`, () => adminSetListing({ data: { id: l.id, action: "remove", reason: "owner checks: broker" } }), "Bed removed.")}>Remove</button>
-                  </div>
-                ) : null}
               </li>
             ))}
           </ul>

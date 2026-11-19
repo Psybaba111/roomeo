@@ -17,22 +17,14 @@ export const OWNER_ONLY_NOTICE =
 
 export const DECLARATION_REQUIRED = "Tick the owner declaration to publish. Roomeo only lists beds from owners and operators.";
 
-/** Active (live) listings an owner can have before a new one waits for an operator review. */
-export const ACTIVE_LISTING_CAP = 3;
-
-/** Listing status for a bed waiting on an operator (over the cap). Hidden from search and from renters. */
-export const PENDING_REVIEW = "PENDING_REVIEW";
+/**
+ * More live beds than this on one owner is flagged on /admin/flags (Rohith, 19 Nov 2026: "No cap, just flag
+ * for admin review"). Nothing is held back: the 4th and later beds publish normally.
+ */
+export const LIVE_BED_FLAG_THRESHOLD = 3;
 
 /** The report reason renters pick for a broker posing as an owner. */
 export const BROKER_REPORT_REASON = "This is a broker";
-
-/** New bed goes live, or waits for review when the owner already has `cap` live beds. */
-export function statusForNewListing(activeCount: number, cap = ACTIVE_LISTING_CAP): "ACTIVE" | typeof PENDING_REVIEW {
-  return activeCount >= cap ? PENDING_REVIEW : "ACTIVE";
-}
-
-export const CAP_REVIEW_LINE = `You already have ${ACTIVE_LISTING_CAP} live beds, so this one waits for a quick Roomeo review before it goes live. We usually check within a day.`;
-export const PENDING_REVIEW_LOCKED = "This bed is waiting for a Roomeo review. We'll put it live once it's checked.";
 
 export type ContactKind = "phone" | "email" | "whatsapp" | "link";
 
@@ -81,14 +73,14 @@ export function phoneKey(raw: unknown): string {
   return /^[6-9]\d{9}$/.test(ten) ? ten : "";
 }
 
-export type FlagReason = "SHARED_PHONE" | "OVER_CAP" | "CONTACT_IN_TEXT" | "BROKER_REPORT" | "PENDING_REVIEW";
+export type FlagReason = "SHARED_PHONE" | "OVER_CAP" | "CONTACT_IN_TEXT" | "BROKER_REPORT";
+export const FLAG_REASONS: readonly FlagReason[] = ["SHARED_PHONE", "OVER_CAP", "CONTACT_IN_TEXT", "BROKER_REPORT"];
 
 export const FLAG_LABEL: Record<FlagReason, string> = {
   SHARED_PHONE: "Phone used on more than one account",
-  OVER_CAP: `More than ${ACTIVE_LISTING_CAP} live beds`,
+  OVER_CAP: `More than ${LIVE_BED_FLAG_THRESHOLD} live beds`,
   CONTACT_IN_TEXT: "Contact details in the listing text",
   BROKER_REPORT: "Reported as a broker",
-  PENDING_REVIEW: "Waiting for review (over the cap)",
 };
 
 /** Accounts sharing one phone (verified or not, profile phone or mobile): userId → the other user ids. */

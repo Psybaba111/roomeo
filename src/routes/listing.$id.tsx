@@ -24,7 +24,6 @@ import {
   savedIds,
 } from "@/lib/roomsetu/account-api";
 import { REPORT_CATEGORIES } from "@/lib/roomsetu/constants";
-import { CAP_REVIEW_LINE } from "@/lib/roomsetu/owner-only";
 import { genderLabel, inr, cardPhoto, whenLabel } from "@/lib/roomsetu/map";
 import { ShareButtons } from "@/components/share-buttons";
 import { depositTerms, headlinePrice, photoDateLabel } from "@/lib/roomsetu/trust";
@@ -79,9 +78,7 @@ function ListingPage() {
         </p>
         <h1 className="mt-2 text-4xl">This bed stays hidden</h1>
         <p className="mt-3 max-w-md text-muted">
-          {"review" in room && room.review
-            ? "Roomeo is checking this bed before it goes live."
-            : "The owner has to pass the identity check before anyone else can open this bed."}
+          The owner has to pass the identity check before anyone else can open this bed.
         </p>
         <Link
           to="/"
@@ -200,11 +197,6 @@ function ListingBody({ room }: { room: LoadedRoom }) {
 
   return (
     <Shell>
-      {room.reviewPending ? (
-        <p className="mb-6 rounded-2xl border border-line bg-card p-4 text-sm [text-wrap:pretty]" data-testid="review-pending">
-          {CAP_REVIEW_LINE} Only you can see it until then.
-        </p>
-      ) : null}
       {room.onlyYou ? (
         <p className="mb-6 rounded-[14px] border border-line bg-card p-4 text-sm shadow-[6px_6px_0_var(--color-brand)]">
           Only you can see this bed. It stays hidden from everyone else until your identity check

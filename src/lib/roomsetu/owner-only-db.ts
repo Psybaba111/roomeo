@@ -1,16 +1,14 @@
 // DB side of the owner-only / broker checks. Relative imports only so node tests run it on PGlite.
-// No migration: the declaration is an audit_log row, "waiting for review" is a listings.status value
-// (status is free text, no check constraint), and every flag is computed live from existing tables.
+// No migration: the declaration is an audit_log row and every flag is computed live from existing tables.
+// Flag, never block: no rule here holds a bed back from going live.
 import type { Sql } from "../db.ts";
 import {
-  ACTIVE_LISTING_CAP,
   BROKER_REPORT_REASON,
+  LIVE_BED_FLAG_THRESHOLD,
   OWNER_DECLARATION,
   OWNER_DECLARATION_VERSION,
-  PENDING_REVIEW,
   findContactDetails,
   sharedPhoneGroups,
-  statusForNewListing,
   type FlagReason,
 } from "./owner-only.ts";
 
@@ -21,21 +19,6 @@ export async function activeListingCount(sql: Sql, ownerId: string, exceptId = "
     [ownerId, exceptId],
   );
   return Number(r[0]?.n ?? 0);
-}
-
-/** Status a brand new listing starts in: live, or waiting for review above the cap. */
-export async function newListingStatus(sql: Sql, ownerId: string, cap = ACTIVE_LISTING_CAP) {
-  return statusForNewListing(await activeListingCount(sql, ownerId), cap);
-}
-
-/**
- * What an owner's "make it live" (Resume) actually does: live while under the cap, otherwise it waits
- * for review. A bed already waiting for review can't be put live by the owner. Nothing is ever taken down.
- */
-export async function ownerActivateStatus(sql: Sql, ownerId: string, listingId: string, cap = ACTIVE_LISTING_CAP): Promise<"ACTIVE" | typeof PENDING_REVIEW | "LOCKED"> {
-  const cur = (await sql.query<{ status: string }>(`select status from listings where id = $1 and owner_id = $2`, [listingId, ownerId]))[0];
-  if (cur?.status === PENDING_REVIEW) return "LOCKED";
-  return statusForNewListing(await activeListingCount(sql, ownerId, listingId), cap);
 }
 
 /** The owner's declaration, kept in the audit log with its wording version. */
@@ -59,10 +42,10 @@ export async function markFlagReviewed(sql: Sql, adminId: string, targetType: "a
 
 /**
  * Accounts and listings an operator should look at. Flag, never block: none of this changes what the
- * owner can see or do. Sources: shared phones (profiles.phone_e164 / mobile), more live beds than the cap,
- * contact details in a listing's text, broker reports, beds waiting for review.
+ * owner can see or do. Sources: shared phones (profiles.phone_e164 / mobile), more live beds than the
+ * threshold, contact details in a listing's text, broker reports.
  */
-export async function flaggedForReview(sql: Sql, cap = ACTIVE_LISTING_CAP): Promise<{ accounts: FlaggedAccount[]; listings: FlaggedListing[] }> {
+export async function flaggedForReview(sql: Sql, cap = LIVE_BED_FLAG_THRESHOLD): Promise<{ accounts: FlaggedAccount[]; listings: FlaggedListing[] }> {
   const reviewed = new Set(
     (await sql.query<{ k: string }>(`select target_type || ':' || target_id || ':' || detail as k from audit_log where action = 'trust_flag.reviewed'`)).map((r) => r.k),
   );
@@ -91,7 +74,7 @@ export async function flaggedForReview(sql: Sql, cap = ACTIVE_LISTING_CAP): Prom
     const a = acct(r.owner_id);
     a.reasons.push("OVER_CAP");
     a.liveBeds = Number(r.n);
-    a.detail.push(`${r.n} live beds (cap ${cap})`);
+    a.detail.push(`${r.n} live beds (flag above ${cap})`);
   }
   const brokerUsers = await sql.query<{ target_id: string; n: number }>(
     `select target_id, count(*)::int as n from reports where category = $1 and status in ('OPEN','REVIEWING') and upper(target_type) in ('USER','ACCOUNT','PROFILE') group by target_id`,
@@ -118,7 +101,6 @@ export async function flaggedForReview(sql: Sql, cap = ACTIVE_LISTING_CAP): Prom
       f.reasons.push(reason);
       f.detail.push(line);
     };
-    if (l.status === PENDING_REVIEW) add("PENDING_REVIEW", `New bed while the owner already has ${cap} or more live beds`);
     const kinds = [...new Set([...findContactDetails(l.title), ...findContactDetails(l.description)])];
     if (kinds.length) add("CONTACT_IN_TEXT", `Text has: ${kinds.join(", ")}`);
     if (Number(l.broker_reports) > 0) add("BROKER_REPORT", `${l.broker_reports} broker report${l.broker_reports > 1 ? "s" : ""}`);

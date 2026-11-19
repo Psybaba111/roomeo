@@ -268,10 +268,8 @@ export const getListing = createServerFn({ method: "POST" })
     if (listingGone(row)) throw notFound();
     const visible = bool(row.is_demo) || bool(row.host_demo) || str(row.host_identity) === "VERIFIED";
     const isOwner = Boolean(context.userId && context.userId === str(row.owner_id));
-    // Over the live-bed cap, a new bed waits for an operator review: hidden from renters, visible to its owner.
-    const reviewPending = str(row.status) === "PENDING_REVIEW";
-    if ((!visible || reviewPending) && !isOwner) {
-      return { held: true as const, review: reviewPending };
+    if (!visible && !isOwner) {
+      return { held: true as const };
     }
     await sql.query("update listings set views = views + 1 where id = $1", [id]);
     // Public listings get short CDN URLs (/api/img/<id>) instead of ~90 KB base64 data: URLs per photo.
@@ -309,7 +307,6 @@ export const getListing = createServerFn({ method: "POST" })
       fee,
       // Who is looking, resolved server side (QA review Q3): the CTA renders right on first paint. Booleans only, no ids.
       viewer: { signedIn: Boolean(context.userId), isOwner },
-      reviewPending,
       ...card,
       verification: str(row.host_identity) === "VERIFIED" && row.host_phone_verified_at ? "VERIFIED" : "UNVERIFIED",
       description: str(row.description),

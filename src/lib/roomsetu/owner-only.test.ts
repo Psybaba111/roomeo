@@ -3,12 +3,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  ACTIVE_LISTING_CAP, BROKER_REPORT_REASON, OWNER_DECLARATION, PENDING_REVIEW, contactDetailError, findContactDetails,
-  isVerifiedPhoneTaken, phoneKey, sharedPhoneGroups, statusForNewListing,
+  BROKER_REPORT_REASON, FLAG_REASONS, LIVE_BED_FLAG_THRESHOLD, OWNER_DECLARATION, contactDetailError, findContactDetails,
+  isVerifiedPhoneTaken, phoneKey, sharedPhoneGroups,
 } from "./owner-only.ts";
 import { REPORT_CATEGORIES } from "./constants.ts";
 import { testDb, seedListing } from "./pgtest.ts";
-import { activeListingCount, flaggedForReview, markFlagReviewed, newListingStatus, ownerActivateStatus, recordOwnerDeclaration } from "./owner-only-db.ts";
+import { activeListingCount, flaggedForReview, markFlagReviewed, recordOwnerDeclaration } from "./owner-only-db.ts";
 
 const src = (f: string) => readFileSync(new URL(f, import.meta.url), "utf8");
 
@@ -53,12 +53,11 @@ test("broker report reason is offered to renters", () => {
   assert.ok((REPORT_CATEGORIES as readonly string[]).includes(BROKER_REPORT_REASON));
 });
 
-test("cap: live up to 3 beds, the 4th waits for review", () => {
-  assert.equal(ACTIVE_LISTING_CAP, 3);
-  assert.equal(statusForNewListing(0), "ACTIVE");
-  assert.equal(statusForNewListing(2), "ACTIVE");
-  assert.equal(statusForNewListing(3), PENDING_REVIEW);
-  assert.equal(statusForNewListing(7), PENDING_REVIEW);
+test("no cap: more than 3 live beds is only a flag reason, never a held status", () => {
+  assert.equal(LIVE_BED_FLAG_THRESHOLD, 3);
+  assert.deepEqual([...FLAG_REASONS], ["SHARED_PHONE", "OVER_CAP", "CONTACT_IN_TEXT", "BROKER_REPORT"]);
+  for (const f of ["./owner-only.ts", "./owner-only-db.ts", "./account-api.ts", "./public-api.ts", "../../routes/listing.$id.tsx", "../../routes/dashboard.tsx", "../../routes/admin.flags.tsx", "../../components/listing-status-toggle.tsx"])
+    assert.ok(!src(f).includes("PENDING_REVIEW"), `${f} has no review hold`);
 });
 
 test("phone matching across accounts uses the last 10 digits of an Indian mobile", () => {
@@ -93,34 +92,35 @@ async function owner3() {
   return { pg, sql };
 }
 
-test("server: a new bed above the cap waits for review; existing live beds are never taken down", async () => {
+test("server: a 4th and later bed publishes normally and is visible; the owner is only flagged", async () => {
   const { pg, sql } = await owner3();
-  assert.equal(await activeListingCount(sql, "zz-owner"), 3);
-  assert.equal(await newListingStatus(sql, "zz-owner"), PENDING_REVIEW);
-  assert.equal(await newListingStatus(sql, "someone-new"), "ACTIVE");
-  // Demo beds don't count.
-  await pg.query(`update listings set is_demo = true where id = 'L3'`);
-  assert.equal(await newListingStatus(sql, "zz-owner"), "ACTIVE");
-  await pg.query(`update listings set is_demo = false where id = 'L3'`);
-  // An owner already over the cap (legacy data) keeps every live bed.
   await seedListing(pg, "L4", "zz-owner");
-  assert.equal(await activeListingCount(sql, "zz-owner"), 4);
-  const live = (await pg.query<{ n: number }>(`select count(*)::int n from listings where owner_id='zz-owner' and status='ACTIVE'`)).rows[0].n;
-  assert.equal(live, 4);
+  await seedListing(pg, "L5", "zz-owner");
+  assert.equal(await activeListingCount(sql, "zz-owner"), 5, "all live");
+  // createListing and setListingStatus write the status the owner asked for: no cap check left.
+  const api = src("./account-api.ts");
+  const create = api.slice(api.indexOf("export const createListing"), api.indexOf("export const setListingStatus"));
+  assert.ok(!/activeListingCount|newListingStatus|status = \$\{startStatus\}/.test(create), "create has no cap");
+  const set = api.slice(api.indexOf("export const setListingStatus"), api.indexOf("export const createRoomWanted"));
+  assert.ok(set.includes("update listings set status = ${data.status}"), "resume after a pause goes straight to ACTIVE");
+  // Resumed after a pause: still live, still just a flag.
+  await pg.query(`update listings set status = 'PAUSED' where id = 'L5'`);
+  await pg.query(`update listings set status = 'ACTIVE' where id = 'L5'`);
+  const f = await flaggedForReview(sql);
+  const owner = f.accounts.find((a) => a.userId === "zz-owner")!;
+  assert.ok(owner.reasons.includes("OVER_CAP"));
+  assert.equal(owner.liveBeds, 5);
+  const pub = src("./public-api.ts");
+  assert.ok(pub.includes("if (!visible && !isOwner)"), "renters see every live bed of a verified owner");
 });
 
-test("server: Resume above the cap waits for review; a bed under review can't be put live by its owner", async () => {
+test("3 live beds is not flagged; the 4th is", async () => {
   const { pg, sql } = await owner3();
+  await pg.query(`update profiles set mobile = null where user_id = 'zz-owner'`);
+  assert.equal((await flaggedForReview(sql)).accounts.find((a) => a.userId === "zz-owner"), undefined);
   await seedListing(pg, "L4", "zz-owner");
-  await pg.query(`update listings set status = 'PAUSED' where id = 'L4'`);
-  assert.equal(await ownerActivateStatus(sql, "zz-owner", "L4"), PENDING_REVIEW, "3 other live beds");
-  assert.equal(await ownerActivateStatus(sql, "zz-owner", "L1"), "ACTIVE", "re-saving a live bed is fine");
-  await pg.query(`update listings set status = 'PAUSED' where id = 'L1'`);
-  assert.equal(await ownerActivateStatus(sql, "zz-owner", "L4"), "ACTIVE", "under the cap again");
-  await pg.query(`update listings set status = '${PENDING_REVIEW}' where id = 'L4'`);
-  assert.equal(await ownerActivateStatus(sql, "zz-owner", "L4"), "LOCKED");
-  const api = src("./account-api.ts");
-  assert.ok(api.includes('if (next === "LOCKED" && data.status !== "REMOVED") throw new Error(PENDING_REVIEW_LOCKED)'));
+  await pg.query(`update profiles set mobile = null where user_id = 'zz-owner'`);
+  assert.deepEqual((await flaggedForReview(sql)).accounts.find((a) => a.userId === "zz-owner")?.reasons, ["OVER_CAP"]);
 });
 
 test("server: createListing requires the declaration, rejects contact details and records the declaration", async () => {
@@ -129,7 +129,7 @@ test("server: createListing requires the declaration, rejects contact details an
   assert.ok(fn.indexOf("if (!data.ownerDeclared) throw new Error(DECLARATION_REQUIRED)") > 0);
   assert.ok(fn.includes("contactDetailError({ title: data.title, description: data.description })"));
   assert.ok(fn.includes("ownerDeclared: (input as { ownerDeclared?: unknown } | null)?.ownerDeclared === true"), "only a real true counts");
-  assert.ok(fn.includes("status = ${startStatus}") && fn.includes("recordOwnerDeclaration(sql, userId, listingId)"));
+  assert.ok(fn.includes("recordOwnerDeclaration(sql, userId, listingId)"));
   const edit = src("./listing-edit-api.ts");
   assert.ok(edit.includes("contactDetailError({"), "edits are checked too");
   const { pg, sql } = await owner3();
@@ -138,20 +138,12 @@ test("server: createListing requires the declaration, rejects contact details an
   assert.match(row.detail, /^owner-v1-2026-11-19: I own this bed/);
 });
 
-test("public listing: a bed waiting for review is hidden from renters but not from its owner", () => {
-  const api = src("./public-api.ts");
-  assert.ok(api.includes(`const reviewPending = str(row.status) === "PENDING_REVIEW";`));
-  assert.ok(api.includes("if ((!visible || reviewPending) && !isOwner)"));
-});
-
-test("admin flags: shared phones, over the cap, contact text, broker reports, pending review; mark reviewed hides one", async () => {
+test("admin flags: shared phones, more than 3 live beds, contact text, broker reports; mark reviewed hides one", async () => {
   const { pg, sql } = await owner3();
   await seedListing(pg, "L4", "zz-owner");
   await pg.query(`insert into profiles (user_id, full_name, mobile) values ('zz-twin','ZZ TEST twin','+91 98765 43210')`);
   await pg.query(`update listings set description = 'Call me on 98450 12345' where id = 'L2'`);
   await pg.query(`insert into reports (id, reporter_id, target_type, target_id, category) values ('r1','tenant','LISTING','L3',$1)`, [BROKER_REPORT_REASON]);
-  await seedListing(pg, "L5", "zz-other");
-  await pg.query(`update listings set status = '${PENDING_REVIEW}' where id = 'L5'`);
   const f = await flaggedForReview(sql);
   const owner = f.accounts.find((a) => a.userId === "zz-owner")!;
   assert.deepEqual(owner.reasons.sort(), ["OVER_CAP", "SHARED_PHONE"]);
@@ -160,7 +152,6 @@ test("admin flags: shared phones, over the cap, contact text, broker reports, pe
   const byId = Object.fromEntries(f.listings.map((l) => [l.id, l.reasons]));
   assert.ok(byId.L2.includes("CONTACT_IN_TEXT"));
   assert.ok(byId.L3.includes("BROKER_REPORT"));
-  assert.ok(byId.L5.includes("PENDING_REVIEW"));
   // Flags never change what the owner has: all 4 beds are still live.
   assert.equal((await pg.query<{ n: number }>(`select count(*)::int n from listings where owner_id='zz-owner' and status='ACTIVE'`)).rows[0].n, 4);
   await markFlagReviewed(sql, "zz-admin", "account", "zz-owner", "OVER_CAP");
