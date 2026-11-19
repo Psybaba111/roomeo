@@ -63,7 +63,11 @@ export function contactDetailError(fields: { title?: string; description?: strin
   for (const [name, value] of [["title", fields.title], ["description", fields.description]] as const) {
     const kinds = findContactDetails(value ?? "");
     if (kinds.length) {
-      const what = kinds.map((k) => KIND_WORD[k]).join(" and ");
+      // A WhatsApp number is also a phone number: name it once.
+      const words = kinds.includes("phone") && kinds.includes("whatsapp")
+        ? ["phone or WhatsApp number", ...kinds.filter((k) => k !== "phone" && k !== "whatsapp").map((k) => KIND_WORD[k])]
+        : kinds.map((k) => KIND_WORD[k]);
+      const what = words.length > 1 ? `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}` : words[0];
       return `Please take the ${what} out of the ${name}. Renters reach you through Roomeo chat, so your number stays private until you both agree to share it.`;
     }
   }

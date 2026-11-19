@@ -5,7 +5,6 @@ import type { Sql } from "../db.ts";
 import {
   ACTIVE_LISTING_CAP,
   BROKER_REPORT_REASON,
-  FLAG_LABEL,
   OWNER_DECLARATION,
   OWNER_DECLARATION_VERSION,
   PENDING_REVIEW,
@@ -119,7 +118,7 @@ export async function flaggedForReview(sql: Sql, cap = ACTIVE_LISTING_CAP): Prom
       f.reasons.push(reason);
       f.detail.push(line);
     };
-    if (l.status === PENDING_REVIEW) add("PENDING_REVIEW", FLAG_LABEL.PENDING_REVIEW);
+    if (l.status === PENDING_REVIEW) add("PENDING_REVIEW", `New bed while the owner already has ${cap} or more live beds`);
     const kinds = [...new Set([...findContactDetails(l.title), ...findContactDetails(l.description)])];
     if (kinds.length) add("CONTACT_IN_TEXT", `Text has: ${kinds.join(", ")}`);
     if (Number(l.broker_reports) > 0) add("BROKER_REPORT", `${l.broker_reports} broker report${l.broker_reports > 1 ? "s" : ""}`);

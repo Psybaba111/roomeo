@@ -43,7 +43,9 @@ test("friendly error names the field and the detail, and is calm", () => {
   assert.match(e, /^Please take the phone number out of the title\./);
   assert.match(e, /Roomeo chat/);
   assert.doesNotMatch(e, /!/);
-  assert.match(contactDetailError({ description: "mail me a@b.com or wa.me/919876543210" }), /email address and WhatsApp link or number.*description/);
+  assert.match(contactDetailError({ description: "mail me a@b.com or wa.me/919876543210" }), /phone or WhatsApp number, email address and website link out of the description/);
+  assert.match(contactDetailError({ description: "WhatsApp me on 98450 12345" }), /^Please take the phone or WhatsApp number out of the description\./);
+  assert.match(contactDetailError({ description: "mail a@b.com" }), /^Please take the email address out of the description\./);
 });
 
 test("broker report reason is offered to renters", () => {
