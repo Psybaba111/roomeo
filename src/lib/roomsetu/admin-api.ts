@@ -573,40 +573,21 @@ export const adminReviewPayment = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await assertAdmin(sql, context.userId);
+    const { approveUpiPayment, rejectUpiPayment } = await import("@/lib/roomsetu/payment-approval");
     if (data.decision === "REJECT") {
       // Rejected rows keep their UTR so it can't be reused; the user starts a fresh checkout.
-      const rows =
-        await sql`update payments set status = 'REJECTED', reviewed_by = ${context.userId}, reviewed_at = now()
-        where id = ${data.id} and provider = 'UPI' and status = 'SUBMITTED' returning id`;
-      if (!rows.length) throw new Error("Already reviewed.");
-      await audit(sql, context.userId, "payment.reject", "payment", data.id, "");
-      // Any Roomeo credit used on the rejected checkout goes back to the payer's balance.
+      // One transaction: the rejection, its audit row and giving back any Roomeo credit used on it.
       const { restoreCreditsForFee } = await import("@/lib/roomsetu/fee-credits-db");
-      await restoreCreditsForFee(sql, { feeKind: "tenant_fee", feeId: data.id, actorId: context.userId, reason: "payment rejected" });
+      await rejectUpiPayment(sql, { paymentId: data.id, adminId: context.userId }, (tx, id) =>
+        restoreCreditsForFee(tx, { feeKind: "tenant_fee", feeId: id, actorId: context.userId, reason: "payment rejected" }));
       return { ok: true };
     }
-    // Single statement = single transaction: mark PAID and activate the subscription atomically.
-    const rows = await sql.query<{ id: string }>(
-      `with paid as (
-         update payments set status = 'PAID', reviewed_by = $2, reviewed_at = now()
-         where id = $1 and provider = 'UPI' and status = 'SUBMITTED'
-         returning id, user_id, plan_id
-       ), sub as (
-         insert into subscriptions (id, user_id, plan_id, status, payment_id, activated_at)
-         select $3, user_id, plan_id, 'ACTIVE', id, now() from paid where plan_id is not null
-         returning id
-       ), logged as (
-         insert into audit_log (id, actor_id, action, target_type, target_id, detail)
-         select $4, $2, 'payment.approve', 'payment', id, 'subscription ' || $3 from paid
-       )
-       select id from paid`,
-      [data.id, context.userId, crypto.randomUUID(), crypto.randomUUID()],
-    );
-    if (!rows.length) throw new Error("Already reviewed.");
-    // Contact-fee payments unlock messaging with the owner (single seeker or whole squad).
-    await unlockFromPayment(sql, data.id);
-    // Passes, boosts, fast track and move in fees.
-    await applyPaidPayment(sql, data.id);
+    // One transaction (QA review Q2, 19 Nov 2026): mark PAID + subscription + audit + contact unlock + paid effects
+    // (passes, boosts, fast track, trial, success-fee invoice). A failure part-way leaves the payment SUBMITTED with
+    // nothing applied, so the admin can approve again. Approving an already-PAID payment is a no-op.
+    const r = await approveUpiPayment(sql, { paymentId: data.id, adminId: context.userId }, { unlock: unlockFromPayment, apply: applyPaidPayment });
+    if (r.already) return { ok: true, already: true };
+    // WhatsApp only after the commit, and never on a repeat approval.
     const who = await sql<{
       phone_e164: string | null;
       purpose: string;

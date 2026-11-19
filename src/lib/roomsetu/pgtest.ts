@@ -1,6 +1,7 @@
 // Shared PGlite harness: all migrations applied, sql`` tag + sql.query like the Neon client.
 import { readFileSync, readdirSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
+import { txSql } from "../tx.ts";
 
 export const migrationsDir = new URL("../../../migrations/", import.meta.url);
 
@@ -12,7 +13,10 @@ export async function testDb() {
       const text = strings.reduce((acc, s, i) => acc + s + (i < values.length ? `$${i + 1}` : ""), "");
       return (await pg.query(text, values)).rows;
     },
-    { query: async (text: string, params?: unknown[]) => (await pg.query(text, params)).rows },
+    {
+      query: async (text: string, params?: unknown[]) => (await pg.query(text, params)).rows,
+      transaction: <T>(fn: (tx: unknown) => Promise<T>) => pg.transaction((t) => fn(txSql(async (q: string, p: unknown[]) => (await t.query(q, p)).rows as never))),
+    },
   );
   return { pg, sql: sql as never };
 }
