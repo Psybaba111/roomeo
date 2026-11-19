@@ -7,7 +7,7 @@ export const REF_STORAGE_KEY = "roomeo_ref";
 
 type Data = Awaited<ReturnType<typeof getMyReferral>>;
 
-/** "Bring a roommate". Fee-credit copy while ROOMEO_REFERRAL_CREDITS_ENABLED is on; no reward promised otherwise (the ₹500 rent credit is retired). Renders nothing while the referrals flag is off. */
+/** "Bring a roommate". Fee-credit copy while ROOMEO_REFERRAL_CREDITS_ENABLED is on; otherwise the old "both save ₹500" card, unchanged. Renders nothing while the referrals flag is off. */
 export function ReferralCard() {
   const [data, setData] = useState<Data | null>(null);
   const [note, setNote] = useState("");
@@ -37,11 +37,11 @@ export function ReferralCard() {
       <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-brand">
         <Gift className="h-4 w-4" /> Bring a roommate
       </p>
-      <h2 className="mt-2 font-display text-3xl">{data.mode === "fee" ? `You both save ₹${data.perPerson} 🫶` : "Bring a friend to roomeo 🫶"}</h2>
+      <h2 className="mt-2 font-display text-3xl">You both save ₹{data.perPerson} 🫶</h2>
       <p className="mt-2 max-w-prose text-muted">
         {data.mode === "fee"
           ? `Send your link to a friend who's hunting. Once they move in through roomeo and pay their first month, you each get ₹${data.perPerson} off your next Roomeo fee. It's credit, not cash.`
-          : `Send your link to a friend who's hunting. Referral rewards are paused right now${data.creditInr > 0 ? `; the ₹${data.creditInr} credit you already have is still yours` : ""}.`}
+          : `Send your link to a friend who's hunting. When they move in through roomeo, you each get ₹${data.perPerson} off your first month. No catch, no fees.`}
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <a

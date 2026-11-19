@@ -26,9 +26,10 @@ function Invite() {
   const navigate = useNavigate();
   const { user } = useCurrentUserState();
   const [offer, setOffer] = useState<number | null>(null);
+  const [feeMode, setFeeMode] = useState(false);
   useEffect(() => {
     // Only real codes with the referral program switched on show a ₹ offer (2 Nov 2026).
-    void getInviteStatus({ data: code }).then((s) => setOffer(s.live ? s.perPerson : null)).catch(() => setOffer(null));
+    void getInviteStatus({ data: code }).then((s) => { setOffer(s.live ? s.perPerson : null); setFeeMode(s.live && s.mode === "fee"); }).catch(() => setOffer(null));
   }, [code]);
   useEffect(() => {
     if (valid) localStorage.setItem(REF_STORAGE_KEY, valid);
@@ -37,9 +38,11 @@ function Invite() {
   return (
     <Shell>
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">You got invited 💌</p>
-      <h1 className="mt-2 font-display text-5xl" data-testid="invite-h1">{offer ? `₹${offer} Roomeo credit for you both` : "A friend invited you to roomeo"}</h1>
+      <h1 className="mt-2 font-display text-5xl" data-testid="invite-h1">{offer ? (feeMode ? `₹${offer} Roomeo credit for you both` : `₹${offer} off your first month`) : "A friend invited you to roomeo"}</h1>
       <p className="mt-3 max-w-md text-muted">
-        {offer
+        {offer && !feeMode
+          ? `Make an account, find your bed, move in. You and your friend both get ₹${offer} off. Zero broker fees, always.`
+          : offer
           ? `Make an account, find your bed, move in. Once you've paid your first month, you and your friend each get ₹${offer} off your next Roomeo fee (credit, not cash). Zero broker fees, always.`
           : valid
             ? inviteBody(fee)
