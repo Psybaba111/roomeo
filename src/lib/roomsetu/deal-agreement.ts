@@ -1,4 +1,4 @@
-import { ownerFeeAgreementClause } from "./owner-fee.ts";
+import { ownerFeeAfterDepositClause, ownerFeeAgreementClause } from "./owner-fee.ts";
 
 /** Pure helpers for the one-time success fee (GST-inclusive since 17 Nov 2026, only while it is switched on) and the click-to-sign deal agreement. */
 export const GST_RATE = 0.18;
@@ -101,7 +101,13 @@ export function agreementFeeBaseInr(cfg: { successFeeEnabled: boolean; successFe
 
 export function agreementBody(t: DealTerms): string {
   const feeClauses =
-    t.feeBaseInr > 0
+    t.feeBaseInr > 0 && t.ownerFee
+      ? [
+          `The tenant pays Roomeo a one-time platform fee of ${t.feeInclGst ? feeBreakdownText(t.feeBaseInr) : legacyFeeBreakdownText(t.feeBaseInr)}, once this agreement is issued and before move in.`,
+          `The tenant's fee is refunded only if the tenant vacates within ${REFUND_WINDOW_DAYS} days of paying it. Otherwise it is not refundable. The deposit is paid directly to the owner and Roomeo never holds or refunds it.`,
+          ownerFeeAfterDepositClause(),
+        ]
+      : t.feeBaseInr > 0
       ? [
           `Both sides pay Roomeo a one-time platform success fee of ${t.feeInclGst ? feeBreakdownText(t.feeBaseInr) : legacyFeeBreakdownText(t.feeBaseInr)} each, once this agreement is issued and before move in.`,
           `Roomeo's fee is refunded only if the tenant vacates within ${REFUND_WINDOW_DAYS} days of paying it. The owner's fee is refunded too if the stay ends within ${REFUND_WINDOW_DAYS} days of the owner's payment. Otherwise the fee is not refundable. The deposit is paid directly to the owner and Roomeo never holds or refunds it.`,

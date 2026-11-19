@@ -7,7 +7,7 @@ import { AdminFrame } from "@/components/admin-frame";
 import { errText } from "@/lib/ui-text";
 import { readableDate, istToday } from "@/lib/roomsetu/dates";
 import { commissionLine, refundInr, type CommissionStatus } from "@/lib/roomsetu/owner-fee";
-import { adminCommissions, adminMarkCommissionPaid, adminRecordCommissionRefund, adminRecordEarlyExit, adminSetFoundingPartner } from "@/lib/roomsetu/owner-fee-api";
+import { adminDepositMarks, adminMarkDeposit, adminUndoDeposit, adminVerifyDeposit, adminRejectDeposit, adminCommissions, adminMarkCommissionPaid, adminRecordCommissionRefund, adminRecordEarlyExit, adminSetFoundingPartner } from "@/lib/roomsetu/owner-fee-api";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/admin/commissions")({
@@ -21,8 +21,8 @@ export const Route = createFileRoute("/admin/commissions")({
 });
 
 type Data = Awaited<ReturnType<typeof adminCommissions>>;
-const BADGE: Record<string, string> = { due: "bg-marigold-soft text-ink", due_50: "bg-marigold-soft text-ink", paid: "bg-brand text-card", refunded_50: "border border-line text-muted", waived: "border border-line text-muted" };
-const LABEL: Record<string, string> = { due: "Due", due_50: "Early exit · 50% due", paid: "Paid", refunded_50: "50% refunded", waived: "Waived · ₹0" };
+const BADGE: Record<string, string> = { due: "bg-marigold-soft text-ink", due_50: "bg-marigold-soft text-ink", paid: "bg-brand text-card", refunded_50: "border border-line text-muted", waived: "border border-line text-muted", void: "border border-line text-muted line-through" };
+const LABEL: Record<string, string> = { due: "Due", due_50: "Early exit · 50% due", paid: "Paid", refunded_50: "50% refunded", waived: "Waived · ₹0", void: "Void · mark undone" };
 const input = "h-10 min-w-0 rounded-full border border-line bg-transparent px-4 text-sm";
 const btn = "h-10 rounded-full border border-line px-4 text-sm font-semibold disabled:opacity-40";
 
@@ -34,11 +34,15 @@ function Commissions() {
   const [busy, setBusy] = useState("");
   const [form, setForm] = useState<Record<string, { date?: string; ref?: string; vacated?: string; exit?: string }>>({});
   const [host, setHost] = useState({ ownerId: "", until: "", note: "" });
+  const [marks, setMarks] = useState<Awaited<ReturnType<typeof adminDepositMarks>> | null>(null);
+  const [dep, setDep] = useState({ applicationId: "", receivedOn: "", reason: "" });
+  const [rej, setRej] = useState<Record<string, string>>({});
   const today = istToday();
   function load() {
     void adminCommissions({ data: { status: filter || undefined } })
       .then(setData)
       .catch((e) => setError(errText(e)));
+    void adminDepositMarks().then(setMarks).catch(() => setMarks(null));
   }
   useEffect(() => {
     if (user) load();
@@ -62,8 +66,8 @@ function Commissions() {
     <AdminFrame>
       <h1 className="font-display text-4xl">Owner commissions</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted">
-        Owners pay a flat ₹499, GST included, for each tenant (each bed) who moves in within 60 days of their first enquiry; founding partners pay ₹0 (shown as Waived, no payment link, no invoice). Rows from before 17 Nov 2026 keep their % amounts.
-        Due 7 days after move-in. Tenants pay nothing. Tenant left within 15 days: record an early exit if unpaid (50% due) or a 50% refund if paid.
+        Owners pay a flat ₹499, GST included, per tenant, only after the deposit + rent advance is marked received (within 60 days of the first enquiry); founding partners pay ₹0 (shown as Waived, no payment link, no invoice). Rows from before 17 Nov 2026 keep their % amounts.
+        Due 7 days after the mark. Tenants pay nothing. Tenant left within 15 days: record an early exit if unpaid (50% due) or a 50% refund if paid.
         Payment links are stubs in this build: no real Razorpay link is created.
       </p>
       {st ? (
@@ -75,7 +79,7 @@ function Commissions() {
       {data && !data.migrated ? <p className="mt-3 text-danger">Migration 0027 isn't applied on this database yet.</p> : null}
       {error ? <p className="mt-3 text-danger" role="alert">{error}</p> : null}
       <div className="mt-4 flex flex-wrap gap-2">
-        {(["", "due", "due_50", "paid", "refunded_50", "waived"] as const).map((s) => (
+        {(["", "due", "due_50", "paid", "refunded_50", "waived", "void"] as const).map((s) => (
           <button key={s || "all"} type="button" className={`${btn} ${filter === s ? "bg-ink text-card" : ""}`} onClick={() => setFilter(s)}>
             {s ? LABEL[s] : "All"}
           </button>
@@ -95,8 +99,10 @@ function Commissions() {
             {c.earlyExit && c.status !== "due_50" ? <p className="mt-1 text-sm text-muted">Early exit: tenant moved out {readableDate(c.vacatedOn)}, so only 50% (₹{c.amountDueInr}) was due</p> : null}
             {c.status === "due_50" ? <p className="mt-1 text-sm font-semibold">Tenant moved out {readableDate(c.vacatedOn)}: ₹{c.amountDueInr} due (50%)</p> : null}
             <p className="mt-1 text-sm text-muted">
-              Tenant {c.tenantName} · first enquiry {readableDate(c.firstEnquiryAt)} · moved in {readableDate(c.moveInOn)} (day {c.attributionDays}) · due {readableDate(c.dueOn)} · link {c.paymentLinkMode}:{c.paymentLinkRef}
+              Tenant {c.tenantName} · first enquiry {readableDate(c.firstEnquiryAt)} · {c.trigger === "deposit" ? `deposit + advance received ${readableDate(c.basisOn)}` : `moved in ${readableDate(c.moveInOn)}`} (day {c.attributionDays}) · due {readableDate(c.dueOn)} · link {c.paymentLinkMode}:{c.paymentLinkRef}
             </p>
+            {c.creditInr > 0 ? <p className="mt-1 text-sm">₹{c.creditInr} referral credit applied (not cash)</p> : null}
+            {c.status === "void" ? <p className="mt-1 text-sm text-muted">Void: {c.voidReason}</p> : null}
             {c.paidOn ? <p className="mt-1 text-sm text-muted">Paid ₹{c.paidInr} on {readableDate(c.paidOn)} {c.paidRef}</p> : null}
             {c.refundedOn ? <p className="mt-1 text-sm text-muted">Moved out {readableDate(c.vacatedOn)} · ₹{c.refundInr} refunded {readableDate(c.refundedOn)} {c.refundRef}</p> : null}
             {c.status === "due" ? (
@@ -131,6 +137,39 @@ function Commissions() {
         ))}
       </ul>
       {data && data.items.length === 0 ? <p className="mt-4 text-muted">No commissions here.</p> : null}
+
+      <h2 className="mt-10 text-2xl font-semibold">Deposit + rent advance marks</h2>
+      <p className="mt-1 text-sm text-muted">The owner marks "deposit + advance received"; the owner's ₹499 is created only when you verify it here (due 7 days after your check), never at listing, signing or move-in. Reject needs a reason (the owner can mark again). One mark per request; undo voids an unpaid fee and restores any credit.</p>
+      {marks && !marks.ready ? <p className="mt-3 text-danger" data-testid="admin-deposit-not-ready">Migrations 0032 and 0033 aren't applied on this database yet, so deposit marks are off.</p> : null}
+      {marks?.ready ? (
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input className={input} placeholder="Request (application) id" aria-label="Request id" value={dep.applicationId} onChange={(e) => setDep({ ...dep, applicationId: e.target.value.trim() })} data-testid="admin-deposit-app" />
+        <input type="date" className={input} aria-label="Received on" value={dep.receivedOn || today} onChange={(e) => setDep({ ...dep, receivedOn: e.target.value })} />
+        <button type="button" className={btn} disabled={!dep.applicationId || busy === "dep"} onClick={() => run("dep", adminMarkDeposit({ data: { applicationId: dep.applicationId, receivedOn: dep.receivedOn || today } }))}>Mark received</button>
+        <input className={input} placeholder="Undo reason" aria-label="Undo reason" value={dep.reason} onChange={(e) => setDep({ ...dep, reason: e.target.value })} />
+        <button type="button" className={btn} disabled={!dep.applicationId || !dep.reason || busy === "dep"} onClick={() => run("dep", adminUndoDeposit({ data: { applicationId: dep.applicationId, reason: dep.reason } }))}>Undo mark</button>
+      </div>
+      ) : null}
+      <ul className="mt-3 space-y-2 text-sm" data-testid="admin-deposit-marks">
+        {(marks?.items ?? []).map((m) => (
+          <li key={m.id} className="rounded-2xl border border-line bg-card p-3" data-testid="admin-deposit-row">
+            <p className="font-semibold">{m.ownerName} · {m.listingTitle} · tenant {m.tenantName}</p>
+            <p className="text-muted">
+              Request {m.applicationId} · received {readableDate(m.receivedOn)} · marked by {m.markedRole} · {m.markCount}×
+            </p>
+            <p data-testid="admin-deposit-state">
+              {m.state === "pending" ? "⏳ Waiting for your check" : m.state === "verified" ? `✅ Verified ${readableDate(m.verifiedAt ?? "")}` : m.state === "rejected" ? `✖ Rejected: ${m.rejectReason}` : `↩ Undone: ${m.undoReason}`}
+            </p>
+            {m.state === "pending" ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button type="button" className={btn} disabled={busy === m.id} data-testid="admin-deposit-verify" onClick={() => run(m.id, adminVerifyDeposit({ data: { applicationId: m.applicationId } }))}>Verify</button>
+                <input className={input} placeholder="Reject reason" aria-label="Reject reason" value={rej[m.id] ?? ""} onChange={(e) => setRej({ ...rej, [m.id]: e.target.value })} />
+                <button type="button" className={btn} disabled={busy === m.id || !(rej[m.id] ?? "").trim()} data-testid="admin-deposit-reject" onClick={() => run(m.id, adminRejectDeposit({ data: { applicationId: m.applicationId, reason: rej[m.id] ?? "" } }))}>Reject</button>
+              </div>
+            ) : null}
+          </li>
+        ))}
+      </ul>
 
       <h2 className="mt-10 text-2xl font-semibold">Founding partners</h2>
       <p className="mt-1 max-w-2xl text-sm text-muted">Set by hand (for example, an owner who brought 2 more PGs). Founding partners pay ₹0 on move-ins up to the end date (recorded as Waived). The end date defaults to 6 months from today.</p>

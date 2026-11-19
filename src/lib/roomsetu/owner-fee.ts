@@ -53,8 +53,8 @@ export const OWNER_REFUND_PCT = 50;
 export const OWNER_FEE_GST_PCT = 18;
 
 /** due → (due_50 if the tenant left within 15 days before payment) → paid → (refunded_50 if they left after payment). */
-export type CommissionStatus = "due" | "due_50" | "paid" | "refunded_50" | "waived";
-export const COMMISSION_STATUSES: CommissionStatus[] = ["due", "due_50", "paid", "refunded_50", "waived"];
+export type CommissionStatus = "due" | "due_50" | "paid" | "refunded_50" | "waived" | "void";
+export const COMMISSION_STATUSES: CommissionStatus[] = ["due", "due_50", "paid", "refunded_50", "waived", "void"];
 
 /** Owner-side fee for a founding partner (per tenant). */
 export const FOUNDING_FEE_INR = 0;
@@ -84,10 +84,15 @@ export function ownerFeeFlag(env: Env = procEnv()): boolean {
 
 export type OwnerFeeState = { flag: boolean; active: boolean; blockedByTenantFee: boolean };
 
-/** Active only when the switch is on AND the legacy flat success fee is off (no double charge). */
-export function ownerFeeState(successFeeEnabled: boolean, env: Env = procEnv()): OwnerFeeState {
+/**
+ * 17 Nov 2026 (10:05 PM): the owner's ₹499 is charged only after a "deposit + rent advance received" mark, and it
+ * runs alongside the tenant's ₹499. Active whenever OWNER_FEE_ENABLED is on; while it is, the owner's side of the
+ * upfront success fee is ₹0 (pricingConfig), so nobody is charged twice. `blockedByTenantFee` is always false now
+ * (kept for callers).
+ */
+export function ownerFeeState(_successFeeEnabled: boolean, env: Env = procEnv()): OwnerFeeState {
   const f = ownerFeeFlag(env);
-  return { flag: f, active: f && !successFeeEnabled, blockedByTenantFee: f && successFeeEnabled };
+  return { flag: f, active: f, blockedByTenantFee: false };
 }
 
 /** What owner-facing copy needs. `on` is the *active* state. */
@@ -242,6 +247,11 @@ export function commissionLine(c: { ratePct: number | null; rentInr: number; fee
  * Clause in the SHARED deal agreement (tenant and owner both see and sign it). It never names the owner's
  * rate or amount: that is between the owner and Roomeo and shown to the owner and admins only.
  */
+/** Shared clause when the tenant pays the platform fee AND the owner fee (after deposit) is on. No owner amount. */
+export function ownerFeeAfterDepositClause(): string {
+  return "Anything the owner pays Roomeo is under Roomeo's owner terms: it's due only after the owner has received the tenant's deposit and rent advance, is separate from this agreement, and must never be passed on to the tenant as brokerage, a finder's fee or any other charge. The owner will not charge the tenant any brokerage.";
+}
+
 export function ownerFeeAgreementClause(): string {
   return "Roomeo is free for the tenant: the tenant pays Roomeo nothing. Anything the owner pays Roomeo is under Roomeo's owner terms, is separate from this agreement, and must never be passed on to the tenant as brokerage, a finder's fee or any other charge. The owner will not charge the tenant any brokerage.";
 }
@@ -263,7 +273,7 @@ export function ownerCommissionNote(a: CommissionAmounts, beds = 1): string {
   if (!a.ratePct) {
     const incl = a.gstInr > 0 ? ` (GST included: ₹${a.feeInr} + ₹${a.gstInr} GST)` : "";
     const each = beds > 1 ? ` per tenant, for each of the ${beds} tenants (₹${a.totalInr * beds} in all)` : "";
-    return `Roomeo fee (only you see this): a flat ₹${a.totalInr}${incl}${each}, due within ${OWNER_FEE_DUE_DAYS} days of the tenant's move-in, by a Razorpay payment link. If the tenant leaves within ${OWNER_REFUND_DAYS} days, you pay only ${OWNER_REFUND_PCT}% (or get ${OWNER_REFUND_PCT}% back if you've paid). Please don't charge the tenant any brokerage.`;
+    return `Roomeo fee (only you see this): a flat ₹${a.totalInr}${incl}${each}, charged only after you mark the tenant's deposit and rent advance as received on Roomeo and Roomeo checks it, then due within ${OWNER_FEE_DUE_DAYS} days of that check by a Razorpay payment link. Never upfront. Any Roomeo credit you have comes off it. If the tenant leaves within ${OWNER_REFUND_DAYS} days of moving in, you pay only ${OWNER_REFUND_PCT}% (or get ${OWNER_REFUND_PCT}% back if you've paid). Please don't charge the tenant any brokerage.`;
   }
   const amount = a.gstInr > 0 ? `₹${a.feeInr} + ₹${a.gstInr} GST (${a.gstPct}%) = ₹${a.totalInr}` : `₹${a.feeInr}`;
   const each = beds > 1 ? ` per tenant, for each of the ${beds} tenants (₹${a.rentInr} rent each; ₹${a.totalInr * beds} in all)` : "";

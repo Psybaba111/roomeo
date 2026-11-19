@@ -3,11 +3,15 @@
 import type { Sql } from "../db.ts";
 import { moveInConfirmed } from "./pricing.ts";
 import { completionCredits, isMissingTable, referralsEnabled } from "./referrals.ts";
+import { feeCreditConfig } from "./fee-credits.ts";
 import { commissionOnMoveIn } from "./owner-fee-db.ts";
 
 /**
- * Called once a move-in is confirmed. If the renter came in on an invite and this is their
- * first completed move-in, both people get ₹500 credit. Never throws: a referral hiccup must not break the move-in.
+ * Called once a move-in is confirmed. If the renter came in on an invite, the referral is stamped complete.
+ * While ROOMEO_REFERRAL_CREDITS_ENABLED is off (prod today), both people still get the old automatic ₹500-off-rent
+ * credit, exactly as before (Rohith, 19 Nov 2026 10:00 AM IST: keep it until fee credits are switched on).
+ * Once fee credits are on, the ₹500 is retired and fee credits are issued by hand by an admin (/admin/credits).
+ * Credits that already exist are never touched here. Never throws: a referral hiccup must not break the move-in.
  */
 export async function completeReferralOnMoveIn(sql: Sql, seekerId: string, applicationId: string): Promise<boolean> {
   if (!referralsEnabled()) return false;
@@ -16,9 +20,11 @@ export async function completeReferralOnMoveIn(sql: Sql, seekerId: string, appli
       where referee_id = ${seekerId} and completed_at is null returning id, referrer_id`;
     const r = done[0];
     if (!r) return false;
-    for (const c of completionCredits({ id: r.id, referrerId: r.referrer_id, refereeId: seekerId })) {
-      await sql`insert into referral_credits (id, user_id, referral_id, amount_inr, reason) values (${crypto.randomUUID()}, ${c.userId}, ${c.referralId}, ${c.amountInr}, ${c.reason}) on conflict (user_id, referral_id) do nothing`;
-      await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${c.userId}, 'application', ${`₹${c.amountInr} off your first month`}, ${c.reason + ". Show this at move-in, we'll knock it off the rent."}, '/dashboard')`;
+    if (!feeCreditConfig().enabled) {
+      for (const c of completionCredits({ id: r.id, referrerId: r.referrer_id, refereeId: seekerId })) {
+        await sql`insert into referral_credits (id, user_id, referral_id, amount_inr, reason) values (${crypto.randomUUID()}, ${c.userId}, ${c.referralId}, ${c.amountInr}, ${c.reason}) on conflict (user_id, referral_id) do nothing`;
+        await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${c.userId}, 'application', ${`₹${c.amountInr} off your first month`}, ${c.reason + ". Show this at move-in, we'll knock it off the rent."}, '/dashboard')`;
+      }
     }
     return true;
   } catch (err) {

@@ -90,7 +90,9 @@ export function pricingConfig(env: Env = procEnv()): PricingConfig {
     tenantFeeSource: tenantFeeSetting(env).source,
     // All-in amounts, GST included (₹499 = ₹422.88 + ₹76.12 GST). Same for both sides.
     successFeeTenantInr: successFeeInr(env),
-    successFeeOwnerInr: successFeeInr(env),
+    // OWNER_FEE_ENABLED on (default off): the owner pays ₹499 only after marking the tenant's deposit + rent advance
+    // as received (owner-fee-db.ts), never upfront, so the owner's side of this upfront fee is ₹0.
+    successFeeOwnerInr: flag(env, "OWNER_FEE_ENABLED", false) ? 0 : successFeeInr(env),
     paidChatEnabled: flag(env, "ROOMEO_PAID_CHAT_ENABLED", false),
     boostsEnabled: flag(env, "ROOMEO_BOOSTS_ENABLED", false),
     fastTrackEnabled: flag(env, "ROOMEO_FAST_TRACK_ENABLED", false),

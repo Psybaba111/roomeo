@@ -3,7 +3,7 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { pricingConfig } from "@/lib/roomsetu/pricing";
 import { assertAdmin, audit } from "@/lib/roomsetu/admin-api";
-import { OWNER_FEE_OFF, ownerFeeGstPct, ownerFeeState, ownerFeeView, type CommissionStatus } from "@/lib/roomsetu/owner-fee";
+import { COMMISSION_STATUSES, OWNER_FEE_OFF, ownerFeeGstPct, ownerFeeState, ownerFeeView, type CommissionStatus } from "@/lib/roomsetu/owner-fee";
 import * as db from "@/lib/roomsetu/owner-fee-db";
 
 const rec = (v: unknown) => (v && typeof v === "object" ? (v as Record<string, unknown>) : {});
@@ -43,7 +43,7 @@ export const adminCommissions = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .validator((i: unknown) => {
     const s = rec(i).status;
-    return { status: s === "due" || s === "due_50" || s === "paid" || s === "refunded_50" ? (s as CommissionStatus) : undefined };
+    return { status: typeof s === "string" && (COMMISSION_STATUSES as string[]).includes(s) ? (s as CommissionStatus) : undefined };
   })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
@@ -123,4 +123,99 @@ export const adminSetFoundingPartner = createServerFn({ method: "POST" })
       await audit(sql, context.userId, data.on ? "FOUNDING_PARTNER_SET" : "FOUNDING_PARTNER_CLEARED", "profile", data.ownerId, r.foundingUntil ? `until ${r.foundingUntil}` : "");
       return r;
     });
+  });
+
+// ─── Deposit + rent advance received (owner ₹499 trigger) ───────────────────────────────────────────────────────
+const appId = (v: unknown) => id(v, "request");
+const reason = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 200) : "");
+const optYmd = (v: unknown) => (v == null || v === "" ? undefined : ymd(v, "date you received it"));
+
+/** Owner: accepted requests to mark, with their mark and fee status. */
+export const getMyDepositMarks = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    try {
+      return { active: db.ownerFeeActive(), items: await db.depositCandidates(sql, context.userId) };
+    } catch (err) {
+      if (/deposit_marks/.test(String((err as Error)?.message))) return { active: false, items: [] };
+      throw err;
+    }
+  });
+
+export const markMyDeposit = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((i: unknown) => ({ applicationId: appId(rec(i).applicationId), receivedOn: optYmd(rec(i).receivedOn) }))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const r = await db.markDepositReceived(sql, { applicationId: data.applicationId, actorId: context.userId, role: "owner", receivedOn: data.receivedOn });
+    return { already: r.already, receivedOn: r.mark.receivedOn, state: r.mark.state };
+  });
+
+export const undoMyDeposit = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((i: unknown) => ({ applicationId: appId(rec(i).applicationId), reason: reason(rec(i).reason) }))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const r = await db.undoDepositMark(sql, { applicationId: data.applicationId, actorId: context.userId, role: "owner", reason: data.reason });
+    return { voided: r.voided, creditRestored: r.creditRestored };
+  });
+
+export const adminDepositMarks = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    try {
+      return { ready: await db.depositMarksReady(sql), items: await db.recentDepositMarks(sql) };
+    } catch (err) {
+      if (/deposit_marks/.test(String((err as Error)?.message))) return { ready: false, items: [] };
+      throw err;
+    }
+  });
+
+export const adminMarkDeposit = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((i: unknown) => ({ applicationId: appId(rec(i).applicationId), receivedOn: optYmd(rec(i).receivedOn) }))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    const r = await db.markDepositReceived(sql, { applicationId: data.applicationId, actorId: context.userId, role: "admin", receivedOn: data.receivedOn });
+    await audit(sql, context.userId, "DEPOSIT_MARKED", "application", data.applicationId, `received ${r.mark.receivedOn}${r.already ? " (already marked)" : ""}`);
+    return { already: r.already, receivedOn: r.mark.receivedOn, state: r.mark.state };
+  });
+
+/** Admin check: verify the owner's mark. Only this creates the owner fee (flag on), due 7 days from now. */
+export const adminVerifyDeposit = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((i: unknown) => ({ applicationId: appId(rec(i).applicationId) }))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    const r = await db.verifyDepositMark(sql, { applicationId: data.applicationId, adminId: context.userId });
+    await audit(sql, context.userId, "DEPOSIT_MARK_VERIFIED", "application", data.applicationId, r.commission?.created ? `fee ${r.commission.id}` : r.already ? "already verified" : "verified (no fee)");
+    return { already: r.already, fee: r.commission };
+  });
+
+/** Admin check: reject an unverified mark, with a reason. Nothing is charged; the owner can mark again. */
+export const adminRejectDeposit = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((i: unknown) => ({ applicationId: appId(rec(i).applicationId), reason: reason(rec(i).reason) }))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    const m = await db.rejectDepositMark(sql, { applicationId: data.applicationId, adminId: context.userId, reason: data.reason });
+    await audit(sql, context.userId, "DEPOSIT_MARK_REJECTED", "application", data.applicationId, data.reason);
+    return { state: m.state };
+  });
+
+export const adminUndoDeposit = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((i: unknown) => ({ applicationId: appId(rec(i).applicationId), reason: reason(rec(i).reason) }))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await assertAdmin(sql, context.userId);
+    const r = await db.undoDepositMark(sql, { applicationId: data.applicationId, actorId: context.userId, role: "admin", reason: data.reason });
+    await audit(sql, context.userId, "DEPOSIT_MARK_UNDONE", "application", data.applicationId, data.reason);
+    return { voided: r.voided, creditRestored: r.creditRestored };
   });

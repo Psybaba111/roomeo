@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
 import { ReferralCard } from "@/components/referral-card";
+import { CreditBalance } from "@/components/credit-balance";
 import { BoostPanel } from "@/components/host-extras";
 import { PgOpsSection } from "@/components/pg-ops";
 import { Shell } from "@/components/shell";
@@ -244,6 +245,7 @@ function Desk() {
         </p>
       ) : null}
 
+      <CreditBalance />
       <ReferralCard />
 
       {incoming.length ? (

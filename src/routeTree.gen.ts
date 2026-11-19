@@ -36,6 +36,7 @@ import { Route as WaitlistRouteImport } from './routes/waitlist'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminCommissionsRouteImport } from './routes/admin.commissions'
+import { Route as AdminCreditsRouteImport } from './routes/admin.credits'
 import { Route as AdminHostsRouteImport } from './routes/admin.hosts'
 import { Route as AdminListingsRouteImport } from './routes/admin.listings'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
@@ -195,6 +196,11 @@ const AdminCommissionsRoute = AdminCommissionsRouteImport.update({
   path: '/admin/commissions',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminCreditsRoute = AdminCreditsRouteImport.update({
+  id: '/admin/credits',
+  path: '/admin/credits',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminHostsRoute = AdminHostsRouteImport.update({
   id: '/admin/hosts',
   path: '/admin/hosts',
@@ -338,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/waitlist': typeof WaitlistRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/commissions': typeof AdminCommissionsRoute
+  '/admin/credits': typeof AdminCreditsRoute
   '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -390,6 +397,7 @@ export interface FileRoutesByTo {
   '/waitlist': typeof WaitlistRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/commissions': typeof AdminCommissionsRoute
+  '/admin/credits': typeof AdminCreditsRoute
   '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -443,6 +451,7 @@ export interface FileRoutesById {
   '/waitlist': typeof WaitlistRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/commissions': typeof AdminCommissionsRoute
+  '/admin/credits': typeof AdminCreditsRoute
   '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -497,6 +506,7 @@ export interface FileRouteTypes {
     | '/waitlist'
     | '/admin/analytics'
     | '/admin/commissions'
+    | '/admin/credits'
     | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
@@ -549,6 +559,7 @@ export interface FileRouteTypes {
     | '/waitlist'
     | '/admin/analytics'
     | '/admin/commissions'
+    | '/admin/credits'
     | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
@@ -601,6 +612,7 @@ export interface FileRouteTypes {
     | '/waitlist'
     | '/admin/analytics'
     | '/admin/commissions'
+    | '/admin/credits'
     | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
@@ -654,6 +666,7 @@ export interface RootRouteChildren {
   WaitlistRoute: typeof WaitlistRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminCommissionsRoute: typeof AdminCommissionsRoute
+  AdminCreditsRoute: typeof AdminCreditsRoute
   AdminHostsRoute: typeof AdminHostsRoute
   AdminListingsRoute: typeof AdminListingsRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
@@ -871,6 +884,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCommissionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/credits': {
+      id: '/admin/credits'
+      path: '/admin/credits'
+      fullPath: '/admin/credits'
+      preLoaderRoute: typeof AdminCreditsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/hosts': {
       id: '/admin/hosts'
       path: '/admin/hosts'
@@ -1062,6 +1082,7 @@ const rootRouteChildren: RootRouteChildren = {
   WaitlistRoute: WaitlistRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminCommissionsRoute: AdminCommissionsRoute,
+  AdminCreditsRoute: AdminCreditsRoute,
   AdminHostsRoute: AdminHostsRoute,
   AdminListingsRoute: AdminListingsRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,

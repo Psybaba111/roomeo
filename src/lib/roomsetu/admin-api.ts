@@ -580,6 +580,9 @@ export const adminReviewPayment = createServerFn({ method: "POST" })
         where id = ${data.id} and provider = 'UPI' and status = 'SUBMITTED' returning id`;
       if (!rows.length) throw new Error("Already reviewed.");
       await audit(sql, context.userId, "payment.reject", "payment", data.id, "");
+      // Any Roomeo credit used on the rejected checkout goes back to the payer's balance.
+      const { restoreCreditsForFee } = await import("@/lib/roomsetu/fee-credits-db");
+      await restoreCreditsForFee(sql, { feeKind: "tenant_fee", feeId: data.id, actorId: context.userId, reason: "payment rejected" });
       return { ok: true };
     }
     // Single statement = single transaction: mark PAID and activate the subscription atomically.

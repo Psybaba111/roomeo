@@ -13,6 +13,14 @@ import {
   referralsEnabled,
   REFERRAL_CREDIT_INR,
 } from "@/lib/roomsetu/referrals";
+import { feeCreditConfig } from "@/lib/roomsetu/fee-credits";
+
+/** Fee credits on: the new credit promise. Off (prod today): the old ₹500 messages, word for word. */
+function linkedMessage(already: boolean): string {
+  const fc = feeCreditConfig();
+  if (fc.enabled) return `You're linked 🎉 Once you move in and pay your first month, Roomeo adds ₹${fc.amountInr} credit for you both, off your next Roomeo fee.`;
+  return already ? "You're linked. ₹500 off lands when you move in 🎉" : "You're linked. ₹500 off your first month when you move in 🎉";
+}
 
 async function ensureCode(sql: Sql, userId: string): Promise<string> {
   const have = await sql<{ code: string }>`select code from referral_codes where user_id = ${userId}`;
@@ -38,7 +46,24 @@ export const getMyReferral = createServerFn({ method: "GET" })
       const link = referralLink(SITE_URL, code);
       const stats = (await sql<{ joined: number; moved: number }>`select count(*)::int as joined, count(completed_at)::int as moved from referrals where referrer_id = ${context.userId}`)[0];
       const credit = (await sql<{ total: number }>`select coalesce(sum(amount_inr), 0)::int as total from referral_credits where user_id = ${context.userId} and status = 'AVAILABLE'`)[0];
+      const fc = feeCreditConfig();
+      if (fc.enabled) {
+        const { creditBalance } = await import("@/lib/roomsetu/fee-credits-db");
+        return {
+          enabled: true as const,
+          mode: "fee" as const,
+          code,
+          link,
+          shareText: `Found my PG on roomeo, zero broker fees 🙌 Sign up with my link. When you move in and pay your first month, we each get ₹${fc.amountInr} off our next Roomeo fee: ${link}`,
+          perPerson: fc.amountInr,
+          joined: Number(stats?.joined ?? 0),
+          movedIn: Number(stats?.moved ?? 0),
+          creditInr: await creditBalance(sql, context.userId),
+        };
+      }
+      // Fee credits off (prod today): the old ₹500-off-first-month reward, unchanged (Rohith, 19 Nov 2026).
       return {
+        mode: "legacy" as const,
         enabled: true as const,
         code,
         link,
@@ -65,7 +90,7 @@ export const claimReferral = createServerFn({ method: "POST" })
       const sql = await getSql();
       const owner = (await sql<{ user_id: string }>`select user_id from referral_codes where code = ${data.code}`)[0];
       const existing = (await sql<{ referrer_id: string }>`select referrer_id from referrals where referee_id = ${context.userId}`)[0];
-      if (existing && owner && existing.referrer_id === owner.user_id) return { ok: true, message: "You're linked. ₹500 off lands when you move in 🎉" };
+      if (existing && owner && existing.referrer_id === owner.user_id) return { ok: true, message: linkedMessage(true) };
       const u = (await sql<{ created: string }>`select "createdAt"::text as created from "user" where id = ${context.userId}`)[0];
       const moved = (await sql<{ n: number }>`select count(*)::int as n from move_ins where seeker_id = ${context.userId} and confirmed_at is not null`)[0];
       const check = canClaim({
@@ -77,7 +102,7 @@ export const claimReferral = createServerFn({ method: "POST" })
       });
       if (!check.ok) return { ok: false, message: CLAIM_MESSAGES[check.reason] };
       await sql`insert into referrals (id, referrer_id, referee_id, code) values (${crypto.randomUUID()}, ${owner!.user_id}, ${context.userId}, ${data.code}) on conflict (referee_id) do nothing`;
-      return { ok: true, message: "You're linked. ₹500 off your first month when you move in 🎉" };
+      return { ok: true, message: linkedMessage(false) };
     } catch (err) {
       if (isMissingTable(err)) return { ok: false, message: "Invites aren't live yet." };
       throw err;
@@ -95,7 +120,9 @@ export const getInviteStatus = createServerFn({ method: "GET" })
     try {
       const sql = await getSql();
       const r = await sql<{ code: string }>`select code from referral_codes where code = ${code}`;
-      return r[0] ? { live: true as const, perPerson: REFERRAL_CREDIT_INR } : { live: false as const };
+      // Fee credits on: the admin-issued fee credit. Off (prod today): the old ₹500 off the first month.
+      const fc = feeCreditConfig();
+      return r[0] ? { live: true as const, mode: fc.enabled ? ("fee" as const) : ("legacy" as const), perPerson: fc.enabled ? fc.amountInr : REFERRAL_CREDIT_INR } : { live: false as const };
     } catch (e) {
       if (isMissingTable(e)) return { live: false as const };
       throw e;

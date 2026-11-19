@@ -31,8 +31,13 @@ export function feeViewOf(cfg: { successFeeEnabled: boolean; successFeeTenantInr
     return owner.on ? { ...FEE_OFF, owner } : FEE_OFF;
   }
   const f = successFeeSplit(cfg.successFeeTenantInr);
-  return { on: true, baseInr: f.base, totalInr: f.total };
+  // Tenant fee on AND owner fee on (owner pays only after the deposit + rent advance): carry the owner view too.
+  const owner = ownerFeeView(ownerFeeState(true, env).active, ownerFeeGstPct(env), ownerFeeFlatInr(env));
+  return owner.on ? { on: true, baseInr: f.base, totalInr: f.total, owner } : { on: true, baseInr: f.base, totalInr: f.total };
 }
+
+/** Tenant fee on and the owner pays after the deposit (OWNER_FEE_ENABLED). */
+export const ownerAfterDeposit = (f: FeeView): boolean => f.on && ownerOf(f).on;
 
 /** Coerce loader data (may be missing or stale) into a FeeView, defaulting to OFF. */
 export function asFeeView(v: unknown): FeeView {
@@ -42,7 +47,9 @@ export function asFeeView(v: unknown): FeeView {
     return o && o.on === true ? { ...FEE_OFF, owner: ownerFeeView(true, Number(o.gstPct) || 0, Number(o.flatInr) > 0 ? Number(o.flatInr) : undefined) } : FEE_OFF;
   }
   const baseInr = Number(f.baseInr);
-  return { on: true, baseInr, totalInr: Number(f.totalInr) > 0 ? Number(f.totalInr) : Math.round(baseInr * 1.18) };
+  const o = f.owner as Partial<OwnerFeeView> | undefined;
+  const owner = o && o.on === true ? ownerFeeView(true, Number(o.gstPct) || 0, Number(o.flatInr) > 0 ? Number(o.flatInr) : undefined) : undefined;
+  return { on: true, baseInr, totalInr: Number(f.totalInr) > 0 ? Number(f.totalInr) : Math.round(baseInr * 1.18), ...(owner ? { owner } : {}) };
 }
 
 export const FREE_PILOT = "Free while we pilot";
@@ -58,10 +65,12 @@ export function feeLine(f: FeeView): string {
 
 /** Home "how it works" step 3 body. */
 export function homeChatStep(f: FeeView): string {
-  return f.on
+  return ownerAfterDeposit(f)
+    ? `Unlimited owner chats, free. Listing is free too. When a stay is locked, the renter pays ₹${f.totalInr} (incl. GST) once, refundable within 7 days. Owners pay ₹${ownerOf(f).flatInr} only after they've received the deposit and rent advance and Roomeo checks it.`
+    : f.on
     ? `Unlimited owner chats, free. Listing is free too. When a stay is locked, renter and owner each pay ₹${f.totalInr} (incl. GST) once, refundable within 7 days.`
     : ownerOf(f).on
-      ? `Unlimited owner chats, free. ${FREE_TENANTS}. Listing is free; owners pay Roomeo a flat ₹${ownerOf(f).flatInr} (GST included) only when a tenant moves in. Rent and deposit go straight to the owner.`
+      ? `Unlimited owner chats, free. ${FREE_TENANTS}. Listing is free; owners pay Roomeo a flat ₹${ownerOf(f).flatInr} (GST included) only after they've received the tenant's deposit and rent advance and Roomeo checks it. Rent and deposit go straight to the owner.`
       : `Unlimited owner chats, free. Listing is free too. ${FREE_TENANTS}: no Roomeo fee. Rent and deposit go straight to the owner.`;
 }
 
@@ -132,14 +141,14 @@ export function pricingCopy(f: FeeView, trial: { feeInr: number; windowDays: num
       headTitle: "Pricing: free for tenants, not a broker's month",
       h1: `${FREE_TENANTS}. Not a broker's month.`,
       sub: o.on
-        ? `Tenants pay Roomeo nothing. Owners pay a flat ₹${o.flatInr}, GST included, only when a tenant moves in through Roomeo. Rent and deposit go straight to the owner. No chat passes.`
+        ? `Tenants pay Roomeo nothing. Owners pay a flat ₹${o.flatInr}, GST included, only after they've received a Roomeo tenant's deposit and rent advance and Roomeo checks it (₹0 for founding partners). Rent and deposit go straight to the owner. No chat passes.`
         : "No Roomeo fee for renters or owners right now. Rent and deposit go straight to the owner. No chat passes. No cut of your rent.",
       planPrice: "₹0",
       planNote: FREE_TENANTS,
       tagline: [`${FREE_TENANTS}.`, "Not a broker's month."],
       faq: [
         o.on
-          ? ["What does Roomeo cost?", `Nothing for tenants. Searching, chatting, squads and locking a bed are free. Owners list free and pay Roomeo a flat ₹${o.flatInr} per tenant${o.gstPct ? ` (${o.gstPct}% GST included, shown separately on the invoice)` : ""}, ₹0 for founding partners, only for a tenant who moves in within ${o.attributionDays} days of their first Roomeo enquiry. It's due within ${o.dueDays} days of the tenant's deposit or first rent, by a Razorpay payment link.`]
+          ? ["What does Roomeo cost?", `Nothing for tenants. Searching, chatting, squads and locking a bed are free. Owners list free and pay Roomeo a flat ₹${o.flatInr} per tenant${o.gstPct ? ` (${o.gstPct}% GST included, shown separately on the invoice)` : ""}, ₹0 for founding partners, only for a tenant who pays them the deposit and rent advance within ${o.attributionDays} days of their first Roomeo enquiry. It's charged only after the owner marks the deposit and advance as received and Roomeo checks it, never upfront, and is due within ${o.dueDays} days of that check by a Razorpay payment link.`]
           : ["What does Roomeo cost?", "Nothing right now. Searching, chatting, squads, listing and locking a bed are free while we pilot. If that ever changes, the price is shown with GST before anyone signs or pays, and it never applies to a stay that's already confirmed."],
         ...(o.on
           ? ([
@@ -152,15 +161,21 @@ export function pricingCopy(f: FeeView, trial: { feeInr: number; windowDays: num
     };
   }
   const refundAfterCredit = f.totalInr - trial.feeInr;
+  const od = ownerAfterDeposit(f);
+  const ownerFlat = ownerOf(f).flatInr;
   return {
     headTitle: `Pricing: ₹${f.totalInr} once, not a broker's month`,
     h1: `₹${f.totalInr} once. Not a broker's month.`,
-    sub: `₹${f.totalInr} from the renter and ₹${f.totalInr} from the owner, once per stay, GST included. Refunded if the renter moves out within 7 days of paying. No chat passes. No cut of your rent.`,
+    sub: od
+      ? `₹${f.totalInr} from the renter, once per stay, GST included, refunded if the renter moves out within 7 days of paying. Owners pay ₹${ownerFlat} only after they've received the deposit and rent advance and Roomeo checks it (₹0 for founding partners). No chat passes. No cut of your rent.`
+      : `₹${f.totalInr} from the renter and ₹${f.totalInr} from the owner, once per stay, GST included. Refunded if the renter moves out within 7 days of paying. No chat passes. No cut of your rent.`,
     planPrice: `₹${f.totalInr} once`,
     planNote: `all-in, 18% GST included (₹${f.baseInr.toFixed(2)} + ₹${(f.totalInr - f.baseInr).toFixed(2)} GST)`,
     tagline: [`₹${f.totalInr} once.`, "Not a broker's month."],
     faq: [
-      ["What does Roomeo cost?", `₹${f.totalInr} once, 18% GST included. The renter pays it once and the owner pays it once, per person, per stay. Not every month, and not a cut of the rent. Searching, chatting, squads and listing are free.`],
+      od
+        ? ["What does Roomeo cost?", `₹${f.totalInr} once, 18% GST included, from the renter, per stay. Owners pay ₹${ownerFlat} once per tenant, only after they've received the tenant's deposit and rent advance and Roomeo checks it, never upfront, never at listing time. Founding partners pay ₹0. Not every month, and not a cut of the rent. Searching, chatting, squads and listing are free.`]
+        : ["What does Roomeo cost?", `₹${f.totalInr} once, 18% GST included. The renter pays it once and the owner pays it once, per person, per stay. Not every month, and not a cut of the rent. Searching, chatting, squads and listing are free.`],
       ["Is the fee refundable?", `Only if the renter moves out within 7 days of paying it. Then the renter's ₹${f.totalInr} (or ₹${refundAfterCredit} after a trial credit) is refunded to the UPI ID that paid, and the owner's fee too if the stay ended within 7 days of the owner's payment. After that, no refund.`],
       [`Is the ₹${trial.feeInr} trial night fee refundable?`, `No. The ₹${trial.feeInr} trial fee is never refunded. If you stay on and sign within ${trial.windowDays} days of your trial, it comes off your ₹${f.totalInr} fee once, so you pay ₹${refundAfterCredit}, then monthly rent goes straight to the owner.`],
       [`Why ₹${f.totalInr}?`, `A broker usually takes a month's rent. ₹${f.totalInr} once, GST included, beats that on any bed. The next months cost no fee.`],
