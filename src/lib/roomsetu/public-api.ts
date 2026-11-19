@@ -305,6 +305,8 @@ export const getListing = createServerFn({ method: "POST" })
       held: false as const,
       onlyYou: !visible,
       fee,
+      // Who is looking, resolved server side (QA review Q3): the CTA renders right on first paint. Booleans only, no ids.
+      viewer: { signedIn: Boolean(context.userId), isOwner },
       ...card,
       verification: str(row.host_identity) === "VERIFIED" && row.host_phone_verified_at ? "VERIFIED" : "UNVERIFIED",
       description: str(row.description),

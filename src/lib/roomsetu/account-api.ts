@@ -25,6 +25,8 @@ import {
   upiPayee,
 } from "@/lib/roomsetu/upi";
 import { getSql, type Sql } from "@/lib/db";
+import { DECLARATION_REQUIRED, contactDetailError } from "@/lib/roomsetu/owner-only";
+import { recordOwnerDeclaration } from "@/lib/roomsetu/owner-only-db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { listingCard, bool, num, str } from "@/lib/roomsetu/map";
 import { searchCity } from "@/lib/roomsetu/cities";
@@ -538,13 +540,22 @@ async function attachAmenities(sql: Sql, listingId: string, draft: Draft) {
 
 export const createListing = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: unknown) => ({ ...draftOf(input), utm: cleanUtm((input as { utm?: unknown } | null)?.utm) }))
+  .validator((input: unknown) => ({
+    ...draftOf(input),
+    utm: cleanUtm((input as { utm?: unknown } | null)?.utm),
+    ownerDeclared: (input as { ownerDeclared?: unknown } | null)?.ownerDeclared === true,
+  }))
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const userId = context.userId;
+    // Owner-only checks first (P0 broker plan): declaration ticked, no contact details in the text.
+    if (!data.ownerDeclared) throw new Error(DECLARATION_REQUIRED);
+    const contactErr = contactDetailError({ title: data.title, description: data.description });
+    if (contactErr) throw new Error(contactErr);
     await requireProfile(sql, userId);
     await requirePublishable(sql, userId);
     await hitLimit(sql, userId, "listing");
+
     // Any city (Rohith, 31 Oct 2026): a typed city or locality that isn't known yet is added.
     const cityName = searchCity(data.city);
     if (!cityName) throw new Error("Type the city the bed is in.");
@@ -648,6 +659,7 @@ export const createListing = createServerFn({ method: "POST" })
       ],
     );
     await sql`update listings set listing_kind = ${data.listingKind}, bedrooms = ${data.bedrooms || null} where id = ${listingId}`;
+    await recordOwnerDeclaration(sql, userId, listingId);
     for (let i = 0; i < data.photos.length; i++) {
       await sql`insert into listing_images (id, listing_id, url, category, sort_order) values (${crypto.randomUUID()}, ${listingId}, ${data.photos[i].url}, ${data.photos[i].category}, ${i})`;
     }

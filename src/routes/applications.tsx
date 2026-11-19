@@ -54,11 +54,24 @@ function MoveIn({ applicationId, mine, info, reload }: { applicationId: string; 
 export const Route = createFileRoute("/applications")({
   head: () => pageHead("Room requests", { noindex: true }),
   component: () => (
-    <NeedAccount next="/applications">
+    <NeedAccount next="/applications" loading={<AppsLoading />}>
       <Apps />
     </NeedAccount>
   ),
 });
+
+const APPS_INTRO = "Requests are free. The flow: owner accepts → you both sign the Roomeo agreement → move in. Any Roomeo fee is shown on the request before anyone signs. Every step shows right on the request 👇";
+
+/** Same header and skeleton as the loaded page, shown while the session resolves (one loading state, not two). */
+function AppsLoading() {
+  return (
+    <Shell>
+      <h1 className="text-4xl font-semibold tracking-tight">Room requests</h1>
+      <p className="mt-2 text-muted [text-wrap:pretty]">{APPS_INTRO}</p>
+      <ListStatus state={{ kind: "loading" }} what="requests" onRetry={() => undefined} rows={3} rowClass="h-28" empty={null} />
+    </Shell>
+  );
+}
 
 function Apps() {
   const { user } = useCurrentUserState();
@@ -81,7 +94,7 @@ function Apps() {
   return (
     <Shell>
       <h1 className="text-4xl font-semibold tracking-tight">Room requests</h1>
-      <p className="mt-2 text-muted [text-wrap:pretty]">Requests are free. The flow: owner accepts → you both sign the Roomeo agreement → move in. Any Roomeo fee is shown on the request before anyone signs. Every step shows right on the request 👇</p>
+      <p className="mt-2 text-muted [text-wrap:pretty]">{APPS_INTRO}</p>
       {error ? <p className="mt-3 text-danger" role="alert">{error}</p> : null}
       <ListStatus state={apps.state} what="requests" onRetry={load} rows={3} rowClass="h-28" empty={<p>No requests yet. Tap “Request this bed” on a room and it shows up here.</p>} />
       <ul className="mt-6 space-y-3" data-testid="applications-list">

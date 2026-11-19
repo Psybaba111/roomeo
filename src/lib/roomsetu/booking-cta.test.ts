@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { CTA_LOADING, MESSAGE_CTA, REQUEST_CTA, REQUEST_CTA_SIGNED_OUT, ctaDisabled, isAlreadyRequested, requestCtaLabel, istStamp, requestHref, withdrawalLine, pinnedRequestFor, requestSentLine, requestStatusLabel } from "./booking-cta.ts";
+import { MESSAGE_CTA, requestFeeNote, viewerSignedIn, REQUEST_CTA, REQUEST_CTA_SIGNED_OUT, ctaDisabled, isAlreadyRequested, requestCtaLabel, istStamp, requestHref, withdrawalLine, pinnedRequestFor, requestSentLine, requestStatusLabel } from "./booking-cta.ts";
 import { dealSteps } from "./deal-steps.ts";
 import { FEE_OFF, feeUnderPrice } from "./fee-copy.ts";
 
@@ -54,17 +54,44 @@ test("pay step says both sides pay ₹499 all-in (a pre-17-Nov ₹589 row keeps 
   assert.match(dealSteps({ ...base, feeTotal: 589, role: "tenant" })[2].hint, /₹589 once \(₹499 \+ 18% GST = ₹589\).*owner pays ₹589 once too/);
 });
 
-test("request CTA never flashes 'Sign in' while the session loads", () => {
-  const base = { requesting: false, sessionPending: true, signedIn: false };
-  assert.equal(requestCtaLabel(base), CTA_LOADING);
-  assert.equal(requestCtaLabel(base, true), CTA_LOADING);
-  assert.equal(ctaDisabled(base), true);
-  assert.equal(requestCtaLabel({ ...base, sessionPending: false }), REQUEST_CTA_SIGNED_OUT);
-  assert.equal(requestCtaLabel({ ...base, sessionPending: false, signedIn: true }), REQUEST_CTA);
-  assert.equal(ctaDisabled({ requesting: false, sessionPending: false }), false);
-  assert.equal(requestCtaLabel({ requesting: true, sessionPending: false, signedIn: true }), "Sending your request…");
-  assert.equal(requestCtaLabel({ requesting: true, sessionPending: false, signedIn: true }, true), "Sending…");
-  assert.equal(ctaDisabled({ requesting: true, sessionPending: false }), true);
+test("request CTA is right on first paint: server viewer first, no Loading label (QA Q3)", () => {
+  // Session still resolving on the client: trust the loader's viewer, signed in or out.
+  assert.equal(viewerSignedIn(true, { isPending: true, signedIn: false }), true);
+  assert.equal(viewerSignedIn(false, { isPending: true, signedIn: false }), false);
+  // Once loaded, the client session wins (signed out in another tab, or signed in since).
+  assert.equal(viewerSignedIn(true, { isPending: false, signedIn: false }), false);
+  assert.equal(viewerSignedIn(false, { isPending: false, signedIn: true }), true);
+  assert.equal(requestCtaLabel({ requesting: false, signedIn: true }), REQUEST_CTA);
+  assert.equal(requestCtaLabel({ requesting: false, signedIn: false }), REQUEST_CTA_SIGNED_OUT);
+  assert.equal(ctaDisabled({ requesting: false }), false);
+  assert.equal(requestCtaLabel({ requesting: true, signedIn: true }), "Sending your request…");
+  assert.equal(requestCtaLabel({ requesting: true, signedIn: true }, true), "Sending…");
+  assert.equal(ctaDisabled({ requesting: true }), true);
+  const src = readFileSync(new URL("../../routes/listing.$id.tsx", import.meta.url), "utf8");
+  assert.ok(src.includes("viewerSignedIn(Boolean(room.viewer?.signedIn)"), "listing seeds the CTA from the loader");
+  assert.ok(!src.includes("Loading…") && !src.includes("animate-pulse"), "no loading label or pulsing CTA");
+  const api = readFileSync(new URL("./public-api.ts", import.meta.url), "utf8");
+  assert.ok(api.includes("viewer: { signedIn: Boolean(context.userId), isOwner }"), "getListing returns the viewer (booleans only)");
+});
+
+test("fee note next to every Request this bed follows the tenant fee flag (QA Q11)", () => {
+  assert.equal(requestFeeNote({ on: true, totalInr: 499 }), "Free to request. ₹499 Roomeo fee (GST included), charged only after the owner says yes");
+  assert.equal(requestFeeNote({ on: true, totalInr: 499 }, true), "₹499 only after the owner says yes");
+  assert.doesNotMatch(requestFeeNote({ on: false, totalInr: 0 }), /₹\d/);
+  assert.doesNotMatch(requestFeeNote({ on: false, totalInr: 0 }, true), /₹\d/);
+  const src = readFileSync(new URL("../../routes/listing.$id.tsx", import.meta.url), "utf8");
+  assert.ok(src.includes("requestFeeNote(feeView)") && src.includes("requestFeeNote(feeView, true)"), "desktop and sticky bar both show it");
+  assert.ok(!src.includes("Free to request. Opens a chat"), "old hard-coded line gone");
+  for (const f of ["../../routes/messages.tsx", "../../routes/applications.tsx"]) {
+    const page = readFileSync(new URL(f, import.meta.url), "utf8");
+    assert.ok(page.includes("Request this bed"), f);
+    assert.ok(!/Connect with the host|Message the owner · Free/.test(page), f);
+  }
+});
+
+test("/applications shows one skeleton from session check to rows (no 'Checking your session…')", () => {
+  const src = readFileSync(new URL("../../routes/applications.tsx", import.meta.url), "utf8");
+  assert.ok(src.includes('<NeedAccount next="/applications" loading={<AppsLoading />}>'));
 });
 
 test("listing page has a secondary 'Message the owner' next to the request CTA", () => {

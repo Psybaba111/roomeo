@@ -20,6 +20,8 @@ import { areaOptions, LAUNCH_CITIES, searchCity } from "@/lib/roomsetu/cities";
 import { readPhotos } from "@/components/photo-upload";
 import { createListing } from "@/lib/roomsetu/account-api";
 import { currentUtm, trackEvent } from "@/lib/analytics/client";
+import { DECLARATION_REQUIRED, OWNER_DECLARATION, OWNER_ONLY_NOTICE, contactDetailError } from "@/lib/roomsetu/owner-only";
+import { ShieldCheck } from "@phosphor-icons/react";
 
 export const Route = createFileRoute("/create-listing")({
   head: () => pageHead("List a spare bed"),
@@ -35,6 +37,7 @@ function CreateListing() {
   const [cities, setCities] = useState<{ name: string; localities: string[] }[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [declared, setDeclared] = useState(false);
   const [photos, setPhotos] = useState<number[]>([]);
   const [uploads, setUploads] = useState<{ url: string; category: string }[]>([]);
   const [trust, setTrust] = useState<TrustForm>(EMPTY_TRUST);
@@ -117,10 +120,20 @@ function CreateListing() {
       <p className="mt-2 max-w-xl text-muted">
         Tell the truth about the room. You can pause it later when someone moves in.
       </p>
+      <p className="mt-4 flex max-w-xl items-start gap-2 rounded-2xl border border-line bg-card p-4 text-sm [text-wrap:pretty]" data-testid="owner-only-notice">
+        <ShieldCheck size={20} weight="bold" className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
+        <span>{OWNER_ONLY_NOTICE}</span>
+      </p>
       <form
         className="mt-6 grid gap-4 md:grid-cols-2"
         onSubmit={(e) => {
           e.preventDefault();
+          // Same rules as the server, checked here first so the error shows right away.
+          const bad = !declared ? DECLARATION_REQUIRED : contactDetailError({ title: form.title, description: form.description });
+          if (bad) {
+            setError(bad);
+            return;
+          }
           setBusy(true);
           setError("");
           void createListing({
@@ -137,6 +150,7 @@ function CreateListing() {
               bedrooms: Number(form.bedrooms),
               photos: [...uploads, ...photos.map((i) => CATALOG_PHOTOS[i])].slice(0, 8),
               utm: currentUtm(),
+              ownerDeclared: declared,
             },
           })
             .then((res) => {
@@ -437,7 +451,17 @@ function CreateListing() {
             Categories used: {PHOTO_CATEGORIES.slice(0, 4).join(", ")}.
           </p>
         </div>
-        {error ? <p className="text-sm text-danger md:col-span-2">{error}</p> : null}
+        <label className="flex items-start gap-3 rounded-2xl border border-line bg-card p-4 text-sm md:col-span-2" data-testid="owner-declaration">
+          <input
+            type="checkbox"
+            required
+            checked={declared}
+            onChange={(e) => setDeclared(e.target.checked)}
+            className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-brand)]"
+          />
+          <span className="[text-wrap:pretty]">{OWNER_DECLARATION}</span>
+        </label>
+        {error ? <p className="text-sm text-danger md:col-span-2" role="alert" data-testid="create-error">{error}</p> : null}
         <button
           disabled={busy}
           className="h-12 rounded-full bg-brand font-semibold text-card md:col-span-2 disabled:opacity-60"

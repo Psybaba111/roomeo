@@ -9,6 +9,7 @@ import { feeViewOf, rentPartnerMissingLine } from "@/lib/roomsetu/fee-copy";
 import { classifyOtpFailure, RESEND_COOLDOWN_SECONDS, type VerifyOtpResult } from "@/lib/roomsetu/otp-result";
 import { canPublish, generateOtp, hashOtp, normalizeIndianMobile, OTP_MAX_ATTEMPTS, otpMatches, otpTtlMinutes, otpProviderFromEnv, FallbackOtpProvider } from "@/lib/roomsetu/otp";
 import { hitLimit } from "@/lib/roomsetu/rate-limit";
+import { PHONE_TAKEN, isVerifiedPhoneTaken } from "@/lib/roomsetu/owner-only";
 import { ID_DOC_TYPES, idGate, idProviderFromEnv, idVerificationEnabled, type GatedAction, type IdDocType } from "@/lib/roomsetu/id-verify";
 
 function asRecord(input: unknown): Record<string, unknown> {
@@ -325,7 +326,7 @@ export const startPhoneOtp = createServerFn({ method: "POST" })
     if (!provider) throw new Error("Phone verification is not set up on this deployment yet.");
     const sql = await getSql();
     const taken = await sql`select 1 from profiles where phone_e164 = ${data} and phone_verified_at is not null and user_id <> ${context.userId} limit 1`;
-    if (taken.length) throw new Error("That number is already verified on another account.");
+    if (taken.length) throw new Error(PHONE_TAKEN);
     const recent = await sql<{ wait: number }>`
       select ceil(extract(epoch from (created_at + make_interval(secs => ${RESEND_COOLDOWN_SECONDS}::int) - now())))::int as wait
       from phone_otps where user_id = ${context.userId} and created_at > now() - make_interval(secs => ${RESEND_COOLDOWN_SECONDS}::int)`;
@@ -370,7 +371,11 @@ export const verifyPhoneOtp = createServerFn({ method: "POST" })
        select $3, user_id, 'PHONE', 'VERIFIED', 'Phone confirmed by one-time code.' from prof
        on conflict (user_id, kind) do update set status = 'VERIFIED', note = excluded.note, updated_at = now()`,
       [context.userId, otp.phone_e164, crypto.randomUUID()],
-    );
+    ).catch((e: unknown) => {
+      // One account per verified phone (unique index from 0006): someone verified it between send and verify.
+      if (isVerifiedPhoneTaken(e)) throw new Error(PHONE_TAKEN);
+      throw e;
+    });
     return { ok: true } as VerifyOtpResult;
   });
 

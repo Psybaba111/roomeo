@@ -311,7 +311,7 @@ function Desk() {
       {tracking.length ? (
         <section className="mt-6" data-testid="desk-applications">
           <div className="flex items-end justify-between gap-3">
-            <h2 className="font-display text-3xl">Your applications</h2>
+            <h2 className="font-display text-3xl">Your bed requests</h2>
             <Link to="/applications" className="text-sm font-semibold text-brand">
               All requests
             </Link>

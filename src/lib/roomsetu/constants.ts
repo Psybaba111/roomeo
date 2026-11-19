@@ -30,6 +30,8 @@ export const OCCUPATION_PREFS = ["ANY", "Working professional", "Student"] as co
 
 export const REPORT_CATEGORIES = [
   "Scam",
+  // Owner-only rule (P0 broker plan): keep this text in sync with BROKER_REPORT_REASON in owner-only.ts.
+  "This is a broker",
   "Fake listing",
   "Wrong information",
   "Harassment",
