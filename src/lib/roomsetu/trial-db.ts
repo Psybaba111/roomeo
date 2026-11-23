@@ -55,9 +55,11 @@ export async function bookTrial(
   if (!bookingId) {
     bookingId = crypto.randomUUID();
     await sql.query(
-      `insert into trial_bookings (id, listing_id, seeker_id, owner_id, check_in, nights, nightly_inr, stay_total_inr)
-       values ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [bookingId, p.listingId, p.seekerId, l.ownerId, checkIn, nights, l.nightlyInr, trialStayTotal(l.nightlyInr, nights)],
+      // created_at follows the same clock as the check-in rule (p.now), so the credit window is judged
+      // on one clock. In the app p.now is unset and this is just now().
+      `insert into trial_bookings (id, listing_id, seeker_id, owner_id, check_in, nights, nightly_inr, stay_total_inr, created_at)
+       values ($1,$2,$3,$4,$5,$6,$7,$8, coalesce($9::timestamptz, now()))`,
+      [bookingId, p.listingId, p.seekerId, l.ownerId, checkIn, nights, l.nightlyInr, trialStayTotal(l.nightlyInr, nights), p.now ? p.now.toISOString() : null],
     );
   } else {
     await sql.query(`update trial_bookings set check_in = $2, nights = $3, nightly_inr = $4, stay_total_inr = $5 where id = $1 and status = 'FEE_PENDING'`,

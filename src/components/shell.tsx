@@ -109,6 +109,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <p className="flex flex-wrap gap-x-4 gap-y-1">
           <Link to="/privacy" className="hover:underline">Privacy</Link>
           <Link to="/terms" className="hover:underline">Terms</Link>
+          <Link to="/refund-policy" className="hover:underline" data-testid="footer-refund-policy">Refund policy</Link>
           <Link to="/pricing" className="hover:underline">Pricing</Link>
           <CookieSettingsLink />
           <a

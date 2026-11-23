@@ -207,9 +207,15 @@ export function readGrokProjectId() {
   return String(fromProcess ?? "").trim();
 }
 
-export function readGrokExtensionsEnabled() {
-  const fromProcess = typeof process !== "undefined" ? process.env?.VITE_GROK_EXTENSIONS : "";
-  return String(fromProcess ?? "").trim() !== "0";
+/**
+ * The "Created with Grok / Remix" pill (extensions.js). Off on the Vercel PRODUCTION deployment (Rohith,
+ * 23 Nov 2026: keep it off the live site); previews and the live sandbox keep it. VITE_GROK_EXTENSIONS=0
+ * still turns it off everywhere.
+ */
+export function readGrokExtensionsEnabled(env = typeof process !== "undefined" ? process.env : {}) {
+  if (String(env?.VITE_GROK_EXTENSIONS ?? "").trim() === "0") return false;
+  if (String(env?.VERCEL_ENV ?? "").trim() === "production") return false;
+  return true;
 }
 
 export function readXCreator() {

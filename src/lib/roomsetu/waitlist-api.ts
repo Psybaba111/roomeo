@@ -7,6 +7,8 @@ import { getSql } from "@/lib/db";
 import { waitlistAllows, waitlistModeOn, validateWaitlist, WaitlistError } from "@/lib/roomsetu/waitlist";
 import { joinWaitlist as joinDb, listWaitlist } from "@/lib/roomsetu/waitlist-db";
 import { logEvent } from "@/lib/roomsetu/services";
+import { hitLimit, RateLimitError } from "@/lib/roomsetu/rate-limit";
+import { clientIpFrom, honeypotFilled, waitlistIpKey } from "@/lib/roomsetu/waitlist-guard";
 
 const modeOn = () => waitlistModeOn(process.env);
 
@@ -46,9 +48,25 @@ export const joinWaitlist = createServerFn({ method: "POST" })
       if (e instanceof WaitlistError) throw new Error(e.message);
       throw e;
     }
+    // Bot check: a filled honeypot gets the normal "joined" answer and nothing is stored.
+    if (honeypotFilled(data)) {
+      logEvent("waitlist.bot", { reason: "honeypot" });
+      return { status: "joined" as const };
+    }
     const { getSessionUser } = await import("@/lib/auth/verify.server");
     const user = await getSessionUser().catch(() => null);
     const sql = await getSql();
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const ipKey = await waitlistIpKey(clientIpFrom(getRequest()?.headers), process.env.BETTER_AUTH_SECRET ?? "roomeo-waitlist");
+    try {
+      await hitLimit(sql, ipKey, "waitlist");
+    } catch (e) {
+      if (e instanceof RateLimitError) {
+        logEvent("waitlist.bot", { reason: "ip_limit" });
+        throw new Error("Too many sign-ups from this connection. Please try again in an hour.");
+      }
+      throw e;
+    }
     const r = await joinDb(sql, w, user?.id ?? null);
     if (r.status === "joined") await saveUtm(sql, "waitlist_signups", r.id, cleanUtm((data as { utm?: unknown } | null)?.utm));
     logEvent("waitlist.join", { status: r.status, role: w.role, source: w.source, hasType: Boolean(w.roomieType) });

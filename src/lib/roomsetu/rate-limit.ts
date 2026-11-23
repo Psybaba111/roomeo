@@ -13,6 +13,8 @@ export const LIMITS = {
   otp_verify: { max: 10, windowMinutes: 60 },
   id_submit: { max: 5, windowMinutes: 60 },
   squad: { max: 20, windowMinutes: 60 },
+  // Anonymous waitlist sign-ups, keyed by a salted IP hash (see waitlist-guard.ts).
+  waitlist: { max: 5, windowMinutes: 60 },
 } as const;
 
 export type Bucket = keyof typeof LIMITS;

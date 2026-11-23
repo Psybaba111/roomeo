@@ -19,7 +19,7 @@ export function LegalPage({ title, intro, sections, updated = LEGAL_UPDATED }: {
             {s.body.map((p, i) => <p key={i} className="mt-2 [text-wrap:pretty]">{p}</p>)}
           </section>
         ))}
-        <p className="mt-10 text-sm text-muted">See also <Link to="/privacy" className="underline">Privacy</Link> · <Link to="/terms" className="underline">Terms</Link> · <Link to="/pricing" className="underline">Pricing</Link></p>
+        <p className="mt-10 text-sm text-muted">See also <Link to="/privacy" className="underline">Privacy</Link> · <Link to="/terms" className="underline">Terms</Link> · <Link to="/refund-policy" className="underline">Refund policy</Link> · <Link to="/pricing" className="underline">Pricing</Link></p>
       </article>
     </Shell>
   );

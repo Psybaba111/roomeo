@@ -31,14 +31,24 @@ export function robotsTxt(base: string): string {
   ].join("\n");
 }
 
-/** Shared description for the home/marketing pages' meta + social previews (no ₹ fee on purpose). */
+/** Shared description for the home/marketing pages' meta + social previews (no ₹ fee, no city we have no beds in). */
 export const SHARE_DESCRIPTION =
-  "Spare PG beds and shared rooms in Bengaluru and Mangaluru. Dated photos, rent + bills in one price, meals optional. Deposit paid to the owner.";
+  "Real spare PG beds in Mangaluru, starting with Mud Home in Bunder. Dated photos, rent + bills in one price, meals optional. Deposit paid straight to the owner.";
 
-export function pageHead(title: string, opts: { description?: string; noindex?: boolean } = {}) {
+/** Site share card (public/og.jpg, 1200x630, no fee on it). */
+export const SHARE_IMAGE_PATH = "/og.jpg";
+
+type PageHeadOpts = { description?: string; noindex?: boolean; path?: string; share?: boolean };
+
+/**
+ * Title + description, plus (unless `share: false`) our own og:/twitter: tags with an absolute og:image, so
+ * the platform injector keeps them (it drops og:image on *.vercel.app hosts). `path` adds canonical + og:url.
+ */
+export function pageHead(title: string, opts: PageHeadOpts = {}) {
+  const full = `${title} · roomeo`;
   const meta: Array<Record<string, string>> = [
-    { title: `${title} · roomeo` },
-    { property: "og:title", content: `${title} · roomeo` },
+    { title: full },
+    { property: "og:title", content: full },
   ];
   if (opts.description)
     meta.push(
@@ -46,7 +56,48 @@ export function pageHead(title: string, opts: { description?: string; noindex?: 
       { property: "og:description", content: opts.description },
     );
   if (opts.noindex) meta.push({ name: "robots", content: "noindex, nofollow" });
-  return { meta };
+  const links: Array<Record<string, string>> = [];
+  if (opts.share !== false) {
+    const description = opts.description ?? SHARE_DESCRIPTION;
+    if (!opts.description) meta.push({ property: "og:description", content: description });
+    const image = `${SITE_URL}${SHARE_IMAGE_PATH}`;
+    meta.push(
+      OWN_OG_META,
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "roomeo" },
+      { property: "og:image", content: image },
+      { property: "og:image:type", content: "image/jpeg" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "roomeo.com: find a place to belong" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: full },
+      { name: "twitter:description", content: description },
+      { name: "twitter:image", content: image },
+    );
+  }
+  if (opts.path !== undefined) {
+    const url = `${SITE_URL}${opts.path === "/" ? "/" : opts.path}`;
+    links.push({ rel: "canonical", href: url });
+    if (opts.share !== false) meta.push({ property: "og:url", content: url });
+  }
+  return { meta, links };
+}
+
+/** Basic structured data for the home page: who runs Roomeo, and the site. */
+export function siteJsonLd(op: { name: string; address: string }, base = SITE_URL) {
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "Roomeo",
+      legalName: op.name,
+      url: `${base}/`,
+      logo: `${base}/favicon.svg`,
+      address: { "@type": "PostalAddress", streetAddress: op.address, addressCountry: "IN" },
+    },
+    { "@context": "https://schema.org", "@type": "WebSite", name: "Roomeo", url: `${base}/` },
+  ];
 }
 
 /** Marks a page that ships its own og:/twitter: tags so the platform head injector keeps them. */
@@ -124,7 +175,7 @@ export function listingHead(room: (ListingSeo & { held?: false }) | { held: true
   if (room.held === true) return pageHead("Bed not public yet", { noindex: true });
   const title = `${room.roomType} in ${room.locality} · ₹${room.rent.toLocaleString("en-IN")}/mo`;
   const description = `${room.title}. ${room.roomType} in ${room.locality}, ${room.city} for ₹${room.rent.toLocaleString("en-IN")} a month. Request it free, no broker's month.`;
-  const head = pageHead(title, { description, noindex: room.isDemo });
+  const head = pageHead(title, { description, noindex: room.isDemo, share: false });
   // Always our own share card (photo + all-in price + area + badge). Listing photos are data URLs that chat apps can't fetch.
   const image = listingOgImageUrl(room.id);
   const url = `${SITE_URL}/listing/${room.id}`;

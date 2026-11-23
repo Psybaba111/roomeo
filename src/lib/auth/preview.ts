@@ -10,15 +10,39 @@
  * injection. When deployed the deployer injects a per-app
  * `GROK_AUTH_*` that overrides these (see `server.ts`).
  *
- * These MUST equal the broker's `GROK_PREVIEW_CLIENT_ID` /
- * `GROK_PREVIEW_CLIENT_SECRET` (set in the broker's Vercel env; the broker stores
- * only the secret's `base64url(SHA-256)` hash). This is a dedicated, low-privilege
- * client (preview-only, `*.grok-sandbox.com`) — rotate it by regenerating the
- * broker env var and this constant together.
+ * The client id is public. The client SECRET is NOT baked in: it is read from
+ * the `GROK_PREVIEW_CLIENT_SECRET` env var (same name the broker uses). It must
+ * equal the broker's `GROK_PREVIEW_CLIENT_SECRET` (the broker stores only its
+ * `base64url(SHA-256)` hash). When it is unset, the shared preview client is
+ * simply not registered (fail closed): no broker sign-in buttons, and there is
+ * no hard-coded fallback. Email/password and native Google are unaffected.
  */
 export const PREVIEW_CLIENT_ID = "grok_preview";
-export const PREVIEW_CLIENT_SECRET =
-  "8bcdb7fc5a33874ad933ca568918d5790388a0795e44c4d1dea691f801b17ec5";
+
+/** Env var holding the shared live-preview broker client secret. */
+export const PREVIEW_CLIENT_SECRET_ENV = "GROK_PREVIEW_CLIENT_SECRET";
+
+/**
+ * Pick the broker client credentials. A per-app `GROK_AUTH_CLIENT_ID` +
+ * `GROK_AUTH_CLIENT_SECRET` wins; otherwise the shared preview client, whose
+ * secret must come from `GROK_PREVIEW_CLIENT_SECRET`. Returns null (broker off)
+ * when no usable secret is present. Pure, so it is unit tested.
+ */
+export function resolveBrokerClient(
+  read: (key: string) => string | undefined,
+): { clientId: string; clientSecret: string; isPreview: boolean } | null {
+  const get = (k: string) => {
+    const v = read(k)?.trim();
+    return v ? v : undefined;
+  };
+  const appId = get("GROK_AUTH_CLIENT_ID");
+  const appSecret = get("GROK_AUTH_CLIENT_SECRET");
+  if (appId && appId !== PREVIEW_CLIENT_ID) {
+    return appSecret ? { clientId: appId, clientSecret: appSecret, isPreview: false } : null;
+  }
+  const previewSecret = get(PREVIEW_CLIENT_SECRET_ENV) ?? (appId === PREVIEW_CLIENT_ID ? appSecret : undefined);
+  return previewSecret ? { clientId: PREVIEW_CLIENT_ID, clientSecret: previewSecret, isPreview: true } : null;
+}
 
 /** The shared auth broker issuer (OIDC discovery lives under it). */
 export const GROK_ISSUER_DEFAULT = "https://auth.grok.me";

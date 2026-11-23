@@ -16,9 +16,24 @@ function body(src: string, from: string, to: string) {
   return src.slice(a, b);
 }
 
+/**
+ * 23 Nov 2026 (Rohith approved the QA PR): Mud Home's real beds strip above the hero, canonical + JSON-LD in head.
+ * Reverting exactly these edits must give back the file below; nothing else in the page may change.
+ */
+function revertShareEdits(src: string) {
+  return src
+    .replace('import { pageHead, SHARE_DESCRIPTION, siteJsonLd } from "@/lib/seo";\nimport { OPERATOR } from "@/lib/legal";\nimport { MudHomeBeds } from "@/components/mud-home-beds";\n', 'import { pageHead, SHARE_DESCRIPTION } from "@/lib/seo";\n')
+    .replace('import { getFeaturedBeds, getHome, listCities } from "@/lib/roomsetu/public-api";', 'import { getHome, listCities } from "@/lib/roomsetu/public-api";')
+    .replace('  head: () => ({\n    ...pageHead("Spare PG beds for working professionals", {\n      description: SHARE_DESCRIPTION,\n      path: "/",\n    }),\n    scripts: [{ type: "application/ld+json", children: JSON.stringify(siteJsonLd(OPERATOR)) }],\n  }),\n', '  head: () =>\n    pageHead("Spare PG beds for working professionals", {\n      description: SHARE_DESCRIPTION,\n    }),\n')
+    .replace(', getWaitlistMode().catch(() => ({ enabled: false })), getFeaturedBeds().catch(() => [])]);', ', getWaitlistMode().catch(() => ({ enabled: false }))]);')
+    .replace("    return { home, quizHero: flag.enabled, waitlist: wl.enabled, featured };", "    return { home, quizHero: flag.enabled, waitlist: wl.enabled };")
+    .replace("  const featured = Route.useLoaderData({ select: (d) => d.featured });\n", "")
+    .replace("      <MudHomeBeds rooms={featured} waitlist={waitlist} />\n", "");
+}
+
 /** Map the current file back onto main by reverting the whitelisted edits (quiz hero slot, waitlist mode). */
 function revertQuizEdits(src: string) {
-  return src
+  return revertShareEdits(src)
     .replace('import { useEffect, useState, type ReactNode } from "react";', 'import { useEffect, useState } from "react";')
     .replace('import { getRoomieQuizFlag } from "@/lib/roomsetu/roomie-quiz-api";\nimport { QuizHero } from "@/components/quiz-hero";\nimport { getWaitlistMode } from "@/lib/roomsetu/waitlist-api";\nimport { WaitlistSection } from "@/components/waitlist-form";\n', "")
     .replace(/ {2}\/\/ ROOMIE_QUIZ_ENABLED decides the hero\.[^\n]*\n {2}loader: async \(\) => \{\n[^\n]*\n[^\n]*\n {2}\},\n {2}component: HomeRoute,\n\}\);\n\nfunction HomeRoute\(\) \{\n(?:[^\n]*\n){5}\}\n/, "  loader: () => getHome({ data: { city: DEFAULT_CITY } }),\n  component: Home,\n});\n")

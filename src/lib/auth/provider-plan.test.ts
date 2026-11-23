@@ -22,3 +22,8 @@ test("per-app broker client (deployer-injected) keeps broker buttons, Google not
   assert.equal(ids(planSignInProviders({ brokerClientIsPreview: false, host: "roomeo-eosin.vercel.app", googleConfigured: false })), "grok-google,grok-x");
   assert.equal(ids(planSignInProviders({ brokerClientIsPreview: false, host: "roomeo-eosin.vercel.app", googleConfigured: true })), "google,grok-x");
 });
+
+test("no broker secret in env: no broker buttons, even on the sandbox", () => {
+  assert.equal(ids(planSignInProviders({ brokerClientIsPreview: true, brokerConfigured: false, host: "abc.grok-sandbox.com", googleConfigured: false })), "");
+  assert.equal(ids(planSignInProviders({ brokerClientIsPreview: true, brokerConfigured: false, host: "abc.grok-sandbox.com", googleConfigured: true })), "google");
+});

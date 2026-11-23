@@ -59,16 +59,16 @@ export const FREE_TENANTS = "Free for tenants";
 /** Home hero line (was money.ts FEE_LINE). */
 export function feeLine(f: FeeView): string {
   return f.on
-    ? `Browse and chat free. ₹${f.totalInr} (incl. GST) once when you lock a bed, refundable within 7 days.`
+    ? `Browse and chat free. ₹${f.totalInr} (incl. GST) once when you lock a bed. Refunded only if you move out within 7 days of paying.`
     : `${FREE_TENANTS}: browse, chat and lock a bed with no Roomeo fee.`;
 }
 
 /** Home "how it works" step 3 body. */
 export function homeChatStep(f: FeeView): string {
   return ownerAfterDeposit(f)
-    ? `Unlimited owner chats, free. Listing is free too. When a stay is locked, the renter pays ₹${f.totalInr} (incl. GST) once, refundable within 7 days. Owners pay ₹${ownerOf(f).flatInr} only after they've received the deposit and rent advance and Roomeo checks it.`
+    ? `Unlimited owner chats, free. Listing is free too. When a stay is locked, the renter pays ₹${f.totalInr} (incl. GST) once, refunded only if the renter moves out within 7 days of paying. Owners pay ₹${ownerOf(f).flatInr} only after they've received the deposit and rent advance and Roomeo checks it.`
     : f.on
-    ? `Unlimited owner chats, free. Listing is free too. When a stay is locked, renter and owner each pay ₹${f.totalInr} (incl. GST) once, refundable within 7 days.`
+    ? `Unlimited owner chats, free. Listing is free too. When a stay is locked, renter and owner each pay ₹${f.totalInr} (incl. GST) once, refunded only if the renter moves out within 7 days of paying.`
     : ownerOf(f).on
       ? `Unlimited owner chats, free. ${FREE_TENANTS}. Listing is free; owners pay Roomeo a flat ₹${ownerOf(f).flatInr} (GST included) only after they've received the tenant's deposit and rent advance and Roomeo checks it. Rent and deposit go straight to the owner.`
       : `Unlimited owner chats, free. Listing is free too. ${FREE_TENANTS}: no Roomeo fee. Rent and deposit go straight to the owner.`;

@@ -7,7 +7,7 @@ import { getFeeView } from "@/lib/roomsetu/pricing-api";
 
 export const Route = createFileRoute("/terms")({
   loader: () => getFeeView(),
-  head: () => pageHead("Terms of use", { description: "Roomeo's terms: we're a platform not a landlord, our fees and refunds, fair use, and Mangaluru jurisdiction." }),
+  head: () => pageHead("Terms of use", { description: "Roomeo's terms: we're a platform not a landlord, our fees and refunds, fair use, and Mangaluru jurisdiction.", path: "/terms" }),
   component: Terms,
 });
 

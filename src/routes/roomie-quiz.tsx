@@ -14,7 +14,7 @@ import { isComplete, ROOMIE_QUESTIONS, ROOMIE_TYPES, roomieTypeFor, type RoomieA
 import { deleteRoomieQuiz, getMyRoomie, getRoomieQuizFlag, saveRoomieQuiz } from "@/lib/roomsetu/roomie-quiz-api";
 
 export const Route = createFileRoute("/roomie-quiz")({
-  head: () => pageHead("What's your roomie type?", { description: "A 2-minute quiz: 9 questions, 6 roomie types. Find out who you'd vibe with in a PG or shared flat." }),
+  head: () => pageHead("What's your roomie type?", { description: "A 2-minute quiz: 9 questions, 6 roomie types. Find out who you'd vibe with in a PG or shared flat.", path: "/roomie-quiz" }),
   component: RoomieQuizPage,
 });
 
