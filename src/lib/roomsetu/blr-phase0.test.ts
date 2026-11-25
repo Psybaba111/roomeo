@@ -18,7 +18,7 @@ describe("Bengaluru areas", () => {
     assert.deepEqual(a.slice(0, 5), ["Koramangala", "HSR Layout", "Bellandur", "Whitefield", "Electronic City"]);
     assert.equal(a.filter((x) => x.toLowerCase() === "koramangala").length, 1);
     assert.ok(a.includes("Indiranagar"));
-    assert.deepEqual([...BENGALURU_LAUNCH_AREAS], ["Koramangala", "HSR Layout", "Bellandur", "Whitefield", "Electronic City"]);
+    assert.deepEqual([...BENGALURU_LAUNCH_AREAS], ["Koramangala", "HSR Layout", "Bellandur", "Whitefield", "Electronic City", "BTM Layout", "Marathahalli", "Manyata Tech Park"]);
   });
   test("Mangaluru keeps its own areas and gets no Bengaluru ones", () => {
     const m = areaOptions("Mangaluru", ["Bunder"]);

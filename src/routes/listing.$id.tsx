@@ -146,6 +146,8 @@ function ListingBody({ room }: { room: LoadedRoom }) {
     void (async () => {
       try {
         await applyToListing({ data: { id: room.id, note: "" } });
+        // A new request only (not "you already asked"); the server logs the same step in funnel_events.
+        trackEvent("request_submitted", { listing_id: room.id, city: room.city });
       } catch (e) {
         const msg = errText(e);
         if (!isAlreadyRequested(msg)) {
@@ -165,6 +167,11 @@ function ListingBody({ room }: { room: LoadedRoom }) {
       }
     })();
   }
+
+  // Booking funnel: one listing_view per page open (GA4 only; views are not counted in the database).
+  useEffect(() => {
+    trackEvent("listing_view", { listing_id: room.id, city: room.city });
+  }, [room.id, room.city]);
 
   useEffect(() => {
     if (!user) return;
@@ -197,6 +204,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
 
   return (
     <Shell>
+      <div data-funnel-listing={room.id} data-funnel-city={room.city} className="contents">
       {room.onlyYou ? (
         <p className="mb-6 rounded-[14px] border border-line bg-card p-4 text-sm shadow-[6px_6px_0_var(--color-brand)]">
           Only you can see this bed. It stays hidden from everyone else until your identity check
@@ -591,6 +599,7 @@ function ListingBody({ room }: { room: LoadedRoom }) {
             {requestCtaLabel(cta, true)}
           </button>
         </div>
+      </div>
       </div>
     </Shell>
   );

@@ -6,6 +6,8 @@ import { feeViewOf } from "@/lib/roomsetu/fee-copy";
 import { audit } from "@/lib/roomsetu/admin-api";
 import { trustOf, type TrustFields } from "@/lib/roomsetu/trust";
 import { writeTrust } from "@/lib/roomsetu/trust-db";
+import { recordFunnelEvent } from "@/lib/roomsetu/funnel-db";
+import { intakeListingInput, intakeStatus, parseIntake } from "@/lib/roomsetu/intake";
 import { createServerFn } from "@tanstack/react-start";
 import { legacyPlanRejection } from "@/lib/roomsetu/legacy-plans";
 import QRCode from "qrcode";
@@ -151,6 +153,21 @@ function seekerFrom(
   };
 }
 
+/** Creates the profile row (and SEEKER / HOST roles) on first use; a no-op when it exists. */
+async function ensureProfileRow(sql: Sql, userId: string, intent: string) {
+  const existing = await sql`select user_id from profiles where user_id = ${userId}`;
+  if (existing.length) return;
+  const auth = await sql<{ name: string }>`select name from "user" where id = ${userId}`;
+  const name = auth[0]?.name?.trim() || "New member";
+  await sql`insert into profiles (user_id, full_name, intent) values (${userId}, ${name}, ${intent}) on conflict (user_id) do nothing`;
+  if (intent !== "OFFERING") {
+    await sql`insert into profile_roles (user_id, role) values (${userId}, 'SEEKER') on conflict do nothing`;
+  }
+  if (intent !== "LOOKING") {
+    await sql`insert into profile_roles (user_id, role) values (${userId}, 'HOST') on conflict do nothing`;
+  }
+}
+
 export const ensureProfile = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: unknown) => {
@@ -162,18 +179,7 @@ export const ensureProfile = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const userId = context.userId;
-    const existing = await sql`select user_id from profiles where user_id = ${userId}`;
-    if (!existing.length) {
-      const auth = await sql<{ name: string }>`select name from "user" where id = ${userId}`;
-      const name = auth[0]?.name?.trim() || "New member";
-      await sql`insert into profiles (user_id, full_name, intent) values (${userId}, ${name}, ${data.intent})`;
-      if (data.intent !== "OFFERING") {
-        await sql`insert into profile_roles (user_id, role) values (${userId}, 'SEEKER') on conflict do nothing`;
-      }
-      if (data.intent !== "LOOKING") {
-        await sql`insert into profile_roles (user_id, role) values (${userId}, 'HOST') on conflict do nothing`;
-      }
-    }
+    await ensureProfileRow(sql, userId, data.intent);
     const row = await requireProfile(sql, userId);
     return viewProfile(row, await rolesOf(sql, userId));
   });
@@ -555,7 +561,16 @@ export const createListing = createServerFn({ method: "POST" })
     await requireProfile(sql, userId);
     await requirePublishable(sql, userId);
     await hitLimit(sql, userId, "listing");
+    return { id: await insertListing(sql, userId, data) };
+  });
 
+/**
+ * The one listing write path (shared by /create-listing and /list-your-bed): city / locality, property, listing,
+ * owner declaration, photos, amenities, trust fields, HOST role, UTM. Callers do their own checks first.
+ * Visibility is NOT decided here: search, the home page and the listing page only show a bed once its host's ID is
+ * VERIFIED (public-api.ts), so a bed written for an unverified host stays hidden until staff approve the ID.
+ */
+async function insertListing(sql: Sql, userId: string, data: Draft & { utm: ReturnType<typeof cleanUtm> }): Promise<string> {
     // Any city (Rohith, 31 Oct 2026): a typed city or locality that isn't known yet is added.
     const cityName = searchCity(data.city);
     if (!cityName) throw new Error("Type the city the bed is in.");
@@ -668,7 +683,64 @@ export const createListing = createServerFn({ method: "POST" })
     await sql`insert into profile_roles (user_id, role) values (${userId}, 'HOST') on conflict do nothing`;
     await saveUtm(sql, "listings", listingId, data.utm);
     logEvent("listing.created", { city: data.city, photos: data.photos.length });
-    return { id: listingId };
+    return listingId;
+}
+
+/**
+ * /list-your-bed (25 Nov 2026): short owner intake -> the same listing write path as /create-listing, but the host's
+ * ID does not have to be verified first. The bed is saved ACTIVE and stays hidden by the existing visibility rule
+ * (search, home and listing pages only show beds whose host ID is VERIFIED) until staff approve the ID on
+ * /admin/hosts. Admins get an inbox item (notifications); there is no admin email path in the app, so no email.
+ */
+export const submitBedIntake = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: unknown) => {
+    const intake = parseIntake(input);
+    return { intake, draft: draftOf(intakeListingInput(intake)), utm: cleanUtm((input as { utm?: unknown } | null)?.utm) };
+  })
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const userId = context.userId;
+    if (!data.intake.ownerDeclared) throw new Error(DECLARATION_REQUIRED);
+    // An owner arriving straight from an ad may not have opened the dashboard yet: make the profile here.
+    await ensureProfileRow(sql, userId, "OFFERING");
+    await sql`insert into profile_roles (user_id, role) values (${userId}, 'HOST') on conflict do nothing`;
+    const profile = await requireProfile(sql, userId);
+    if (str(profile.account_status) === "SUSPENDED") throw new Error("This account is suspended.");
+    await hitLimit(sql, userId, "listing");
+    // The intake phone becomes the profile phone only while no phone is verified yet (the Verification page then
+    // offers it for the OTP). A verified number is never replaced.
+    await sql`update profiles set phone_e164 = ${data.intake.phoneE164}, updated_at = now() where user_id = ${userId} and phone_verified_at is null`;
+    const listingId = await insertListing(sql, userId, { ...data.draft, utm: data.utm });
+    await audit(sql, userId, "intake.submitted", "listing", listingId, `${data.intake.area}, ${data.intake.city}`);
+    const p = (await sql<{ identity_status: string; id_review_status: string; phone_verified_at: string | null }>`
+      select identity_status, coalesce(id_review_status, '') as id_review_status, phone_verified_at::text from profiles where user_id = ${userId}`)[0];
+    const status = intakeStatus({ identityStatus: str(p?.identity_status), reviewStatus: str(p?.id_review_status), phoneVerified: Boolean(p?.phone_verified_at) });
+    // Admin inbox item for every operator (in-app only, nothing is sent outside the app).
+    const admins = await sql<{ user_id: string }>`select distinct user_id from profile_roles where role in ('ADMIN', 'SUPER_ADMIN')`;
+    const body = `${data.intake.area}, ${data.intake.city} · ₹${data.intake.monthlyRent.toLocaleString("en-IN")} a bed · ${status.label} · owner phone ${data.intake.phoneE164}`.slice(0, 240);
+    for (const a of admins)
+      await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${a.user_id}, 'admin_intake', 'New bed to review', ${body}, '/admin/hosts')`;
+    logEvent("intake.submitted", { city: data.intake.city, admins: admins.length, status: status.key });
+    return { id: listingId, status };
+  });
+
+/** The signed-in host's beds sent through /list-your-bed, with the status they see. */
+export const myBedIntakes = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    const p = (await sql<{ identity_status: string; id_review_status: string; phone_verified_at: string | null }>`
+      select identity_status, coalesce(id_review_status, '') as id_review_status, phone_verified_at::text from profiles where user_id = ${context.userId}`)[0];
+    const status = intakeStatus({ identityStatus: str(p?.identity_status), reviewStatus: str(p?.id_review_status), phoneVerified: Boolean(p?.phone_verified_at) });
+    const beds = await sql.query<{ id: string; title: string; monthly_rent: number; status: string }>(
+      `select l.id, l.title, l.monthly_rent, l.status from listings l
+       where l.owner_id = $1 and l.status <> 'REMOVED'
+         and exists (select 1 from audit_log a where a.action = 'intake.submitted' and a.target_type = 'listing' and a.target_id = l.id and a.actor_id = $1)
+       order by l.created_at desc limit 10`,
+      [context.userId],
+    );
+    return { status, beds: beds.map((b) => ({ id: b.id, title: str(b.title), rent: num(b.monthly_rent), listingStatus: str(b.status) })) };
   });
 
 export const setListingStatus = createServerFn({ method: "POST" })
@@ -1136,10 +1208,13 @@ export const applyToListing = createServerFn({ method: "POST" })
       await sql`select id from applications where listing_id = ${data.id} and seeker_id = ${context.userId} and status in ('PENDING','ACCEPTED')`;
     if (existing.length) throw new Error("You already have a request on this room.");
     const note = data.note || `${str(profile.full_name)} wants to lock this bed.`;
+    const applicationId = crypto.randomUUID();
     await sql.query(
       `insert into applications (id, listing_id, seeker_id, host_id, note) values ($1,$2,$3,$4,$5)`,
-      [crypto.randomUUID(), data.id, context.userId, listing[0].owner_id, note],
+      [applicationId, data.id, context.userId, listing[0].owner_id, note],
     );
+    if (!host[0].is_demo)
+      await recordFunnelEvent(sql, { kind: "request_submitted", refId: applicationId, listingId: data.id, userId: context.userId });
     if (!host[0].is_demo) {
       await sql`insert into notifications (id, user_id, kind, title, body, href) values (${crypto.randomUUID()}, ${listing[0].owner_id}, 'application', 'New room request', ${note.slice(0, 140)}, '/applications')`;
     }
@@ -1151,7 +1226,7 @@ export const applyToListing = createServerFn({ method: "POST" })
       ]);
     }
     logEvent("application.created", { demoHost: Boolean(host[0].is_demo) });
-    return { ok: true };
+    return { ok: true, id: applicationId };
   });
 
 export const listApplications = createServerFn({ method: "GET" })
@@ -1249,6 +1324,13 @@ export const setApplication = createServerFn({ method: "POST" })
       await assertIdVerified(sql, context.userId, "DEAL_ACCEPT");
     }
     await sql`update applications set status = ${data.status}, updated_at = now() where id = ${data.id}`;
+    const where = (await sql<{ city: string; demo: boolean }>`select city_name as city, is_demo as demo from listings where id = ${row.listing_id}`)[0];
+    // Booking funnel: the owner's FIRST reply (and a first yes) per request. Idempotent; no-op without migration 0034.
+    if ((data.status === "ACCEPTED" || data.status === "DECLINED") && row.status === "PENDING" && !where?.demo) {
+      await recordFunnelEvent(sql, { kind: "owner_responded", refId: data.id, listingId: row.listing_id, city: where?.city, userId: row.seeker_id });
+      if (data.status === "ACCEPTED")
+        await recordFunnelEvent(sql, { kind: "request_accepted", refId: data.id, listingId: row.listing_id, city: where?.city, userId: row.seeker_id });
+    }
     if (contactRefundDue({ decision: data.status, previousStatus: row.status })) {
       await markContactRefundDue(sql, {
         listingId: row.listing_id,
@@ -1273,7 +1355,7 @@ export const setApplication = createServerFn({ method: "POST" })
       }
     }
     logEvent("application.updated", { status: data.status });
-    return { ok: true };
+    return { ok: true, listingId: row.listing_id, city: str(where?.city), firstReply: row.status === "PENDING" && !where?.demo };
   });
 
 export const getMatches = createServerFn({ method: "GET" })

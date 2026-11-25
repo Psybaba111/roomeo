@@ -16,7 +16,7 @@ const KNOWN_AREAS: Record<string, Record<string, [number, number]>> = {
   Bengaluru: {
     Koramangala: [12.935, 77.624], Indiranagar: [12.971, 77.641], Whitefield: [12.97, 77.75], Jayanagar: [12.925, 77.583],
     "HSR Layout": [12.912, 77.645], "BTM Layout": [12.917, 77.61], Marathahalli: [12.956, 77.701], "Electronic City": [12.845, 77.66],
-    Bellandur: [12.926, 77.676],
+    Bellandur: [12.926, 77.676], "Manyata Tech Park": [13.0475, 77.621],
   },
   Mangaluru: {
     Bunder: [12.8635, 74.8365], Hampankatta: [12.8697, 74.8429], Falnir: [12.8669, 74.8487], Kodialbail: [12.8771, 74.8443],
@@ -76,8 +76,11 @@ export function citySeoDescription(name: string, fee: FeeView = FEE_OFF): string
  * sitemap search page and their launch areas offered in the area pickers even before the DB has the rows.
  */
 export const LAUNCH_CITIES = ["Bengaluru", "Mangaluru"] as const;
-/** The Bengaluru launch areas, in the order we show them. */
-export const BENGALURU_LAUNCH_AREAS = ["Koramangala", "HSR Layout", "Bellandur", "Whitefield", "Electronic City"] as const;
+/**
+ * The Bengaluru launch areas, in the order we show them. BTM Layout, Marathahalli and Manyata Tech Park were added on
+ * 25 Nov 2026 (Rohith); migration 0034 adds their DB rows, and they are offered in the pickers even before that.
+ */
+export const BENGALURU_LAUNCH_AREAS = ["Koramangala", "HSR Layout", "Bellandur", "Whitefield", "Electronic City", "BTM Layout", "Marathahalli", "Manyata Tech Park"] as const;
 
 /** Area names to offer for a city: launch areas first, then other known areas, then the DB's, de-duplicated. */
 export function areaOptions(city: string, fromDb: string[] = []): string[] {

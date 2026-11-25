@@ -7,6 +7,7 @@ import { SHARE_DESCRIPTION } from "@/lib/seo";
 import { NotFoundPage } from "@/components/not-found";
 import { Ga4Analytics } from "@/components/ga4-analytics";
 import { ConsentBanner } from "@/components/consent-banner";
+import { FunnelTracking } from "@/components/funnel-tracking";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -36,6 +37,7 @@ export const Route = createRootRoute({
         <Ga4Analytics />
         <ConsentBanner />
         <AuthProvider>
+          <FunnelTracking />
           <Outlet />
         </AuthProvider>
         <Scripts />

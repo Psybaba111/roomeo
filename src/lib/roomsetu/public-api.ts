@@ -107,6 +107,31 @@ export const getFeaturedBeds = createServerFn({ method: "GET" }).handler(async (
   }
 });
 
+/**
+ * Real, verified beds live in a city right now (no demo beds; host ID VERIFIED, the same rule as search). The home
+ * page uses it for honest copy: "onboarding owners now" and never a claim of live beds that aren't there.
+ */
+export async function liveVerifiedBeds(sql: { query<T>(q: string, p?: unknown[]): Promise<T[]> }, city: string): Promise<number> {
+  const r = await sql.query<{ n: number }>(
+    `select count(*)::int as n ${FROM}
+     where l.status = 'ACTIVE' and pr.account_status = 'ACTIVE' and l.is_demo = false and coalesce(pr.is_demo, false) = false
+       and pr.identity_status = 'VERIFIED' and lower(l.city_name) = lower($1)`,
+    [city],
+  );
+  return Number(r[0]?.n ?? 0);
+}
+
+export const getCityOnboarding = createServerFn({ method: "GET" })
+  .validator((input: unknown) => ({ city: searchCity((input as { city?: unknown } | undefined)?.city) || "Bengaluru" }))
+  .handler(async ({ data }) => {
+    try {
+      return { city: data.city, live: await liveVerifiedBeds(await getSql(), data.city) };
+    } catch (err) {
+      console.error("[home] onboarding count failed", String(err).slice(0, 200));
+      return { city: data.city, live: 0 };
+    }
+  });
+
 export const getHome = createServerFn({ method: "GET" })
   .validator((input: unknown) => ({ city: searchCity((input as { city?: unknown } | undefined)?.city) }))
   .handler(async ({ data }) => {
