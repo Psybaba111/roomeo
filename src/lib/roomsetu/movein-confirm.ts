@@ -5,6 +5,7 @@ import { moveInConfirmed } from "./pricing.ts";
 import { completionCredits, isMissingTable, referralsEnabled } from "./referrals.ts";
 import { feeCreditConfig } from "./fee-credits.ts";
 import { commissionOnMoveIn } from "./owner-fee-db.ts";
+import { recordFunnelEvent } from "./funnel-db.ts";
 
 /**
  * Called once a move-in is confirmed. If the renter came in on an invite, the referral is stamped complete.
@@ -69,5 +70,7 @@ export async function confirmMoveInRecord(
   await completeReferralOnMoveIn(sql, d.seekerId, m.application_id);
   // Owner commission (OWNER_FEE_ENABLED, off by default). Never throws.
   await commissionOnMoveIn(sql, id);
+  // Booking funnel (no-op without migration 0034, never throws).
+  await recordFunnelEvent(sql, { kind: "moved_in", refId: id, listingId: d.listingId, userId: d.seekerId });
   return { confirmed: true, newlyConfirmed: true, moveInId: id };
 }

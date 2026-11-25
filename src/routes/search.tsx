@@ -1,5 +1,6 @@
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
+import { trackEvent } from "@/lib/analytics/client";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Shell } from "@/components/shell";
 import { errText } from "@/lib/ui-text";
@@ -109,6 +110,8 @@ function SearchPage() {
         if (!live) return;
         setRooms(result);
         setError("");
+        // Booking funnel step 1 (server side: the metric_events 'search' row written by searchListings).
+        trackEvent("search", { city, area: initial.locality, method: result.total > 0 ? "results" : "no_results" });
       })
       .catch((e) => {
         if (live) setError(errText(e));

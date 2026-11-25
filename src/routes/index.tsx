@@ -8,7 +8,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Shell } from "@/components/shell";
 import { BedCarousel } from "@/components/bed-carousel";
 import { EmptyBeds } from "@/components/empty-beds";
-import { getFeaturedBeds, getHome, listCities } from "@/lib/roomsetu/public-api";
+import { getCityOnboarding, getFeaturedBeds, getHome, listCities } from "@/lib/roomsetu/public-api";
+import { BengaluruOnboarding, NoVerifiedBeds } from "@/components/city-onboarding";
 import { CityPicker } from "@/components/city-picker";
 import { DEFAULT_CITY, budgetHints, cityInfo } from "@/lib/roomsetu/cities";
 import { getRoomieQuizFlag } from "@/lib/roomsetu/roomie-quiz-api";
@@ -26,8 +27,8 @@ export const Route = createFileRoute("/")({
   }),
   // ROOMIE_QUIZ_ENABLED decides the hero. Flag off → the classic hero, exactly as before (see home-flag-off.test.ts).
   loader: async () => {
-    const [home, flag, wl, featured] = await Promise.all([getHome({ data: { city: DEFAULT_CITY } }), getRoomieQuizFlag().catch(() => ({ enabled: false })), getWaitlistMode().catch(() => ({ enabled: false })), getFeaturedBeds().catch(() => [])]);
-    return { home, quizHero: flag.enabled, waitlist: wl.enabled, featured };
+    const [home, flag, wl, featured, blr] = await Promise.all([getHome({ data: { city: DEFAULT_CITY } }), getRoomieQuizFlag().catch(() => ({ enabled: false })), getWaitlistMode().catch(() => ({ enabled: false })), getFeaturedBeds().catch(() => []), getCityOnboarding({ data: { city: "Bengaluru" } }).catch(() => ({ city: "Bengaluru", live: 0 }))]);
+    return { home, quizHero: flag.enabled, waitlist: wl.enabled, featured, blr };
   },
   component: HomeRoute,
 });
@@ -78,6 +79,7 @@ function Home({ hero, waitlist = false }: { hero?: (city: string) => ReactNode; 
   const [data, setData] = useState(initialData);
   const [city, setCity] = useState(initialData.city || DEFAULT_CITY);
   const featured = Route.useLoaderData({ select: (d) => d.featured });
+  const blr = Route.useLoaderData({ select: (d) => d.blr });
   const navigate = useNavigate();
   const [budget, setBudget] = useState("");
   const [area, setArea] = useState("");
@@ -103,7 +105,7 @@ function Home({ hero, waitlist = false }: { hero?: (city: string) => ReactNode; 
 
   return (
     <Shell>
-      <MudHomeBeds rooms={featured} waitlist={waitlist} />
+      {featured.length ? <MudHomeBeds rooms={featured} waitlist={waitlist} /> : <NoVerifiedBeds />}
       {hero ? hero(city) : (
       <section className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-[#2a0a4a] px-4 pb-12 pt-10 text-white">
         <div className="relative mx-auto max-w-6xl">
@@ -200,6 +202,7 @@ function Home({ hero, waitlist = false }: { hero?: (city: string) => ReactNode; 
       </section>
       )}
       {waitlist ? <WaitlistSection city={city} /> : null}
+      <BengaluruOnboarding live={blr.live} waitlist={waitlist} />
 
       <section className="mt-8" aria-labelledby="safe">
         <h2 id="safe" className="text-2xl sm:text-3xl">

@@ -7,7 +7,15 @@ import { sanitizePagePath, type Gtag } from "./ga4.ts";
 import type { Fbq } from "./pixel.ts";
 import { readFirstTouch, utmParams } from "./utm.ts";
 
-export const TRACK_EVENTS = ["sign_up", "listing_created", "request_sent", "quiz_complete", "waitlist_join"] as const;
+/**
+ * The booking funnel (25 Nov 2026), in order: search → listing_view → request_submitted → owner_responded →
+ * request_accepted → payment_completed → moved_in, plus whatsapp_click. Each carries listing_id + city where the
+ * step has a listing (search has only city / area). The server-side steps are also written to funnel_events.
+ */
+export const FUNNEL_EVENTS = ["search", "listing_view", "request_submitted", "owner_responded", "request_accepted", "payment_completed", "moved_in", "whatsapp_click"] as const;
+export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];
+
+export const TRACK_EVENTS = ["sign_up", "listing_created", "request_sent", "quiz_complete", "waitlist_join", ...FUNNEL_EVENTS] as const;
 export type TrackEvent = (typeof TRACK_EVENTS)[number];
 
 /** GA4 name → Meta Pixel call. Standard events where Meta has one, custom otherwise. */
@@ -17,9 +25,17 @@ export const PIXEL_EVENT: Record<TrackEvent, { method: "track" | "trackCustom"; 
   request_sent: { method: "track", name: "Contact" },
   listing_created: { method: "trackCustom", name: "ListingCreated" },
   quiz_complete: { method: "trackCustom", name: "QuizComplete" },
+  search: { method: "track", name: "Search" },
+  listing_view: { method: "track", name: "ViewContent" },
+  request_submitted: { method: "trackCustom", name: "RequestSubmitted" },
+  owner_responded: { method: "trackCustom", name: "OwnerResponded" },
+  request_accepted: { method: "trackCustom", name: "RequestAccepted" },
+  payment_completed: { method: "trackCustom", name: "PaymentCompleted" },
+  moved_in: { method: "trackCustom", name: "MovedIn" },
+  whatsapp_click: { method: "trackCustom", name: "WhatsAppClick" },
 };
 
-const PARAM_KEYS = ["method", "role", "city", "source", "roomie_type", "listing_kind", "listing_id"] as const;
+const PARAM_KEYS = ["method", "role", "city", "area", "source", "roomie_type", "listing_kind", "listing_id", "decision"] as const;
 type Params = Partial<Record<(typeof PARAM_KEYS)[number], string>>;
 
 export type TrackWindow = {
@@ -28,6 +44,8 @@ export type TrackWindow = {
   __roomeoGaEvents?: boolean;
   __roomeoGaInternal?: boolean;
   __roomeoPixel?: string;
+  /** Last 50 events this page tried to send (name + allowlisted params only). For QA on previews, where GA is off. */
+  __roomeoEventLog?: Array<{ name: string; params: Record<string, string>; ga: boolean }>;
   location?: { pathname: string };
   localStorage?: { getItem: (k: string) => string | null; setItem: (k: string, v: string) => void };
 };
@@ -42,8 +60,8 @@ export function eventParams(p: Record<string, unknown> = {}): Params {
     if (!v) continue;
     if (k === "listing_id") {
       if (UUID.test(v)) out.listing_id = v.toLowerCase();
-    } else if (k === "city") {
-      if (/^[\p{L} .'-]{1,40}$/u.test(v)) out.city = v;
+    } else if (k === "city" || k === "area") {
+      if (/^[\p{L} .'-]{1,40}$/u.test(v)) out[k] = v;
     } else if (/^[a-z][a-z0-9_]{0,31}$/.test(v)) out[k] = v;
   }
   return out;
@@ -77,6 +95,13 @@ export function trackEvent(name: TrackEvent, params: Record<string, unknown> = {
       w.fbq(m.method, m.name, all);
       sent.pixel = true;
     }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const log = (w.__roomeoEventLog ??= []);
+    log.push({ name, params: all, ga: sent.ga });
+    if (log.length > 50) log.splice(0, log.length - 50);
   } catch {
     /* ignore */
   }

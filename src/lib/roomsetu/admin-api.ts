@@ -588,6 +588,9 @@ export const adminReviewPayment = createServerFn({ method: "POST" })
     // nothing applied, so the admin can approve again. Approving an already-PAID payment is a no-op.
     const r = await approveUpiPayment(sql, { paymentId: data.id, adminId: context.userId }, { unlock: unlockFromPayment, apply: applyPaidPayment });
     if (r.already) return { ok: true, already: true };
+    // Funnel log after the commit, never on a repeat (also idempotent per payment). No-op without migration 0034.
+    const { recordPaymentCompleted } = await import("@/lib/roomsetu/funnel-db");
+    await recordPaymentCompleted(sql, data.id);
     // WhatsApp only after the commit, and never on a repeat approval.
     const who = await sql<{
       phone_e164: string | null;

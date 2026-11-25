@@ -91,6 +91,8 @@ export const NOTIFY_EVENTS = {
   paymentApproved: "MAPPSTORE_TPL_PAYMENT_APPROVED",
   /** roomeo_agreement_signed: {{1}} person's name, {{2}} property/bed label. */
   agreementSigned: "MAPPSTORE_TPL_AGREEMENT_SIGNED",
+  /** Owner reminder for a request still pending after 2 hours: {{1}} the bed's short name. Template not created yet. */
+  ownerNudge: "MAPPSTORE_TPL_OWNER_NUDGE",
 } as const;
 
 /** Body params for roomeo_agreement_signed. Falls back to neutral words so Meta never gets an empty variable. */

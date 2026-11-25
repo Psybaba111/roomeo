@@ -1,4 +1,5 @@
 import { RoomieBadge, VibeMatchBadge } from "@/components/roomie-card";
+import { decideRequest } from "@/lib/roomsetu/decide-request";
 import { readableDate } from "@/lib/roomsetu/dates";
 import { pageHead } from "@/lib/seo";
 import { useEffect, useState } from "react";
@@ -126,8 +127,8 @@ function Apps() {
                 ) : null}
                 {!row.mine && row.status === "PENDING" ? (
                   <>
-                    <button type="button" className="h-10 rounded-full bg-brand px-3 text-sm text-card" onClick={() => { setRowErr(null); void setApplication({ data: { id: row.id, status: "ACCEPTED" } }).then(load).catch((e) => setRowErr({ id: row.id, msg: errText(e) })); }}>Accept</button>
-                    <button type="button" className="h-10 rounded-full border border-line px-3 text-sm" onClick={() => { setRowErr(null); void setApplication({ data: { id: row.id, status: "DECLINED" } }).then(load).catch((e) => setRowErr({ id: row.id, msg: errText(e) })); }}>Decline</button>
+                    <button type="button" className="h-10 rounded-full bg-brand px-3 text-sm text-card" onClick={() => { setRowErr(null); void decideRequest(row.id, "ACCEPTED").then(load).catch((e) => setRowErr({ id: row.id, msg: errText(e) })); }}>Accept</button>
+                    <button type="button" className="h-10 rounded-full border border-line px-3 text-sm" onClick={() => { setRowErr(null); void decideRequest(row.id, "DECLINED").then(load).catch((e) => setRowErr({ id: row.id, msg: errText(e) })); }}>Decline</button>
                   </>
                 ) : null}
                 {!row.mine ? (

@@ -1,4 +1,5 @@
 import { RoomieBadge, VibeMatchBadge } from "@/components/roomie-card";
+import { decideRequest } from "@/lib/roomsetu/decide-request";
 import { pageHead } from "@/lib/seo";
 import { useCallback, useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -11,7 +12,6 @@ import {
   listConversations,
   openConversation,
   sendMessage,
-  setApplication,
 } from "@/lib/roomsetu/account-api";
 import { getInboxSummary, getOwnerDeals } from "@/lib/roomsetu/owner-inbox-api";
 import { INBOX_EMPTY } from "@/lib/roomsetu/owner-inbox";
@@ -137,7 +137,7 @@ function OwnerInbox() {
   const nothing = !requests.length && !unread.length && !deals.deals.length;
 
   const decide = (id: string, status: "ACCEPTED" | "DECLINED") =>
-    void setApplication({ data: { id, status } })
+    void decideRequest(id, status)
       .then(() => setNote(status === "ACCEPTED" ? "Accepted 🎉 Next up: the agreement." : "Declined. They'll get a heads up."))
       .then(load)
       .catch((e) => setNote(errText(e)));

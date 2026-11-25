@@ -1,4 +1,5 @@
 import { pageHead } from "@/lib/seo";
+import { decideRequest } from "@/lib/roomsetu/decide-request";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { NeedAccount } from "@/components/need-account";
@@ -18,7 +19,6 @@ import {
   getDesk,
   listApplications,
   openConversation,
-  setApplication,
   setListingStatus,
   updateProfile,
 } from "@/lib/roomsetu/account-api";
@@ -264,7 +264,7 @@ function Desk() {
                     type="button"
                     className="h-10 rounded-full bg-brand px-3 text-sm font-semibold text-card"
                     onClick={() =>
-                      void setApplication({ data: { id: row.id, status: "ACCEPTED" } })
+                      void decideRequest(row.id, "ACCEPTED")
                         .then(refresh)
                         .catch((e) => setNote(errText(e)))
                     }
@@ -275,7 +275,7 @@ function Desk() {
                     type="button"
                     className="h-10 rounded-full border border-line px-3 text-sm"
                     onClick={() =>
-                      void setApplication({ data: { id: row.id, status: "DECLINED" } })
+                      void decideRequest(row.id, "DECLINED")
                         .then(refresh)
                         .catch((e) => setNote(errText(e)))
                     }

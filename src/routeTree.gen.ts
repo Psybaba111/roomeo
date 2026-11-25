@@ -16,6 +16,7 @@ import { Route as CreateListingRouteImport } from './routes/create-listing'
 import { Route as CreateRoomWantedRouteImport } from './routes/create-room-wanted'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as ListYourBedRouteImport } from './routes/list-your-bed'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MatchesRouteImport } from './routes/matches'
 import { Route as MessagesRouteImport } from './routes/messages'
@@ -39,6 +40,7 @@ import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminCommissionsRouteImport } from './routes/admin.commissions'
 import { Route as AdminCreditsRouteImport } from './routes/admin.credits'
 import { Route as AdminFlagsRouteImport } from './routes/admin.flags'
+import { Route as AdminFunnelRouteImport } from './routes/admin.funnel'
 import { Route as AdminHostsRouteImport } from './routes/admin.hosts'
 import { Route as AdminListingsRouteImport } from './routes/admin.listings'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
@@ -57,6 +59,7 @@ import { Route as SquadsIdRouteImport } from './routes/squads.$id'
 import { Route as VerifyDigilockerRouteImport } from './routes/verify.digilocker'
 import { Route as VerifyIdMockRouteImport } from './routes/verify.id-mock'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCronNudgesRouteImport } from './routes/api/cron/nudges'
 import { Route as ApiCronPricingRouteImport } from './routes/api/cron/pricing'
 import { Route as ApiImgIdRouteImport } from './routes/api/img.$id'
 import { Route as ApiWebhooksMappstoreRouteImport } from './routes/api/webhooks/mappstore'
@@ -96,6 +99,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const InboxRoute = InboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ListYourBedRoute = ListYourBedRouteImport.update({
+  id: '/list-your-bed',
+  path: '/list-your-bed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -213,6 +221,11 @@ const AdminFlagsRoute = AdminFlagsRouteImport.update({
   path: '/admin/flags',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminFunnelRoute = AdminFunnelRouteImport.update({
+  id: '/admin/funnel',
+  path: '/admin/funnel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminHostsRoute = AdminHostsRouteImport.update({
   id: '/admin/hosts',
   path: '/admin/hosts',
@@ -303,6 +316,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronNudgesRoute = ApiCronNudgesRouteImport.update({
+  id: '/api/cron/nudges',
+  path: '/api/cron/nudges',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCronPricingRoute = ApiCronPricingRouteImport.update({
   id: '/api/cron/pricing',
   path: '/api/cron/pricing',
@@ -337,6 +355,7 @@ export interface FileRoutesByFullPath {
   '/create-room-wanted': typeof CreateRoomWantedRoute
   '/dashboard': typeof DashboardRoute
   '/inbox': typeof InboxRoute
+  '/list-your-bed': typeof ListYourBedRoute
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
@@ -359,6 +378,7 @@ export interface FileRoutesByFullPath {
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/credits': typeof AdminCreditsRoute
   '/admin/flags': typeof AdminFlagsRoute
+  '/admin/funnel': typeof AdminFunnelRoute
   '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -378,6 +398,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/nudges': typeof ApiCronNudgesRoute
   '/api/cron/pricing': typeof ApiCronPricingRoute
   '/api/img/$id': typeof ApiImgIdRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
@@ -392,6 +413,7 @@ export interface FileRoutesByTo {
   '/create-room-wanted': typeof CreateRoomWantedRoute
   '/dashboard': typeof DashboardRoute
   '/inbox': typeof InboxRoute
+  '/list-your-bed': typeof ListYourBedRoute
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
@@ -414,6 +436,7 @@ export interface FileRoutesByTo {
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/credits': typeof AdminCreditsRoute
   '/admin/flags': typeof AdminFlagsRoute
+  '/admin/funnel': typeof AdminFunnelRoute
   '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -433,6 +456,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/squads': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/nudges': typeof ApiCronNudgesRoute
   '/api/cron/pricing': typeof ApiCronPricingRoute
   '/api/img/$id': typeof ApiImgIdRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
@@ -448,6 +472,7 @@ export interface FileRoutesById {
   '/create-room-wanted': typeof CreateRoomWantedRoute
   '/dashboard': typeof DashboardRoute
   '/inbox': typeof InboxRoute
+  '/list-your-bed': typeof ListYourBedRoute
   '/login': typeof LoginRoute
   '/matches': typeof MatchesRoute
   '/messages': typeof MessagesRoute
@@ -470,6 +495,7 @@ export interface FileRoutesById {
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/credits': typeof AdminCreditsRoute
   '/admin/flags': typeof AdminFlagsRoute
+  '/admin/funnel': typeof AdminFunnelRoute
   '/admin/hosts': typeof AdminHostsRoute
   '/admin/listings': typeof AdminListingsRoute
   '/admin/payments': typeof AdminPaymentsRoute
@@ -489,6 +515,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/squads/': typeof SquadsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/nudges': typeof ApiCronNudgesRoute
   '/api/cron/pricing': typeof ApiCronPricingRoute
   '/api/img/$id': typeof ApiImgIdRoute
   '/api/webhooks/mappstore': typeof ApiWebhooksMappstoreRoute
@@ -505,6 +532,7 @@ export interface FileRouteTypes {
     | '/create-room-wanted'
     | '/dashboard'
     | '/inbox'
+    | '/list-your-bed'
     | '/login'
     | '/matches'
     | '/messages'
@@ -527,6 +555,7 @@ export interface FileRouteTypes {
     | '/admin/commissions'
     | '/admin/credits'
     | '/admin/flags'
+    | '/admin/funnel'
     | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
@@ -546,6 +575,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/squads/'
     | '/api/auth/$'
+    | '/api/cron/nudges'
     | '/api/cron/pricing'
     | '/api/img/$id'
     | '/api/webhooks/mappstore'
@@ -560,6 +590,7 @@ export interface FileRouteTypes {
     | '/create-room-wanted'
     | '/dashboard'
     | '/inbox'
+    | '/list-your-bed'
     | '/login'
     | '/matches'
     | '/messages'
@@ -582,6 +613,7 @@ export interface FileRouteTypes {
     | '/admin/commissions'
     | '/admin/credits'
     | '/admin/flags'
+    | '/admin/funnel'
     | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
@@ -601,6 +633,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/squads'
     | '/api/auth/$'
+    | '/api/cron/nudges'
     | '/api/cron/pricing'
     | '/api/img/$id'
     | '/api/webhooks/mappstore'
@@ -615,6 +648,7 @@ export interface FileRouteTypes {
     | '/create-room-wanted'
     | '/dashboard'
     | '/inbox'
+    | '/list-your-bed'
     | '/login'
     | '/matches'
     | '/messages'
@@ -637,6 +671,7 @@ export interface FileRouteTypes {
     | '/admin/commissions'
     | '/admin/credits'
     | '/admin/flags'
+    | '/admin/funnel'
     | '/admin/hosts'
     | '/admin/listings'
     | '/admin/payments'
@@ -656,6 +691,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/squads/'
     | '/api/auth/$'
+    | '/api/cron/nudges'
     | '/api/cron/pricing'
     | '/api/img/$id'
     | '/api/webhooks/mappstore'
@@ -671,6 +707,7 @@ export interface RootRouteChildren {
   CreateRoomWantedRoute: typeof CreateRoomWantedRoute
   DashboardRoute: typeof DashboardRoute
   InboxRoute: typeof InboxRoute
+  ListYourBedRoute: typeof ListYourBedRoute
   LoginRoute: typeof LoginRoute
   MatchesRoute: typeof MatchesRoute
   MessagesRoute: typeof MessagesRoute
@@ -693,6 +730,7 @@ export interface RootRouteChildren {
   AdminCommissionsRoute: typeof AdminCommissionsRoute
   AdminCreditsRoute: typeof AdminCreditsRoute
   AdminFlagsRoute: typeof AdminFlagsRoute
+  AdminFunnelRoute: typeof AdminFunnelRoute
   AdminHostsRoute: typeof AdminHostsRoute
   AdminListingsRoute: typeof AdminListingsRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
@@ -712,6 +750,7 @@ export interface RootRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   SquadsIndexRoute: typeof SquadsIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCronNudgesRoute: typeof ApiCronNudgesRoute
   ApiCronPricingRoute: typeof ApiCronPricingRoute
   ApiImgIdRoute: typeof ApiImgIdRoute
   ApiWebhooksMappstoreRoute: typeof ApiWebhooksMappstoreRoute
@@ -768,6 +807,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof InboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/list-your-bed': {
+      id: '/list-your-bed'
+      path: '/list-your-bed'
+      fullPath: '/list-your-bed'
+      preLoaderRoute: typeof ListYourBedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -931,6 +977,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminFlagsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/funnel': {
+      id: '/admin/funnel'
+      path: '/admin/funnel'
+      fullPath: '/admin/funnel'
+      preLoaderRoute: typeof AdminFunnelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/hosts': {
       id: '/admin/hosts'
       path: '/admin/hosts'
@@ -1057,6 +1110,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/nudges': {
+      id: '/api/cron/nudges'
+      path: '/api/cron/nudges'
+      fullPath: '/api/cron/nudges'
+      preLoaderRoute: typeof ApiCronNudgesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/cron/pricing': {
       id: '/api/cron/pricing'
       path: '/api/cron/pricing'
@@ -1103,6 +1163,7 @@ const rootRouteChildren: RootRouteChildren = {
   CreateRoomWantedRoute: CreateRoomWantedRoute,
   DashboardRoute: DashboardRoute,
   InboxRoute: InboxRoute,
+  ListYourBedRoute: ListYourBedRoute,
   LoginRoute: LoginRoute,
   MatchesRoute: MatchesRoute,
   MessagesRoute: MessagesRoute,
@@ -1125,6 +1186,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminCommissionsRoute: AdminCommissionsRoute,
   AdminCreditsRoute: AdminCreditsRoute,
   AdminFlagsRoute: AdminFlagsRoute,
+  AdminFunnelRoute: AdminFunnelRoute,
   AdminHostsRoute: AdminHostsRoute,
   AdminListingsRoute: AdminListingsRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
@@ -1144,6 +1206,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   SquadsIndexRoute: SquadsIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCronNudgesRoute: ApiCronNudgesRoute,
   ApiCronPricingRoute: ApiCronPricingRoute,
   ApiImgIdRoute: ApiImgIdRoute,
   ApiWebhooksMappstoreRoute: ApiWebhooksMappstoreRoute,
