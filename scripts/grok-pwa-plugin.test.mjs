@@ -539,3 +539,21 @@ test("vite plugin bakes og identity as a virtual module", () => {
   assert.match(plugin, /snapshotOgIdentity/);
 });
 
+
+test("no Created with Grok / Remix pill on the Vercel production deployment; previews keep it", () => {
+  const keep = { VITE_GROK_EXTENSIONS: process.env.VITE_GROK_EXTENSIONS, VERCEL_ENV: process.env.VERCEL_ENV };
+  try {
+    delete process.env.VITE_GROK_EXTENSIONS;
+    process.env.VERCEL_ENV = "production";
+    const baked = '<html><head><script src="https://grok.com/grok-app-builder/extensions.js" defer></script></head></html>';
+    assert.doesNotMatch(injectGrokPwaHead(baked, { appName: "Demo", projectId: "p" }), /extensions\.js/);
+    assert.doesNotMatch(injectGrokPwaHead("<html><head></head></html>", { appName: "Demo", projectId: "p" }), /extensions\.js/);
+    process.env.VERCEL_ENV = "preview";
+    assert.match(injectGrokPwaHead("<html><head></head></html>", { appName: "Demo", projectId: "p" }), /extensions\.js/);
+  } finally {
+    for (const [k, v] of Object.entries(keep)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+});

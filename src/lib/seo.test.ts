@@ -56,7 +56,8 @@ test("robots.txt points at the same base as the sitemap", () => {
 });
 
 test("shared social/meta description: exact copy, no ₹ fee, used by site.json; listings keep their own", () => {
-  assert.equal(SHARE_DESCRIPTION, "Spare PG beds and shared rooms in Bengaluru and Mangaluru. Dated photos, rent + bills in one price, meals optional. Deposit paid to the owner.");
+  assert.equal(SHARE_DESCRIPTION, "Real spare PG beds in Mangaluru, starting with Mud Home in Bunder. Dated photos, rent + bills in one price, meals optional. Deposit paid straight to the owner.");
+  assert.doesNotMatch(SHARE_DESCRIPTION, /Bengaluru/, "no city we have no beds in");
   assert.ok(!/₹/.test(SHARE_DESCRIPTION));
   const site = JSON.parse(readFileSync(new URL("./og/site.json", import.meta.url), "utf8"));
   assert.equal(site.description, SHARE_DESCRIPTION, "default og:/twitter:description injected on non-listing pages");
@@ -68,4 +69,24 @@ test("shared social/meta description: exact copy, no ₹ fee, used by site.json;
     const src = readFileSync(new URL(f, import.meta.url), "utf8");
     assert.match(src, /SHARE_DESCRIPTION/, f);
   }
+});
+
+test("pageHead ships its own share card: og:image absolute, canonical + og:url when a path is given", async () => {
+  const { pageHead: ph, SITE_URL, siteJsonLd } = await import("./seo.ts");
+  const h = ph("Pricing", { description: "d", path: "/pricing" });
+  const get = (k: string) => h.meta.find((m) => m.property === k || m.name === k)?.content;
+  assert.equal(get("roomeo:og"), "page");
+  assert.equal(get("og:image"), `${SITE_URL}/og.jpg`);
+  assert.equal(get("og:description"), "d");
+  assert.equal(get("og:url"), `${SITE_URL}/pricing`);
+  assert.equal(get("twitter:card"), "summary_large_image");
+  assert.deepEqual(h.links, [{ rel: "canonical", href: `${SITE_URL}/pricing` }]);
+  assert.equal(h.meta.filter((m) => m.property === "og:description").length, 1);
+  // Listing pages keep their own card only (no second og:image).
+  const lh = ph("x", { share: false });
+  assert.ok(!lh.meta.some((m) => m.property === "og:image"));
+  const ld = siteJsonLd({ name: "Athiti", address: "Bunder" }, "https://example.com");
+  assert.equal(ld[0]["@type"], "Organization");
+  assert.equal(ld[1]["@type"], "WebSite");
+  assert.ok(!JSON.stringify(ld).includes("@gmail"));
 });

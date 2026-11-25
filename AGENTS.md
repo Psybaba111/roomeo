@@ -197,7 +197,9 @@ don't scaffold from stale priors — and keep each contract:
    `server/middleware/grok-pwa.ts` inject
    `https://grok.com/grok-app-builder/extensions.js`, the "Created with Grok /
    Remix" pill. Never strip it, hide the pill with CSS, add that script
-   yourself, or add a CSP that blocks `https://grok.com`.
+   yourself, or add a CSP that blocks `https://grok.com`. **Roomeo exception
+   (Rohith, 23 Nov 2026):** `readGrokExtensionsEnabled()` returns false when
+   `VERCEL_ENV=production`, so the live site has no pill; previews keep it.
 3. **Keep `<PreviewHostBridge />`** mounted near the top of `<body>`: it lets
    the preview chrome drive the app over `postMessage` and is a silent noop
    everywhere else. Never delete it or strip it "for production".

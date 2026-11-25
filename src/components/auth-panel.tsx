@@ -49,7 +49,7 @@ export function AuthPanel({ mode }: { mode: "login" | "register" }) {
     <div className="mx-auto max-w-md">
       <h1 className="font-display text-4xl">{mode === "login" ? "Welcome back" : "Let's find your bed 🛏️"}</h1>
       <p className="mt-2 text-muted">
-        {mode === "login" ? "Use email, Google, or X." : "Takes a minute. Bengaluru and Mangaluru beds, no broker's month."}
+        {mode === "login" ? "Use email, Google, or X." : "Takes a minute. Real spare beds, no broker's month."}
       </p>
       <form
         className="mt-6 space-y-3"

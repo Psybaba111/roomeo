@@ -11,6 +11,7 @@ import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
+import { SECURITY_HEADERS } from "./src/lib/security/headers";
 
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
 function hasGlobbedMigrations(root: string): boolean {
@@ -186,6 +187,9 @@ export default defineConfig(({ command, isPreview }) => ({
             // manifest + head-tag middleware). Nitro v3 defaults serverDir to
             // false, so removing this silently unwires /?install=1 on deploys.
             serverDir: "./server",
+            // Security headers on every response (HTML, API and static). See src/lib/security/headers.ts.
+            // A Vercel route with `continue: true` (Nitro's routeRules headers emit no `continue`).
+            vercel: { config: { routes: [{ src: "/(.*)", headers: SECURITY_HEADERS, continue: true }] } },
           }),
         ]
       : []),

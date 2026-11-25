@@ -10,6 +10,7 @@ import { listingCard, num, str, bool, type ListingCard } from "@/lib/roomsetu/ma
 import { likeContains } from "@/lib/roomsetu/services";
 import { areaCentroid, searchCity } from "@/lib/roomsetu/cities";
 import { imageUrlSql } from "@/lib/roomsetu/listing-image";
+import { FEATURED_LIMIT, FEATURED_SQL_WHERE, featuredParams } from "@/lib/roomsetu/featured-host";
 
 const CARD_SQL = `
   l.id, l.title, l.city_name, l.locality_name, l.monthly_rent, l.deposit, l.room_type, l.listing_kind, l.bedrooms,
@@ -84,6 +85,27 @@ function filters(input: unknown): SearchFilters {
     q: clean(o.q, 60),
   };
 }
+
+/** Mud Home's own live beds for the home page strip (see featured-host.ts). Cheapest first. */
+export async function featuredHostBeds(sql: { query<T>(q: string, p?: unknown[]): Promise<T[]> }): Promise<ListingCard[]> {
+  const rows = await sql.query<Record<string, unknown>>(
+    `select ${CARD_SQL} ${FROM}
+     where ${FEATURED_SQL_WHERE}
+     order by l.monthly_rent asc, l.created_at asc
+     limit ${FEATURED_LIMIT}`,
+    featuredParams(),
+  );
+  return rows.map(listingCard);
+}
+
+export const getFeaturedBeds = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    return await featuredHostBeds(await getSql());
+  } catch (err) {
+    console.error("[home] featured beds failed", String(err).slice(0, 200));
+    return [] as ListingCard[];
+  }
+});
 
 export const getHome = createServerFn({ method: "GET" })
   .validator((input: unknown) => ({ city: searchCity((input as { city?: unknown } | undefined)?.city) }))

@@ -10,7 +10,7 @@ export const Route = createFileRoute("/waitlist")({
     const { enabled } = await getWaitlistMode();
     if (!enabled) throw redirect({ to: "/" }); // flag off: this page doesn't exist
   },
-  head: () => pageHead("Launching soon · Join the waitlist", { description: "Roomeo is launching soon. Join the waitlist for first pick of verified spare beds.", noindex: true }),
+  head: () => pageHead("Launching soon · Join the waitlist", { description: "Roomeo is launching soon. Join the waitlist for first pick of verified spare beds.", path: "/waitlist", noindex: true }),
   component: WaitlistPage,
 });
 

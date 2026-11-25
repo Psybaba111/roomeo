@@ -17,10 +17,11 @@ export function isSandboxHost(host: string): boolean {
   return /(^|\.)grok-sandbox\.com$/i.test(host.split(":")[0] ?? "");
 }
 
-export function planSignInProviders(p: { brokerClientIsPreview: boolean; host: string; googleConfigured: boolean }): SignInProvider[] {
+/** `brokerConfigured: false` (no broker client secret in env) hides every broker button. */
+export function planSignInProviders(p: { brokerClientIsPreview: boolean; host: string; googleConfigured: boolean; brokerConfigured?: boolean }): SignInProvider[] {
   const out: SignInProvider[] = [];
   if (p.googleConfigured) out.push({ id: "google", label: "Google", kind: "social" });
-  const brokerOk = !p.brokerClientIsPreview || isSandboxHost(p.host);
+  const brokerOk = p.brokerConfigured !== false && (!p.brokerClientIsPreview || isSandboxHost(p.host));
   if (brokerOk) {
     for (const b of BROKER_PROVIDERS) {
       if (b.id === "grok-google" && p.googleConfigured) continue; // one Google button only

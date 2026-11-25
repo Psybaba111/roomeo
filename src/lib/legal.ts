@@ -185,3 +185,20 @@ export function termsFor(fee: FeeView): LegalSection[] {
 
 /** Terms with the default (fee OFF) setting. Pages should use `termsFor(fee)` with the live setting. */
 export const TERMS: LegalSection[] = termsFor(FEE_OFF);
+
+/**
+ * /refund-policy. Built ONLY from the Terms "Refunds" clause and the Pricing refund FAQ answers for the same
+ * fee setting, so the three pages can't drift apart (refund-policy.test.ts checks this).
+ */
+export function refundPolicyFor(fee: FeeView, pricingFaq: [string, string][]): LegalSection[] {
+  const terms = termsFor(fee);
+  const refunds = terms.find((s) => s.id === "refunds")!;
+  const platform = terms.find((s) => s.id === "platform")!;
+  const faq = pricingFaq.filter(([q]) => /refund/i.test(q));
+  return [
+    { id: "short", title: "The short version", body: faq.map(([q, a]) => `${q} ${a}`) },
+    { id: "rules", title: "Refund rules", body: refunds.body },
+    { id: "rent-deposit", title: "Rent and deposit", body: platform.body.filter((b) => /rent or deposits/.test(b)) },
+    { id: "help", title: "Need help with a refund?", body: grievance.slice(0, 2) },
+  ];
+}

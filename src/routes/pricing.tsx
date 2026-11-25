@@ -17,6 +17,7 @@ export const Route = createFileRoute("/pricing")({
   head: ({ loaderData }) =>
     pageHead(pricingCopy(asFeeView(loaderData), TRIAL).headTitle, {
       description: SHARE_DESCRIPTION,
+      path: "/pricing",
     }),
   component: Pricing,
 });

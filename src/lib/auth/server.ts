@@ -45,8 +45,7 @@ import { pgliteDialect } from "./pglite-dialect";
 import {
   GROK_ISSUER_DEFAULT,
   PREVIEW_ALLOWED_HOSTS,
-  PREVIEW_CLIENT_ID,
-  PREVIEW_CLIENT_SECRET,
+  resolveBrokerClient,
 } from "./preview";
 
 // Kick (and share) PGLite bootstrap as soon as the auth server module loads.
@@ -77,15 +76,24 @@ const env = (key: string): string | undefined => {
 const authDisabled = env("VITE_AUTH_ENABLED") === "false";
 
 // Broker federation creds: the deployer injects a per-app client when deployed;
-// otherwise fall back to the shared live-preview client, which the broker accepts
-// for any `*.grok-sandbox.com` callback (see `./preview`).
+// otherwise the shared live-preview client, whose secret comes ONLY from the
+// `GROK_PREVIEW_CLIENT_SECRET` env var (see `./preview`). No secret, no broker
+// plugin (fail closed). Email/password and native Google do not depend on it.
 const grokIssuer = env("GROK_AUTH_ISSUER") ?? GROK_ISSUER_DEFAULT;
-const grokClientId = env("GROK_AUTH_CLIENT_ID") ?? PREVIEW_CLIENT_ID;
-const grokClientSecret = env("GROK_AUTH_CLIENT_SECRET") ?? PREVIEW_CLIENT_SECRET;
+const brokerClient = authDisabled ? null : resolveBrokerClient(env);
+if (!authDisabled && !brokerClient) {
+  console.warn("[auth] broker sign-in off: no GROK_AUTH_CLIENT_SECRET / GROK_PREVIEW_CLIENT_SECRET set.");
+}
 
-/** True when federated sign-in is active (real auth is enforced). */
-export const authConfigured =
-  !authDisabled && Boolean(grokClientId && grokClientSecret);
+/**
+ * True when real auth is enforced (Better Auth sessions). This no longer depends
+ * on the broker client: before the secret moved to env it was always present, so
+ * this keeps the same value it had (true unless VITE_AUTH_ENABLED=false).
+ */
+export const authConfigured = !authDisabled;
+
+/** True when broker ("Continue with Google/X" via auth.grok.me) is usable. */
+export const brokerConfigured = Boolean(brokerClient);
 
 // This app's own Better Auth origin. When deployed the deployer injects the
 // public URL. In the sandbox live preview there's no fixed URL (each preview gets
@@ -153,7 +161,7 @@ export const SESSION_TOKEN_COOKIE = "__Host-grok-auth.session_token";
 // Built separately so the `betterAuth({...})` call stays easy to edit without
 // breaking brackets (models often trip on the conditional plugin spread).
 /** True when no per-app broker client is injected: the shared preview client only works on *.grok-sandbox.com. */
-export const brokerClientIsPreview = grokClientId === PREVIEW_CLIENT_ID;
+export const brokerClientIsPreview = brokerClient?.isPreview ?? true;
 
 // Native Google OAuth (Rohith's own Google Cloud client). Redirect URI to register:
 //   https://roomeo-eosin.vercel.app/api/auth/callback/google
@@ -161,12 +169,12 @@ const googleClientId = env("GOOGLE_CLIENT_ID");
 const googleClientSecret = env("GOOGLE_CLIENT_SECRET");
 export const googleConfigured = !authDisabled && Boolean(googleClientId && googleClientSecret);
 
-const grokOAuthPlugin = authConfigured
+const grokOAuthPlugin = brokerClient
   ? withLegacyOAuth2Callback(genericOAuth({
       config: GROK_PROVIDERS.map(({ providerId, idp }) => ({
         providerId,
-        clientId: grokClientId as string,
-        clientSecret: grokClientSecret as string,
+        clientId: brokerClient.clientId,
+        clientSecret: brokerClient.clientSecret,
         // Prefer static endpoints over `discoveryUrl` so initiating (and
         // completing) OAuth does not wait on a broker discovery fetch.
         authorizationUrl: grokAuthorizationUrl,

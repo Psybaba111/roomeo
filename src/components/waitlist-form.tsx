@@ -3,6 +3,7 @@ import { currentUtm, trackEvent } from "@/lib/analytics/client";
 import { Link } from "@tanstack/react-router";
 import { control } from "@/components/cards";
 import { joinWaitlist } from "@/lib/roomsetu/waitlist-api";
+import { HONEYPOT_FIELD } from "@/lib/roomsetu/waitlist-guard";
 import { WAITLIST_CONSENT, WAITLIST_ROLES, splitContact, type WaitlistRole, type WaitlistSource } from "@/lib/roomsetu/waitlist";
 import { isComplete, ROOMIE_TYPES, roomieTypeFor, type RoomieTypeKey } from "@/lib/roomsetu/roomie-quiz";
 import { readRoomieDraft } from "@/lib/roomsetu/roomie-draft";
@@ -24,6 +25,8 @@ export function WaitlistForm({ source = "home", defaultCity = "" }: { source?: W
   const [consent, setConsent] = useState(false);
   const [type, setType] = useState<RoomieTypeKey | null>(null);
   const [busy, setBusy] = useState(false);
+  // Honeypot (bot check): hidden from people and screen readers; bots that fill every field get dropped server side.
+  const [website, setWebsite] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState<"joined" | "updated" | null>(null);
 
@@ -45,7 +48,7 @@ export function WaitlistForm({ source = "home", defaultCity = "" }: { source?: W
     setError("");
     try {
       const src = type ? "quiz" : source;
-      const r = await joinWaitlist({ data: { name, contact, city, role, consent: true, roomieType: type, source: src, utm: currentUtm() } });
+      const r = await joinWaitlist({ data: { name, contact, city, role, consent: true, roomieType: type, source: src, utm: currentUtm(), [HONEYPOT_FIELD]: website } });
       if (r.status === "joined") trackEvent("waitlist_join", { role, city: city.trim(), source: src, roomie_type: type ?? "" });
       setDone(r.status);
     } catch (err) {
@@ -78,7 +81,7 @@ export function WaitlistForm({ source = "home", defaultCity = "" }: { source?: W
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-3xl border border-line bg-card p-5" data-testid="waitlist-form" noValidate>
+    <form onSubmit={submit} className="relative space-y-3 rounded-3xl border border-line bg-card p-5" data-testid="waitlist-form" noValidate>
       {type ? (
         <p className="rounded-2xl px-3 py-2 text-sm font-semibold" style={{ background: ROOMIE_TYPES[type].colors.bg, color: ROOMIE_TYPES[type].colors.ink }} data-testid="waitlist-type">
           {ROOMIE_TYPES[type].emoji} Saving your type: {ROOMIE_TYPES[type].name}
@@ -113,6 +116,12 @@ export function WaitlistForm({ source = "home", defaultCity = "" }: { source?: W
           ))}
         </datalist>
       </label>
+      <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden" data-testid="waitlist-hp">
+        <label>
+          Website
+          <input name={HONEYPOT_FIELD} tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
+        </label>
+      </div>
       <label className="flex items-start gap-3 text-xs text-muted">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-brand)]" data-testid="waitlist-consent" />
         <span>

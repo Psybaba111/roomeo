@@ -1,12 +1,14 @@
 import { asFeeView, feeLine, homeChatStep, type FeeView } from "@/lib/roomsetu/fee-copy";
 import { CalendarCheck, ChatCircle, Flag, MapPin, Receipt, ShieldCheck } from "@phosphor-icons/react";
-import { pageHead, SHARE_DESCRIPTION } from "@/lib/seo";
+import { pageHead, SHARE_DESCRIPTION, siteJsonLd } from "@/lib/seo";
+import { OPERATOR } from "@/lib/legal";
+import { MudHomeBeds } from "@/components/mud-home-beds";
 import { useEffect, useState, type ReactNode } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Shell } from "@/components/shell";
 import { BedCarousel } from "@/components/bed-carousel";
 import { EmptyBeds } from "@/components/empty-beds";
-import { getHome, listCities } from "@/lib/roomsetu/public-api";
+import { getFeaturedBeds, getHome, listCities } from "@/lib/roomsetu/public-api";
 import { CityPicker } from "@/components/city-picker";
 import { DEFAULT_CITY, budgetHints, cityInfo } from "@/lib/roomsetu/cities";
 import { getRoomieQuizFlag } from "@/lib/roomsetu/roomie-quiz-api";
@@ -15,14 +17,17 @@ import { getWaitlistMode } from "@/lib/roomsetu/waitlist-api";
 import { WaitlistSection } from "@/components/waitlist-form";
 
 export const Route = createFileRoute("/")({
-  head: () =>
-    pageHead("Spare PG beds for working professionals", {
+  head: () => ({
+    ...pageHead("Spare PG beds for working professionals", {
       description: SHARE_DESCRIPTION,
+      path: "/",
     }),
+    scripts: [{ type: "application/ld+json", children: JSON.stringify(siteJsonLd(OPERATOR)) }],
+  }),
   // ROOMIE_QUIZ_ENABLED decides the hero. Flag off → the classic hero, exactly as before (see home-flag-off.test.ts).
   loader: async () => {
-    const [home, flag, wl] = await Promise.all([getHome({ data: { city: DEFAULT_CITY } }), getRoomieQuizFlag().catch(() => ({ enabled: false })), getWaitlistMode().catch(() => ({ enabled: false }))]);
-    return { home, quizHero: flag.enabled, waitlist: wl.enabled };
+    const [home, flag, wl, featured] = await Promise.all([getHome({ data: { city: DEFAULT_CITY } }), getRoomieQuizFlag().catch(() => ({ enabled: false })), getWaitlistMode().catch(() => ({ enabled: false })), getFeaturedBeds().catch(() => [])]);
+    return { home, quizHero: flag.enabled, waitlist: wl.enabled, featured };
   },
   component: HomeRoute,
 });
@@ -72,6 +77,7 @@ function Home({ hero, waitlist = false }: { hero?: (city: string) => ReactNode; 
   const initialData = Route.useLoaderData({ select: (d) => d.home });
   const [data, setData] = useState(initialData);
   const [city, setCity] = useState(initialData.city || DEFAULT_CITY);
+  const featured = Route.useLoaderData({ select: (d) => d.featured });
   const navigate = useNavigate();
   const [budget, setBudget] = useState("");
   const [area, setArea] = useState("");
@@ -97,6 +103,7 @@ function Home({ hero, waitlist = false }: { hero?: (city: string) => ReactNode; 
 
   return (
     <Shell>
+      <MudHomeBeds rooms={featured} waitlist={waitlist} />
       {hero ? hero(city) : (
       <section className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-[#2a0a4a] px-4 pb-12 pt-10 text-white">
         <div className="relative mx-auto max-w-6xl">
