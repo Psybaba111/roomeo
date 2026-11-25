@@ -209,5 +209,7 @@ describe("/list-your-bed intake", () => {
     const intake = acct.slice(acct.indexOf("export const submitBedIntake"), acct.indexOf("export const myBedIntakes"));
     assert.ok(!/identity_status\s*=/.test(intake), "the intake never touches identity_status");
     assert.ok(!/verification_status\s*=/.test(intake), "or the verification status");
+    assert.ok(intake.includes(`ensureProfileRow(sql, userId, "OFFERING")`), "a first-time owner gets a profile + HOST role");
+    assert.ok(!/'ADMIN'\)/.test(intake.replace("role in ('ADMIN', 'SUPER_ADMIN')", "")), "never grants an admin role");
   });
 });

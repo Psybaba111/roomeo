@@ -153,6 +153,21 @@ function seekerFrom(
   };
 }
 
+/** Creates the profile row (and SEEKER / HOST roles) on first use; a no-op when it exists. */
+async function ensureProfileRow(sql: Sql, userId: string, intent: string) {
+  const existing = await sql`select user_id from profiles where user_id = ${userId}`;
+  if (existing.length) return;
+  const auth = await sql<{ name: string }>`select name from "user" where id = ${userId}`;
+  const name = auth[0]?.name?.trim() || "New member";
+  await sql`insert into profiles (user_id, full_name, intent) values (${userId}, ${name}, ${intent}) on conflict (user_id) do nothing`;
+  if (intent !== "OFFERING") {
+    await sql`insert into profile_roles (user_id, role) values (${userId}, 'SEEKER') on conflict do nothing`;
+  }
+  if (intent !== "LOOKING") {
+    await sql`insert into profile_roles (user_id, role) values (${userId}, 'HOST') on conflict do nothing`;
+  }
+}
+
 export const ensureProfile = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: unknown) => {
@@ -164,18 +179,7 @@ export const ensureProfile = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const userId = context.userId;
-    const existing = await sql`select user_id from profiles where user_id = ${userId}`;
-    if (!existing.length) {
-      const auth = await sql<{ name: string }>`select name from "user" where id = ${userId}`;
-      const name = auth[0]?.name?.trim() || "New member";
-      await sql`insert into profiles (user_id, full_name, intent) values (${userId}, ${name}, ${data.intent})`;
-      if (data.intent !== "OFFERING") {
-        await sql`insert into profile_roles (user_id, role) values (${userId}, 'SEEKER') on conflict do nothing`;
-      }
-      if (data.intent !== "LOOKING") {
-        await sql`insert into profile_roles (user_id, role) values (${userId}, 'HOST') on conflict do nothing`;
-      }
-    }
+    await ensureProfileRow(sql, userId, data.intent);
     const row = await requireProfile(sql, userId);
     return viewProfile(row, await rolesOf(sql, userId));
   });
@@ -698,6 +702,9 @@ export const submitBedIntake = createServerFn({ method: "POST" })
     const sql = await getSql();
     const userId = context.userId;
     if (!data.intake.ownerDeclared) throw new Error(DECLARATION_REQUIRED);
+    // An owner arriving straight from an ad may not have opened the dashboard yet: make the profile here.
+    await ensureProfileRow(sql, userId, "OFFERING");
+    await sql`insert into profile_roles (user_id, role) values (${userId}, 'HOST') on conflict do nothing`;
     const profile = await requireProfile(sql, userId);
     if (str(profile.account_status) === "SUSPENDED") throw new Error("This account is suspended.");
     await hitLimit(sql, userId, "listing");
