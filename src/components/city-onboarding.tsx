@@ -4,7 +4,7 @@ import { BENGALURU_LAUNCH_AREAS } from "@/lib/roomsetu/cities";
 import { btnDark, btnSecondary, card } from "@/components/ui-tokens";
 
 /** "1 verified bed" / "3 verified beds". */
-export function bedsLive(n: number): string {
+function bedsLive(n: number): string {
   return `${n} verified bed${n === 1 ? "" : "s"}`;
 }
 
